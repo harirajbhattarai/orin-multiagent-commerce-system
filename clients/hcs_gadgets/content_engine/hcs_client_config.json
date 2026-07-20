@@ -1,0 +1,18 @@
+{
+  "client_key": "hcs_gadgets",
+  "site_name": "HCS Gadgets",
+  "shopify_store_domain": "hcsgadgets-com.myshopify.com",
+  "blog_name": "Gadget Blog",
+  "blog_id": "89150259452",
+  "blog_handle": "gadget-blog",
+  "credentials_path": "clients/hcs_gadgets/shopify_config/.env",
+  "article_wrapper_class": "hcs-article",
+  "publish_mode": "manual_draft_and_publish",
+  "manual_publish_required": true,
+
+  "product_truth_max_age_hours": 24,
+
+  "config_version": "1.0",
+  "created_phase": "Phase 2A",
+  "created_date": "2026-07-13"
+}

@@ -1,0 +1,34 @@
+{
+  "client_key": "hcs_gadgets",
+  "site_name": "HCS Gadgets",
+  "shopify_store_domain": "hcsgadgets-com.myshopify.com",
+  "blog_name": "Gadget Blog",
+  "blog_id": "89150259452",
+  "credentials_path": "clients/hcs_gadgets/shopify_config/.env",
+  "article_wrapper_class": "hcs-article",
+  "publish_mode": "draft_only",
+  "manual_publish_required": true,
+  "old_scripts_status": "unsafe_legacy_do_not_use",
+  "current_inventory": {
+    "total_articles": 36,
+    "published_count": 36,
+    "draft_count": 0
+  },
+  "published_articles": [
+    {
+      "job_number": "01",
+      "topic": "Useful Home Gadgets That Make Daily Life Easier",
+      "shopify_article_id": "1001606873462",
+      "shopify_handle": "useful-home-gadgets-that-make-daily-life-easier",
+      "published_at": "2026-06-12T15:03:16+01:00",
+      "status": "published_live"
+    }
+  ],
+  "notes": {
+    "old_scripts": "tools/scheduler/next_blog_job.py, tools/shopify_publisher/publish_blog_draft.py, tools/shopify_publisher/update_blog_draft.py, tools/scheduler/mark_job_done.py — all unsafe legacy",
+    "jobs_02_to_06": "Not yet touched — Phase 0.2B covers organisation only",
+    "credentials": "Stored in clients/hcs_gadgets/shopify_config/.env — no secrets in this file"
+  },
+  "created_phase": "0.2B",
+  "created_date": "2026-07-01"
+}

@@ -1,0 +1,365 @@
+{
+  "timestamp": "2026-07-03T16:37:00+00:00",
+  "verified_product_urls_count": 93,
+  "verified_collection_urls_count": 14,
+  "verified_blog_urls_count": 37,
+  "broken_links_in_bbq_draft": 4,
+  "verified_products": [
+    {
+      "url": "https://hcsgadgets.com/products/3-wheel-kids-push-foldable-scooter-with-bluetooth-music-flashing-lights-sprayer-galaxy-blue",
+      "title": "3-Wheel Foldable Kids Scooter with Bluetooth & Lights | Galaxy Blue",
+      "handle": "3-wheel-kids-push-foldable-scooter-with-bluetooth-music-flashing-lights-sprayer-galaxy-blue",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/3-wheel-kids-push-foldable-scooter-with-bluetooth-music-flashing-lights-sprayer-galaxy-pink",
+      "title": "3-Wheel Foldable Kids Scooter with Bluetooth & Lights | Galaxy Pink",
+      "handle": "3-wheel-kids-push-foldable-scooter-with-bluetooth-music-flashing-lights-sprayer-galaxy-pink",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/g1-plus-hoverboard-chrome-blue",
+      "title": "6.5\" Chrome Blue Hoverboard with LED Lights & Bluetooth \u2013 Revix RX2",
+      "handle": "g1-plus-hoverboard-chrome-blue",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/g1-plus-hoverboard-chrome-pink",
+      "title": "6.5\" Chrome Pink Hoverboard with LED Lights & Bluetooth \u2013 Revix RX2",
+      "handle": "g1-plus-hoverboard-chrome-pink",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/g1-plus-hoverboard-graffiti-yellow",
+      "title": "6.5\" Graffiti Yellow Hoverboard with LED Lights & Bluetooth \u2013 Revix RX2",
+      "handle": "g1-plus-hoverboard-graffiti-yellow",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/active-power-ice-bath-tub-portable-cold-plunge",
+      "title": "Active Power Ice Bath Tub \u2013 Up to 415L Portable Cold Plunge for Adults",
+      "handle": "active-power-ice-bath-tub-portable-cold-plunge",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/activpower-activshaker-electric-protein-shaker",
+      "title": "ActivPower ActivShaker Electric Protein Shaker",
+      "handle": "activpower-activshaker-electric-protein-shaker",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/off-road-all-terrain-black-hoverboard-hoverkart-bundle",
+      "title": "All Terrain Black Hoverboard + Hoverkart Bundle 8.5 inch",
+      "handle": "off-road-all-terrain-black-hoverboard-hoverkart-bundle",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/off-road-all-terrain-chrome-purple-hoverboard-hoverkart-bundle",
+      "title": "All Terrain Chrome Purple Hoverboard + Hoverkart Bundle",
+      "handle": "off-road-all-terrain-chrome-purple-hoverboard-hoverkart-bundle",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/aroma-haven-mens-soy-wax-melts-set-of-3",
+      "title": "Aroma Haven Luxury Soy Wax Melts Set of 3 \u2013 Explorer\u2019s Haven, Haven Kreed & Haven Savage | Hand-Poured UK",
+      "handle": "aroma-haven-mens-soy-wax-melts-set-of-3",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/aroma-haven-luxury-soy-wax-melts-set-of-3",
+      "title": "Aroma Haven Luxury Soy Wax Melts Set of 3 \u2013 Lady, Diamond & Adore Haven | Hand-Poured in UK",
+      "handle": "aroma-haven-luxury-soy-wax-melts-set-of-3",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/azure-blue-g1-lite-hoverboard-with-kart-ultimate-bundle",
+      "title": "Azure Blue G1 Lite Hoverboard with Kart Ultimate Bundle",
+      "handle": "azure-blue-g1-lite-hoverboard-with-kart-ultimate-bundle",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/travel-duffel-bag",
+      "title": "Black Travel Duffel Bag with Multiple Zipper Pockets",
+      "handle": "travel-duffel-bag",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/galaxy-blue-r1-hoverkart",
+      "title": "Buy Galaxy Blue Hoverkart Online | UK GoKart R1",
+      "handle": "galaxy-blue-r1-hoverkart",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/camo-blue-hoverkart",
+      "title": "Camo Blue Hoverkart | Hoverboard Seat R1 | Buy UK Online Shop",
+      "handle": "camo-blue-hoverkart",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/purple-camo-hoverkart",
+      "title": "Camo Purple Hoverkart | For Hoverboards | UK-R1",
+      "handle": "purple-camo-hoverkart",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/home-harbour-ceramic-bathroom-accessories-set-of-5",
+      "title": "Ceramic Bathroom Accessories  | Home Harbour Modern Collection",
+      "handle": "home-harbour-ceramic-bathroom-accessories-set-of-5",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/ceramic-haven-elegance-collection-5-piece-bathroom-set",
+      "title": "Ceramic Haven Elegance Collection \u2013 5-Piece Luxury Ceramic Bathroom Accessory Set",
+      "handle": "ceramic-haven-elegance-collection-5-piece-bathroom-set",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/ceramic-haven-luxe-collection-oval-bathroom-set",
+      "title": "Ceramic Haven Luxe Collection \u2013 5-Piece Oval Ceramic Bathroom Accessory Set",
+      "handle": "ceramic-haven-luxe-collection-oval-bathroom-set",
+      "type": "product",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/products/cozy-heat-1500w-ceramic-heater-gold",
+      "title": "Cozy Heat 1500W Portable Ceramic Space Heater - Energy Efficient with LED Display & 15-45\u00b0C Thermostat (Gold)",
+      "handle": "cozy-heat-1500w-ceramic-heater-gold",
+      "type": "product",
+      "verified": true
+    }
+  ],
+  "verified_collections": [
+    {
+      "url": "https://hcsgadgets.com/collections/adult-e-scooters",
+      "title": "Adult Electric Scooters UK",
+      "handle": "adult-e-scooters",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/all-product",
+      "title": "All Product",
+      "handle": "all-product",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/sale",
+      "title": "Christmas Sale | HCS Gadgets UK \u2013 Huge XMAS Discounts",
+      "handle": "sale",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/new-arrivals",
+      "title": "Diffusers",
+      "handle": "new-arrivals",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/e-scooters",
+      "title": "Electric Bikes",
+      "handle": "e-scooters",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/gadgets",
+      "title": "Gadgets",
+      "handle": "gadgets",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/home-garden",
+      "title": "Home & Modern Decor Accessories",
+      "handle": "home-garden",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/hoverboard-bundles",
+      "title": "Hoverboard Bundle",
+      "handle": "hoverboard-bundles",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/hoverkarts",
+      "title": "Hoverboard Go-Karts (Hoverkarts)",
+      "handle": "hoverkarts",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/uks-best-hoverboard-deals-all-terrain-hoverboards",
+      "title": "Hoverboards for Kids & Adults",
+      "handle": "uks-best-hoverboard-deals-all-terrain-hoverboards",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/kids-e-scooters",
+      "title": "Kids Electric Scooters UK",
+      "handle": "kids-e-scooters",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/refurbish",
+      "title": "REFURBISH",
+      "handle": "refurbish",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/replacement-parts-accessories",
+      "title": "Replacement Parts & Accessories (UK)",
+      "handle": "replacement-parts-accessories",
+      "type": "collection",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/sports-outdoor",
+      "title": "Sport & Outdoor",
+      "handle": "sports-outdoor",
+      "type": "collection",
+      "verified": true
+    }
+  ],
+  "verified_blog_articles": [
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/hoverboards-uk-official-uk-certified-hoverboards-with-free-delivery-hcs-gadgets",
+      "title": "Hoverboards UK: A Practical Safety and Buying Guide for 2026",
+      "handle": "hoverboards-uk-official-uk-certified-hoverboards-with-free-delivery-hcs-gadgets",
+      "type": "blog_article",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/cheap-hoverboards-vs-certified-hoverboards-whats-the-difference",
+      "title": "Cheap Hoverboards vs Certified Hoverboards: What's the Difference?",
+      "handle": "cheap-hoverboards-vs-certified-hoverboards-whats-the-difference",
+      "type": "blog_article",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/useful-home-gadgets-that-make-daily-life-easier",
+      "title": "Useful Home Gadgets That Make Daily Life Easier",
+      "handle": "useful-home-gadgets-that-make-daily-life-easier",
+      "type": "blog_article",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/hoverboard-not-turning-on-7-common-causes-and-fixes-complete-guide",
+      "title": "Hoverboard Not Turning On? 7 Common Causes and Fixes | Complete Guide",
+      "handle": "hoverboard-not-turning-on-7-common-causes-and-fixes-complete-guide",
+      "type": "blog_article",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/best-hoverboards-for-kids-in-the-uk-2026-ages-6-14-buying-guide",
+      "title": "Best Hoverboards for Kids in the UK 2026 | Ages 6\u201314 Buying Guide",
+      "handle": "best-hoverboards-for-kids-in-the-uk-2026-ages-6-14-buying-guide",
+      "type": "blog_article",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/best-hoverboards-electric-scooters-in-the-uk-2026-hcs-gadgets",
+      "title": "Best Hoverboards & Electric Scooters in the UK 2026 | HCS Gadgets",
+      "handle": "best-hoverboards-electric-scooters-in-the-uk-2026-hcs-gadgets",
+      "type": "blog_article",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/10-things-you-didnt-know-about-hoverkarts-hcs-gadgets",
+      "title": "10 Things You Didn't Know About Hoverkarts | HCS gadgets",
+      "handle": "10-things-you-didnt-know-about-hoverkarts-hcs-gadgets",
+      "type": "blog_article",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/how-to-customize-your-hoverboard-the-ultimate-uk-guide-to-personalising-your-ride",
+      "title": "How to Customize Your Hoverboard: The Ultimate UK Guide to Personalising Your Ride",
+      "handle": "how-to-customize-your-hoverboard-the-ultimate-uk-guide-to-personalising-your-ride",
+      "type": "blog_article",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/why-does-my-hoverboard-shake-causes-fixes-and-safety-tips-hsc-gadgets",
+      "title": "Why Does My Hoverboard Shake? Causes Fixes and Safety Tips | HSC Gadgets",
+      "handle": "why-does-my-hoverboard-shake-causes-fixes-and-safety-tips-hsc-gadgets",
+      "type": "blog_article",
+      "verified": true
+    },
+    {
+      "url": "https://hcsgadgets.com/blogs/gadget-blog/how-much-do-hoverboards-cost-in-the-uk",
+      "title": "How Much Do Hoverboards Cost in the UK",
+      "handle": "how-much-do-hoverboards-cost-in-the-uk",
+      "type": "blog_article",
+      "verified": true
+    }
+  ],
+  "broken_links": [
+    {
+      "url": "https://hcsgadgets.com/collections/bbq-garden",
+      "anchor": "BBQ accessories at HCS Gadgets",
+      "status": "BROKEN \u2014 collection does not exist in Shopify",
+      "suggested_fix": "Use /collections/sports-outdoor (valid collection) or /collections/all"
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/home-and-garden",
+      "anchor": "home and garden products",
+      "status": "BROKEN \u2014 collection does not exist (correct handle is home-garden)",
+      "suggested_fix": "Change to /collections/home-garden"
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/outdoor-living",
+      "anchor": "outdoor living products",
+      "status": "BROKEN \u2014 collection does not exist (use sports-outdoor or home-garden instead)",
+      "suggested_fix": "Use /collections/sports-outdoor"
+    },
+    {
+      "url": "https://hcsgadgets.com/collections/all",
+      "anchor": "Explore HCS Gadgets (CTA)",
+      "status": "BROKEN \u2014 collection 'all' does not exist (correct handle is all-product)",
+      "suggested_fix": "Change to /collections/all-product"
+    }
+  ],
+  "fallback_url": "https://hcsgadgets.com/collections/all-product",
+  "all_product_url": "https://hcsgadgets.com/collections/all-product",
+  "verified_collection_map": {
+    "adult-e-scooters": "https://hcsgadgets.com/collections/adult-e-scooters",
+    "all-product": "https://hcsgadgets.com/collections/all-product",
+    "sale": "https://hcsgadgets.com/collections/sale",
+    "new-arrivals": "https://hcsgadgets.com/collections/new-arrivals",
+    "e-scooters": "https://hcsgadgets.com/collections/e-scooters",
+    "gadgets": "https://hcsgadgets.com/collections/gadgets",
+    "home-garden": "https://hcsgadgets.com/collections/home-garden",
+    "hoverboard-bundles": "https://hcsgadgets.com/collections/hoverboard-bundles",
+    "hoverkarts": "https://hcsgadgets.com/collections/hoverkarts",
+    "uks-best-hoverboard-deals-all-terrain-hoverboards": "https://hcsgadgets.com/collections/uks-best-hoverboard-deals-all-terrain-hoverboards",
+    "kids-e-scooters": "https://hcsgadgets.com/collections/kids-e-scooters",
+    "refurbish": "https://hcsgadgets.com/collections/refurbish",
+    "replacement-parts-accessories": "https://hcsgadgets.com/collections/replacement-parts-accessories",
+    "sports-outdoor": "https://hcsgadgets.com/collections/sports-outdoor"
+  }
+}
