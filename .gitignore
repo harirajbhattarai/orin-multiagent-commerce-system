@@ -130,3 +130,13 @@ openclaw-workspace-state.json
 
 # Separate Obsidian repository — do not embed in ORIN repository
 clients/hoverboard_store/obsidian_vault/
+# OpenClaw private runtime data
+AGENTS.md
+IDENTITY.md
+MEMORY.md
+SOUL.md
+TOOLS.md
+USER.md
+memory/
+.env-gsc/
+.openclaw/
