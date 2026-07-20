@@ -1,0 +1,165 @@
+<article class="hcs-article">
+
+  <!-- A: HERO HEADER -->
+  <section class="hcs-hero">
+    <p class="hcs-eyebrow">Garden &amp; Outdoor</p>
+    <h1>Test Article: HCS Design System v2 Validation</h1>
+    <p class="hcs-intro">This test article validates the HCS HTML Design System v2 contract. It contains all required sections in the correct order and structure.</p>
+  </section>
+
+  <!-- B: TOP SPLIT GRID -->
+  <div class="hcs-top-grid">
+    <section class="hcs-quick-answer">
+      <h2>Quick answer</h2>
+      <p>The v2 design system requires hcs-table-scroll wrappers around all tables.</p>
+    </section>
+    <section class="hcs-toc">
+      <h2>In this guide</h2>
+      <ul>
+        <li><a href="#introduction">Introduction</a></li>
+        <li><a href="#good-bad">Good signs</a></li>
+        <li><a href="#compare">Quick comparison</a></li>
+        <li><a href="#checklist">Quick checklist</a></li>
+        <li><a href="#faq">FAQs</a></li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- C: MAIN READING CONTENT -->
+  <section class="hcs-content">
+
+    <h2 id="introduction">Introduction</h2>
+    <p>This is a test article validating the HCS HTML Design System v2. Every required component is present in the correct structure.</p>
+
+  </section>
+
+  <!-- D: DO'S AND DON'TS -->
+  <div class="hcs-split">
+    <div class="hcs-do">
+      <h2 id="good-bad">Good signs</h2>
+      <ul>
+        <li>Use hcs-table-scroll around every table</li>
+        <li>Use verified links from the link map</li>
+        <li>Match schema headlines to H1 exactly</li>
+      </ul>
+    </div>
+    <div class="hcs-dont">
+      <h2>Things to avoid</h2>
+      <ul>
+        <li>Inline styles on any element</li>
+        <li>Custom grid or layout classes</li>
+        <li>Details/summary elements in FAQ</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- E: COMPARISON TABLE — demonstrates mandatory hcs-table-scroll wrapper -->
+  <section class="hcs-table-wrapper">
+    <h2 id="compare">Quick comparison</h2>
+    <div class="hcs-table-scroll">
+      <table class="hcs-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Option A</th>
+            <th>Option B</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Price</td>
+            <td class="hcs-table--highlight">£9.99</td>
+            <td class="hcs-table--highlight">£22.99</td>
+          </tr>
+          <tr>
+            <td>Material</td>
+            <td>Steel</td>
+            <td>Stainless Steel</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- F: CHECKLIST -->
+  <section class="hcs-checklist">
+    <h2 id="checklist">Quick checklist</h2>
+    <ul>
+      <li>Verify all internal links against link map</li>
+      <li>Check every table has hcs-table-scroll parent</li>
+      <li>Confirm FAQ questions end with question mark</li>
+    </ul>
+  </section>
+
+  <!-- G: FAQs -->
+  <section class="hcs-faq">
+    <h2 id="faq">FAQs</h2>
+
+    <div class="hcs-faq-item">
+      <h3>What is the mandatory change in v2 for tables?</h3>
+      <p>Every table with class hcs-table must now be wrapped in a div with class hcs-table-scroll. This is a required structural element in v2.</p>
+    </div>
+
+    <div class="hcs-faq-item">
+      <h3>Can I still use custom CSS classes for layout?</h3>
+      <p>No. Only approved HCS Design System v2 classes may be used. Custom grid, row, column, card, or layout classes are forbidden.</p>
+    </div>
+
+  </section>
+
+  <!-- H: CTA -->
+  <section class="hcs-cta">
+    <h2>Find practical garden gear at HCS Gadgets</h2>
+    <p>Browse the verified range for products available at HCS Gadgets with fast UK delivery.</p>
+    <a href="https://hcsgadgets.com/collections/all-product" class="hcs-button">Explore HCS Gadgets</a>
+  </section>
+
+  <!-- I: BLOGPOSTING JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Test Article: HCS Design System v2 Validation",
+    "datePublished": "2026-07-04",
+    "dateModified": "2026-07-04",
+    "author": {
+      "@type": "Organization",
+      "name": "HCS Gadgets"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "HCS Gadgets",
+      "url": "https://hcsgadgets.com"
+    },
+    "url": "https://hcsgadgets.com/blogs/gadget-blog/test-article-hcs-design-system-v2",
+    "description": "A test article validating HCS HTML Design System v2 contract compliance including hcs-table-scroll requirement."
+  }
+  </script>
+
+  <!-- J: FAQPage JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is the mandatory change in v2 for tables?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Every table with class hcs-table must now be wrapped in a div with class hcs-table-scroll. This is a required structural element in v2."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I still use custom CSS classes for layout?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. Only approved HCS Design System v2 classes may be used. Custom grid, row, column, card, or layout classes are forbidden."
+        }
+      }
+    ]
+  }
+  </script>
+
+</article>

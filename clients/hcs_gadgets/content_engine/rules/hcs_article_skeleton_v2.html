@@ -1,0 +1,135 @@
+<article class="hcs-article">
+
+  <!-- A: HERO HEADER -->
+  <section class="hcs-hero">
+    <p class="hcs-eyebrow">[Category/Topic]</p>
+    <h1>[Article Title]</h1>
+    <p class="hcs-intro">[2–3 sentence introduction]</p>
+  </section>
+
+  <!-- B: TOP SPLIT GRID -->
+  <div class="hcs-top-grid">
+    <section class="hcs-quick-answer">
+      <h2>Quick answer</h2>
+      <p>[Direct answer — 1–2 sentences]</p>
+    </section>
+    <section class="hcs-toc">
+      <h2>In this guide</h2>
+      <ul>
+        <li><a href="#section-id">Section label</a></li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- C: MAIN READING CONTENT -->
+  <section class="hcs-content">
+
+    <h2 id="section-id">Section heading</h2>
+    <p>Content paragraph.</p>
+
+  </section>
+
+  <!-- D: DO'S AND DON'TS -->
+  <div class="hcs-split">
+    <div class="hcs-do">
+      <h2 id="good-bad">Good signs</h2>
+      <ul>
+        <li>Positive item</li>
+      </ul>
+    </div>
+    <div class="hcs-dont">
+      <h2>Things to avoid</h2>
+      <ul>
+        <li>Negative item</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- E: COMPARISON TABLE -->
+  <section class="hcs-table-wrapper">
+    <h2 id="compare">Quick comparison</h2>
+    <div class="hcs-table-scroll">
+      <table class="hcs-table">
+        <thead>
+          <tr>
+            <th>Column 1</th>
+            <th>Column 2</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Value</td>
+            <td class="hcs-table--highlight">Value</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- F: CHECKLIST -->
+  <section class="hcs-checklist">
+    <h2 id="checklist">Quick checklist</h2>
+    <ul>
+      <li>Checklist item</li>
+    </ul>
+  </section>
+
+  <!-- G: FAQs -->
+  <section class="hcs-faq">
+    <h2 id="faq">FAQs</h2>
+
+    <div class="hcs-faq-item">
+      <h3>Question text?</h3>
+      <p>Answer text.</p>
+    </div>
+
+  </section>
+
+  <!-- H: CTA -->
+  <section class="hcs-cta">
+    <h2>[Product-relevant CTA heading]</h2>
+    <p>[CTA description text]</p>
+    <a href="https://hcsgadgets.com/collections/all-product" class="hcs-button">Explore Products</a>
+  </section>
+
+  <!-- I: BLOGPOSTING JSON-LD -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "[Article Title]",
+    "datePublished": "YYYY-MM-DD",
+    "dateModified": "YYYY-MM-DD",
+    "author": {
+      "@type": "Organization",
+      "name": "HCS Gadgets"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "HCS Gadgets",
+      "url": "https://hcsgadgets.com"
+    },
+    "url": "https://hcsgadgets.com/blogs/gadget-blog/[article-handle]",
+    "description": "[Meta description — 150–160 characters]"
+  }
+  </script>
+
+  <!-- J: FAQPage JSON-LD — only if FAQs present -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Question text?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Answer text."
+        }
+      }
+    ]
+  }
+  </script>
+
+</article>
