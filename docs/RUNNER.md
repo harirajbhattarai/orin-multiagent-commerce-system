@@ -44,3 +44,9 @@ It contains:
 The result follows `schemas/final_result.v1.schema.json`. It always records `shopify_published: false`, a create count no greater than one, queue-change status, code version, timestamps, and a stable error code for failures.
 
 The local file lock enforces one runner process per client artifact root. Supabase leases and database idempotency replace this local mechanism in the production worker phase.
+
+## Container image
+
+`Dockerfile.runner` builds a non-root, one-shot runner image from a digest-pinned Python 3.12 base. Source control commit is injected as `ORIN_CODE_VERSION` during the build.
+
+GitHub publishes only immutable version and commit tags when a tag matching `orin-runner-v*` is pushed. It intentionally does not publish `latest`.

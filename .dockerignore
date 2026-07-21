@@ -1,0 +1,10 @@
+*
+!Dockerfile.runner
+!pyproject.toml
+!uv.lock
+!src/
+!src/**
+!tools/
+!tools/**
+!schemas/
+!schemas/**
