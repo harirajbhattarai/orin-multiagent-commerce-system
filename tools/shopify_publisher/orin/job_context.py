@@ -44,8 +44,9 @@ from datetime import date
 
 sys.path.insert(0, str(Path(__file__).parent))
 from business_time import get_business_today
+from workspace_paths import workspace_root
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+BASE_DIR = workspace_root()
 CONTEXT_PATH = Path("/tmp/orin_selected_job_context.json")
 
 

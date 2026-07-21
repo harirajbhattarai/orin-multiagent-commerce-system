@@ -52,7 +52,9 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Optional
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+from workspace_paths import workspace_root
+
+BASE_DIR = workspace_root()
 REGISTRY_PATH = Path(__file__).parent / "client_registry.json"
 
 # Required fields for ClientContext

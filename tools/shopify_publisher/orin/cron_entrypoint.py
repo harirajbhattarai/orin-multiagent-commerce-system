@@ -6,8 +6,9 @@ One safe cron entrypoint that runs the full ORIN pipeline in order:
   Phase 1A → Phase 1B → Phase 1C → Phase 2D (Writer) → Phase 2A-INLINE → Phase 2B-INLINE → Phase 2E/2G
 
 Safety defaults:
-  --dry-run    : Default. All phases run read-only; no Shopify writes, no queue updates.
-  --live-draft : BLOCKED. Refuses to run. Will activate only when future safety flag added.
+  --dry-run    : Default, including when no mode flag is supplied. No Shopify writes.
+  --live-draft : Requests a hidden Shopify draft and requires --confirm-live-draft.
+                 The live-draft gate must still approve before any Shopify write.
 
 NEVER:
   - Call old publish_blog_draft.py, update_blog_draft.py, or next_blog_job.py
@@ -32,12 +33,17 @@ import uuid as _uuid_lib
 from pathlib import Path
 from datetime import datetime, date, timezone
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+AGENTS_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(AGENTS_DIR))
+from workspace_paths import workspace_root
+
+# Default to the repository/workspace containing this script. An explicit
+# override is available for controlled deployments and tests; production code
+# must not silently import from a different live workspace.
+BASE_DIR = workspace_root()
 CLIENT_DIR = BASE_DIR / "clients" / "hoverboard_store" / "content_engine"
 QUEUE_PATH = CLIENT_DIR / "content_queue_3_months.md"
-AGENTS_DIR = BASE_DIR / "tools" / "shopify_publisher" / "orin"
 
-sys.path.insert(0, str(AGENTS_DIR))
 from business_time import get_business_today
 from job_context import build_job_context, write_job_context, read_job_context, CONTEXT_PATH as JOB_CONTEXT_PATH
 from shopify_draft_transaction import run_safe_draft_transaction
@@ -94,9 +100,12 @@ PHASE_WRAPPERS = {
 
 # ─── CLI ──────────────────────────────────────────────────────────────────────
 
-DRY_RUN = "--dry-run" in sys.argv
 LIVE_DRAFT = "--live-draft" in sys.argv
 CONFIRM_LIVE_DRAFT = "--confirm-live-draft" in sys.argv
+# No mode flag is a dry-run. An explicit --dry-run also takes precedence when
+# both dry-run and live-draft flags are supplied.
+DRY_RUN = "--dry-run" in sys.argv or not LIVE_DRAFT
+REQUESTED_MODE = "live-draft" if LIVE_DRAFT else "dry-run"
 JSON_MODE = "--json" in sys.argv
 JOB_FILTER = None
 AS_OF_DATE = None  # resolved business date override
@@ -152,9 +161,12 @@ if CLIENT_ROUTE is not None and CLIENT_ROUTE != "hoverboard_store":
 # Without --confirm-live-draft, Gate v2 returns BLOCK_LIVE_DRAFT_CONFIRMATION_REQUIRED.
 # No pre-flight sys.exit() blocks are needed here — Gate v2 is the single source of truth.
 
-if LIVE_DRAFT and CONFIRM_LIVE_DRAFT:
+if LIVE_DRAFT and CONFIRM_LIVE_DRAFT and DRY_RUN:
+    print("[SAFETY GATE] --dry-run takes precedence; Shopify transaction will be skipped.")
+    print()
+elif LIVE_DRAFT and CONFIRM_LIVE_DRAFT:
     print("[SAFETY GATE] --confirm-live-draft detected. Proceeding with live-draft safety check...")
-    print("[SAFETY GATE] No job will be pushed to Shopify without further explicit approval.")
+    print("[SAFETY GATE] No job will be pushed unless all live-draft gate checks approve.")
     print()
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -270,6 +282,12 @@ def pipeline_blocked(reason):
         "blocked": True,
         "block_reason": reason,
         "phase": None,
+        "dry_run": DRY_RUN,
+        "requested_mode": REQUESTED_MODE,
+        "live_draft_requested": LIVE_DRAFT,
+        "live_draft_confirmed": CONFIRM_LIVE_DRAFT,
+        "shopify_touched": False,
+        "queue_touched": False,
     }
 
 
@@ -347,6 +365,14 @@ def run_pipeline():
             "stop_reason": msg,
             "phase": "1B",
             "planner_decision": planner_decision,
+            "dry_run": DRY_RUN,
+            "requested_mode": REQUESTED_MODE,
+            "live_draft_requested": LIVE_DRAFT,
+            "live_draft_confirmed": CONFIRM_LIVE_DRAFT,
+            "shopify_touched": False,
+            "queue_touched": False,
+            "selected_job": None,
+            "next_action": "No action required; no planned job is due.",
         }
 
     if not selected_job:
@@ -831,6 +857,9 @@ def run_pipeline():
         return {
             "blocked": False,
             "dry_run": True,
+            "requested_mode": REQUESTED_MODE,
+            "live_draft_requested": LIVE_DRAFT,
+            "live_draft_confirmed": CONFIRM_LIVE_DRAFT,
             "shopify_touched": False,
             "queue_touched": False,
             "selected_job": job_num,
@@ -962,6 +991,9 @@ def run_pipeline():
             return {
                 "blocked": False,
                 "dry_run": True,
+                "requested_mode": REQUESTED_MODE,
+                "live_draft_requested": LIVE_DRAFT,
+                "live_draft_confirmed": CONFIRM_LIVE_DRAFT,
                 "phase_h_stop": False,
                 "gate_approved": True,
                 "gate_decision": gate_decision,
@@ -1042,6 +1074,9 @@ def run_pipeline():
         return {
             "blocked": False,
             "dry_run": False,
+            "requested_mode": REQUESTED_MODE,
+            "live_draft_requested": LIVE_DRAFT,
+            "live_draft_confirmed": CONFIRM_LIVE_DRAFT,
             "phase_h_stop": False,
             "gate_approved": True,
             "gate_decision": gate_decision,
@@ -1065,24 +1100,42 @@ def run_pipeline():
             ),
         }
 
-    # ── LIVE DRAFT (LEGACY — unused path) ──────────────────────────────────
+    # ── INCOMPLETE LIVE-DRAFT REQUEST ──────────────────────────────────────
     return pipeline_blocked(
-        "--live-draft is BLOCKED. Do not use until explicitly enabled."
+        "Live-draft request blocked: --confirm-live-draft is required."
     )
 
 
 # ─── REPORT WRITER ────────────────────────────────────────────────────────────
 
-def write_report(result):
-    """Write JSON report to JSON_OUTPUT_PATH."""
+def build_report(result, *, timestamp=None):
+    """Build a truthful report from the effective result and request intent."""
+    dry_run = bool(result.get("dry_run", DRY_RUN))
+    requested_mode = result.get("requested_mode", REQUESTED_MODE)
+    effective_mode = "dry-run" if dry_run else "live-draft"
+    blocked = bool(result.get("blocked", False))
+    transaction_result = result.get("transaction_result") or {}
+    queue_commit_result = result.get("queue_commit_result") or {}
+
+    default_next_action = (
+        result.get("stop_reason")
+        or ("Resolve the blocking reason before retrying." if blocked else None)
+        or ("Dry-run complete; review evidence before requesting a live draft." if dry_run else None)
+        or "Review the transaction and queue-commit evidence."
+    )
+
     report = {
         "pipeline": "ORIN Cron Entrypoint Phase 3B",
-        "mode": "dry-run",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "dry_run": True,
+        "mode": effective_mode,
+        "requested_mode": requested_mode,
+        "effective_mode": effective_mode,
+        "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
+        "dry_run": dry_run,
+        "live_draft_requested": bool(result.get("live_draft_requested", LIVE_DRAFT)),
+        "live_draft_confirmed": bool(result.get("live_draft_confirmed", CONFIRM_LIVE_DRAFT)),
         "shopify_touched": result.get("shopify_touched", False),
         "queue_touched": result.get("queue_touched", False),
-        "blocked": result.get("blocked", False),
+        "blocked": blocked,
         "block_reason": result.get("block_reason"),
         "stop_reason": result.get("stop_reason"),
         "selected_job": result.get("selected_job"),
@@ -1091,10 +1144,10 @@ def write_report(result):
         "publisher_decision": result.get("publisher_decision"),
         "review_decision": result.get("review_decision"),
         "pipeline_run_id": result.get("pipeline_run_id", ""),
-        "next_action": result.get(
-            "next_action",
-            "Dry-run complete. Enable --live-draft only when explicitly approved."
-        ),
+        "transaction_decision": transaction_result.get("decision"),
+        "queue_commit_decision": queue_commit_result.get("decision"),
+        "shopify_article_id": transaction_result.get("shopify_article_id"),
+        "next_action": result.get("next_action", default_next_action),
         "pipeline_phases": [
             "Phase 1A: State Agent (read-only, via orin_phase1a_state_dryrun.py)",
             "Phase 1B: Planner Agent (read-only, via orin_phase1b_planner_dryrun.py)",
@@ -1114,18 +1167,26 @@ def write_report(result):
             "tools/scheduler/mark_job_done.py (BLOCKED — not called)",
         ],
         "safety": [
-            "Default mode is --dry-run",
-            "--live-draft is BLOCKED and refuses to run",
+            "No mode flag defaults to dry-run",
+            "An explicit --dry-run takes precedence over live-draft flags",
+            "A live draft requires --live-draft, --confirm-live-draft, and gate approval",
             "Never calls old publish_blog_draft.py, update_blog_draft.py, next_blog_job.py",
             "Never sets published_at",
             "Never auto-publishes",
-            "Queue update is dry-run only",
+            "Queue commit occurs only after a verified Shopify transaction result",
             "Pipeline stops safely on any blocking decision",
             "Phase 2A review is INLINE — always reviews actual writer HTML, never a stale artefact",
             "Phase 2B duplicate check is INLINE — always checks the selected job, not a batch scope",
             "All /tmp artefacts carry pipeline_run_id — stale artefacts from previous runs are rejected",
         ],
     }
+
+    return report
+
+
+def write_report(result):
+    """Write JSON report to JSON_OUTPUT_PATH."""
+    report = build_report(result)
 
     with open(JSON_OUTPUT_PATH, "w") as f:
         json.dump(report, f, indent=2, default=str)
@@ -1139,7 +1200,7 @@ def write_report(result):
 if __name__ == "__main__":
     if not JSON_MODE:
         print("ORIN CRON ENTRYPOINT — Phase 3B")
-        print(f"Mode: DRY-RUN (default)")
+        print(f"Mode: {'DRY-RUN' if DRY_RUN else 'LIVE-DRAFT REQUESTED'}")
         print(f"Job filter: {JOB_FILTER or 'all (lowest-numbered due job)'}")
         print()
 

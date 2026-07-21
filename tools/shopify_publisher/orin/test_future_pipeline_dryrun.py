@@ -6,9 +6,10 @@ No Shopify write.
 
 import sys, hashlib, traceback, tempfile, os
 from pathlib import Path
-sys.path.insert(0, '/data/.openclaw/workspace/tools/shopify_publisher/orin')
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from workspace_paths import workspace_root
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+BASE_DIR = workspace_root()
 
 FIXTURES = [
     dict(name="A. Lights Flashing (Troubleshooting)", job_number="22",

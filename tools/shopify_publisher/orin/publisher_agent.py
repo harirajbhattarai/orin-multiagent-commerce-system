@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from queue_parser import get_queue_job, parse_queue_file
 from shopify_draft_transaction import fetch_blog_articles_paginated
+from workspace_paths import workspace_root
 
 # ─── JSON-only mode ────────────────────────────────────────────────────────────
 JSON_MODE = "--json" in sys.argv
@@ -34,7 +35,7 @@ WRITER_EXECUTION_ARG = "--writer-execution"
 
 # ─── CANONICAL PATHS ──────────────────────────────────────────────────────────
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+BASE_DIR = workspace_root()
 QUEUE_PATH = BASE_DIR / "clients/hoverboard_store/content_engine/content_queue_3_months.md"
 INVENTORY_PATH = BASE_DIR / "clients/hoverboard_store/content_engine/shopify_inventory.json"
 DRAFT_INVENTORY_PATH = BASE_DIR / "clients/hoverboard_store/content_engine/draft_inventory.md"

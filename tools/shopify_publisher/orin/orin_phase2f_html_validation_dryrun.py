@@ -34,8 +34,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from business_time import get_business_today_from_args
+from workspace_paths import source_root, workspace_root
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+BASE_DIR = workspace_root()
 
 CURRENT_DATE_STR = get_business_today_from_args(sys.argv[1:]).isoformat()
 
@@ -49,7 +50,7 @@ POST_WRITE_REVIEW_PATH = Path("/tmp/orin_selected_job_post_write_review.json")
 VALIDATION_OUTPUT_PATH = Path("/tmp/orin_selected_job_html_validation.json")
 
 # Canonical Hoverboard Store HTML validator
-HTML_QUALITY_CHECKER = BASE_DIR / "tools" / "shopify_publisher" / "html_quality_check.py"
+HTML_QUALITY_CHECKER = source_root() / "tools" / "shopify_publisher" / "html_quality_check.py"
 
 
 def run_html_validation(draft_path: str) -> dict:

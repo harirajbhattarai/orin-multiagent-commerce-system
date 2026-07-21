@@ -40,8 +40,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 from business_time import get_business_today_from_args
 from writer_agent import WriterAgent
 from handle_utils import is_canonical_shopify_handle, BLOCK_INVALID_PLANNED_HANDLE
+from workspace_paths import workspace_root
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+BASE_DIR = workspace_root()
 
 CURRENT_DATE_STR = get_business_today_from_args(sys.argv[1:]).isoformat()
 

@@ -125,7 +125,8 @@ openclaw-workspace-state.json
 
 # Generated job plans and local queue backups
 **/plans/
-**/*writer_plan*
+**/*writer_plan*.json
+**/*writer_plan*.md
 **/content_queue_*.bak*
 
 # Separate Obsidian repository — do not embed in ORIN repository
