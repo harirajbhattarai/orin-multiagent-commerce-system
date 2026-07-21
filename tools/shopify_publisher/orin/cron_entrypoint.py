@@ -32,7 +32,10 @@ import uuid as _uuid_lib
 from pathlib import Path
 from datetime import datetime, date, timezone
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+# Default to the repository/workspace containing this script. An explicit
+# override is available for controlled deployments and tests; production code
+# must not silently import from a different live workspace.
+BASE_DIR = Path(os.environ.get("ORIN_WORKSPACE_ROOT", Path(__file__).resolve().parents[3])).resolve()
 CLIENT_DIR = BASE_DIR / "clients" / "hoverboard_store" / "content_engine"
 QUEUE_PATH = CLIENT_DIR / "content_queue_3_months.md"
 AGENTS_DIR = BASE_DIR / "tools" / "shopify_publisher" / "orin"
