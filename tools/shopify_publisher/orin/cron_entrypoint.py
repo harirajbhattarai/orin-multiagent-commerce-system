@@ -1138,6 +1138,7 @@ def build_report(result, *, timestamp=None):
         "blocked": blocked,
         "block_reason": result.get("block_reason"),
         "stop_reason": result.get("stop_reason"),
+        "planner_decision": result.get("planner_decision"),
         "selected_job": result.get("selected_job"),
         "selected_topic": result.get("selected_topic"),
         "publisher_passed": result.get("publisher_passed"),

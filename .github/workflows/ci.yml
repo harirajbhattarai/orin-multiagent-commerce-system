@@ -20,4 +20,8 @@ jobs:
       - name: Verify lockfile
         run: uv lock --check
       - name: Run tests
-        run: uv run --frozen pytest
+        run: >-
+          uv run --frozen pytest
+          tests
+          tools/shopify_publisher/orin/test_cron_reporting.py
+          tools/shopify_publisher/orin/test_repository_reproducibility.py

@@ -129,6 +129,7 @@ def test_no_job_report_has_no_write_claims():
     )
 
     assert report["effective_mode"] == "live-draft"
+    assert report["planner_decision"] == "no_job_due"
     assert report["selected_job"] is None
     assert report["shopify_touched"] is False
     assert report["queue_touched"] is False
