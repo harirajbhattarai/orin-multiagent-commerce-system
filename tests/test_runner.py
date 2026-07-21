@@ -1,4 +1,5 @@
 import json
+import subprocess
 import sys
 import uuid
 from pathlib import Path
@@ -11,7 +12,7 @@ from orin_runner.contract import (
     ERROR_PIPELINE_TIMEOUT,
     SCHEMA_VERSION,
 )
-from orin_runner.runner import run_client
+from orin_runner.runner import default_code_version, run_client
 from orin_runner.runner import IdempotencyConflictError
 
 
@@ -76,6 +77,16 @@ def test_no_job_run_writes_versioned_durable_result(tmp_path):
     final_path = Path(result["artifact_uri"]) / "final_result.json"
     assert json.loads(final_path.read_text()) == result
     assert final_path.stat().st_mode & 0o077 == 0
+
+
+def test_code_version_matches_checkout_without_global_git_configuration():
+    expected = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert default_code_version(Path.cwd()) == expected
 
 
 def test_missing_pipeline_result_fails_with_stable_error(tmp_path):

@@ -58,7 +58,15 @@ def default_code_version(repo_root: Path) -> str:
         return configured
     try:
         result = subprocess.run(
-            ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+            [
+                "git",
+                "-c",
+                f"safe.directory={repo_root.resolve()}",
+                "-C",
+                str(repo_root),
+                "rev-parse",
+                "HEAD",
+            ],
             capture_output=True,
             text=True,
             timeout=10,
