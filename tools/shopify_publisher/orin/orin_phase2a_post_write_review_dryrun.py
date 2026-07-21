@@ -30,12 +30,14 @@ import sys
 import hashlib
 from pathlib import Path
 
+from workspace_paths import workspace_root
+
 sys.path.insert(0, str(Path(__file__).parent))
 from business_time import get_business_today_from_args
 from review_agent import review_selected_job_draft
 from handle_utils import is_canonical_shopify_handle
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+BASE_DIR = workspace_root()
 
 CURRENT_DATE_STR = get_business_today_from_args(sys.argv[1:]).isoformat()
 

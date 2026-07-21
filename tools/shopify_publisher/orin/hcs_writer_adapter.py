@@ -29,9 +29,11 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from workspace_paths import source_root, workspace_root
+
 AGENTS_DIR = Path(__file__).parent
-BASE_DIR = AGENTS_DIR.parent.parent.parent  # /data/.openclaw/workspace
-sys.path.insert(0, str(BASE_DIR))  # allow 'tools.shopify_publisher.orin.xxx' imports
+BASE_DIR = workspace_root()
+sys.path.insert(0, str(source_root()))  # allow 'tools.shopify_publisher.orin.xxx' imports
 sys.path.insert(0, str(AGENTS_DIR))
 
 from client_context import load_client_context

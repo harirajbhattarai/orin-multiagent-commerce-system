@@ -24,8 +24,10 @@ import json
 from pathlib import Path
 from typing import Optional
 
-BASE_DIR = Path("/data/.openclaw/workspace")
-TOOLS_DIR = BASE_DIR / "tools" / "shopify_publisher"
+from workspace_paths import source_root, workspace_root
+
+BASE_DIR = workspace_root()
+TOOLS_DIR = source_root() / "tools" / "shopify_publisher"
 
 # ─── Default Hoverboard Store paths (backward compatibility) ────────────────────
 _HOVERBOARD_CLIENT_DIR = BASE_DIR / "clients" / "hoverboard_store" / "content_engine"

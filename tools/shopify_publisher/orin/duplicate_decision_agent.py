@@ -23,13 +23,15 @@ import json
 import re
 import sys
 from pathlib import Path
+
+from workspace_paths import workspace_root
 from datetime import datetime, date
 from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 from business_time import get_business_today
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+BASE_DIR = workspace_root()
 _HOVERBOARD_CLIENT_DIR = BASE_DIR / "clients" / "hoverboard_store" / "content_engine"
 
 def _get_client_duplicate_paths(client_context=None):

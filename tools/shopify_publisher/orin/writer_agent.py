@@ -1389,7 +1389,9 @@ Job: {job_number}
 if __name__ == "__main__":
     # Direct test: python3 writer_agent.py
     import sys
-    BASE_DIR = Path("/data/.openclaw/workspace")
+    from workspace_paths import workspace_root
+
+    BASE_DIR = workspace_root()
     CURRENT_DATE_STR = sys.argv[2] if len(sys.argv) > 2 else datetime.now().strftime("%Y-%m-%d")
     writer = WriterAgent(str(BASE_DIR), CURRENT_DATE_STR)
 

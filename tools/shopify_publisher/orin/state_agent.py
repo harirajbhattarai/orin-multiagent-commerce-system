@@ -25,8 +25,9 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 from business_time import get_business_today
+from workspace_paths import workspace_root
 
-BASE_DIR = Path("/data/.openclaw/workspace")
+BASE_DIR = workspace_root()
 CLIENT_DIR = BASE_DIR / "clients" / "hoverboard_store" / "content_engine"
 DRAFTS_DIR = CLIENT_DIR / "drafts"
 RULES_FILE = CLIENT_DIR / "orin_preflight_rules.md"

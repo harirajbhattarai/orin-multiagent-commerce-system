@@ -28,6 +28,8 @@ import os
 import sys
 from pathlib import Path
 
+from workspace_paths import workspace_root
+
 sys.path.insert(0, str(Path(__file__).parent))
 from business_time import get_business_today_from_args
 from writer_agent import WriterAgent
@@ -35,7 +37,7 @@ from job_context import read_job_context
 
 # Keep this module runnable from a clean clone. The deployment may override
 # the workspace explicitly, but the source default is this repository root.
-BASE_DIR = Path(os.environ.get("ORIN_WORKSPACE_ROOT", Path(__file__).resolve().parents[3])).resolve()
+BASE_DIR = workspace_root()
 
 CURRENT_DATE_STR = get_business_today_from_args(sys.argv[1:]).isoformat()
 

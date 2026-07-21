@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from hoverboard_shopify_config import load_hoverboard_shopify_config
+from workspace_paths import workspace_root
 
 # ── Canonical HTML comparator (Tier C verification) ────────────────────────
 # Production verification contract: Tier A (raw exact) → Tier B (inter-tag LF)
@@ -73,7 +74,7 @@ BLOG_TITLE = "Journal Insights"
 # Per-transaction evidence directory: automation_state/runs/<run_id>/
 # Contains: sent_body.html, fetched_body.html, verification.json, transaction_result.json
 # Resolve absolute path to avoid double-".." traversal landing in tools/clients/...
-_WORKSPACE_ROOT = _AGENTS_DIR.resolve().parents[2]  # /data/.openclaw/workspace
+_WORKSPACE_ROOT = workspace_root()
 _EVIDENCE_BASE = _WORKSPACE_ROOT / "clients" / "hoverboard_store" / "content_engine" / "automation_state" / "runs"
 
 

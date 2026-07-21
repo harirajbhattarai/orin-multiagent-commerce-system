@@ -22,8 +22,11 @@ import sys
 import os
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from workspace_paths import workspace_root
+
 # ─── Paths ───────────────────────────────────────────────────────────────────
-REPO_ROOT   = Path("/data/.openclaw/workspace")
+REPO_ROOT   = workspace_root()
 ORIN_DIR    = REPO_ROOT / "tools/shopify_publisher/orin"
 TEST_DIR    = ORIN_DIR
 DRAFTS_DIR  = REPO_ROOT / "clients/hcs_gadgets/content_engine/drafts"

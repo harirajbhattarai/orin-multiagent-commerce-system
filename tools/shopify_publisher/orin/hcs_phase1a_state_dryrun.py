@@ -22,9 +22,11 @@ import re
 from pathlib import Path
 from datetime import datetime, date, timezone
 
+from workspace_paths import workspace_root
+
 # ─── PATHS ────────────────────────────────────────────────────────────────────
 
-BASE_DIR       = Path("/data/.openclaw/workspace")
+BASE_DIR       = workspace_root()
 CLIENT_DIR     = BASE_DIR / "clients" / "hcs_gadgets" / "content_engine"
 QUEUE_PATH     = CLIENT_DIR / "content_queue_3_months.md"
 INVENTORY_PATH = CLIENT_DIR / "shopify_inventory.json"

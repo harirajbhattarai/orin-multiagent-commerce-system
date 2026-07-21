@@ -30,8 +30,10 @@ import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-BASE_DIR = Path("/data/.openclaw/workspace")
-AGENTS_DIR = BASE_DIR / "tools" / "shopify_publisher" / "orin"
+from workspace_paths import workspace_root
+
+BASE_DIR = workspace_root()
+AGENTS_DIR = Path(__file__).resolve().parent
 
 sys.path.insert(0, str(AGENTS_DIR))
 from hcs_client_loader import get_hcs_client_config, sha256_file
