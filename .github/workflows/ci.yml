@@ -34,3 +34,4 @@ jobs:
             --tag orin-runner:ci \
             .
           docker run --rm orin-runner:ci --help
+          test "$(docker image inspect orin-runner:ci --format '{{.Config.User}}')" = "10001:10001"
