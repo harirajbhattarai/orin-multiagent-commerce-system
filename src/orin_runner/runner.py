@@ -38,6 +38,10 @@ class RunnerBusyError(RuntimeError):
     """Raised when another local runner owns the process lock."""
 
 
+class IdempotencyConflictError(RuntimeError):
+    """Raised when a request ID is reused with different immutable inputs."""
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -105,10 +109,24 @@ def _safe_request_name(request_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]", "_", request_id)
 
 
-def _read_existing_result(request_index: Path) -> dict[str, Any] | None:
+def _read_existing_result(
+    request_index: Path,
+    *,
+    client_id: str,
+    requested_mode: str,
+    as_of_date: str | None,
+) -> dict[str, Any] | None:
     if not request_index.exists():
         return None
     pointer = json.loads(request_index.read_text(encoding="utf-8"))
+    expected = {
+        "client_id": client_id,
+        "requested_mode": requested_mode,
+        "as_of_date": as_of_date,
+    }
+    actual = {key: pointer.get(key) for key in expected}
+    if actual != expected:
+        raise IdempotencyConflictError(f"request inputs differ: expected={actual}, received={expected}")
     result_path = Path(pointer["final_result_path"])
     return json.loads(result_path.read_text(encoding="utf-8"))
 
@@ -264,7 +282,12 @@ def run_client(
     request_index = requests_dir / f"{_safe_request_name(request_id)}.json"
 
     with _runner_lock(artifact_root):
-        existing = _read_existing_result(request_index)
+        existing = _read_existing_result(
+            request_index,
+            client_id=client_id,
+            requested_mode=mode,
+            as_of_date=as_of_date,
+        )
         if existing is not None:
             return existing
 
@@ -392,6 +415,15 @@ def run_client(
         assert result is not None
         payload = result.to_dict()
         _atomic_json(final_path, payload)
-        _atomic_json(request_index, {"run_id": run_id, "final_result_path": str(final_path.resolve())})
+        _atomic_json(
+            request_index,
+            {
+                "run_id": run_id,
+                "final_result_path": str(final_path.resolve()),
+                "client_id": client_id,
+                "requested_mode": mode,
+                "as_of_date": as_of_date,
+            },
+        )
         _event(events_path, "run_finished", run_id=run_id, status=result.status, decision=result.decision, error_code=result.error_code)
         return payload

@@ -3,6 +3,8 @@ import sys
 import uuid
 from pathlib import Path
 
+import pytest
+
 from orin_runner.contract import (
     ERROR_PIPELINE_EXIT_NONZERO,
     ERROR_PIPELINE_RESULT_MISSING,
@@ -10,6 +12,7 @@ from orin_runner.contract import (
     SCHEMA_VERSION,
 )
 from orin_runner.runner import run_client
+from orin_runner.runner import IdempotencyConflictError
 
 
 def fake_pipeline(tmp_path: Path, preview: dict | None, exit_code: int = 0) -> tuple[list[str], Path, Path]:
@@ -94,6 +97,18 @@ def test_request_id_is_locally_idempotent(tmp_path):
     second = invoke(tmp_path, command, preview_path, request_id)
 
     assert second == first
+    assert counter_path.read_text() == "1"
+
+
+def test_request_id_reuse_with_different_mode_is_rejected(tmp_path):
+    preview = {"blocked": False, "planner_decision": "no_job_due", "effective_mode": "dry-run"}
+    command, preview_path, counter_path = fake_pipeline(tmp_path, preview)
+    request_id = str(uuid.uuid4())
+    invoke(tmp_path, command, preview_path, request_id)
+
+    with pytest.raises(IdempotencyConflictError):
+        invoke(tmp_path, command, preview_path, request_id, mode="hidden-draft")
+
     assert counter_path.read_text() == "1"
 
 
