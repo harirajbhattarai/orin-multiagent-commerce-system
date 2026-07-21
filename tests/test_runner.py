@@ -80,13 +80,14 @@ def test_no_job_run_writes_versioned_durable_result(tmp_path):
 
 
 def test_code_version_matches_checkout_without_global_git_configuration():
+    repo_root = Path.cwd().resolve()
     expected = subprocess.run(
-        ["git", "rev-parse", "HEAD"],
+        ["git", "-c", f"safe.directory={repo_root}", "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
         check=True,
     ).stdout.strip()
-    assert default_code_version(Path.cwd()) == expected
+    assert default_code_version(repo_root) == expected
 
 
 def test_missing_pipeline_result_fails_with_stable_error(tmp_path):
