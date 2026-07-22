@@ -11,6 +11,7 @@ import uuid
 from pathlib import Path
 
 from orin_control.repository import create_database_engine
+from orin_control.secrets import read_private_secret
 from orin_runner.runner import run_client
 from orin_worker.models import ClaimedJob
 from orin_worker.repository import PostgresWorkerRepository
@@ -36,10 +37,24 @@ def _worker_id(configured: str | None) -> str:
     return f"{host}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
 
 
+def database_url_from_environment() -> str:
+    direct = os.environ.get("ORIN_WORKER_DATABASE_URL")
+    secret_file = os.environ.get("ORIN_WORKER_DATABASE_URL_FILE")
+    if bool(direct) == bool(secret_file):
+        raise ValueError(
+            "configure exactly one of ORIN_WORKER_DATABASE_URL or ORIN_WORKER_DATABASE_URL_FILE"
+        )
+    if direct:
+        return direct
+    assert secret_file is not None
+    return read_private_secret(Path(secret_file), label="worker database URL")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    database_url = os.environ.get("ORIN_WORKER_DATABASE_URL")
-    if not database_url:
+    try:
+        database_url = database_url_from_environment()
+    except (OSError, ValueError):
         print(json.dumps({"status": "failed", "error_code": "ORIN_WORKER_CONFIG_MISSING"}))
         return 2
 

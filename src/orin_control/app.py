@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from pathlib import Path as FilePath
 from typing import Literal, Protocol
 
 from fastapi import Depends, FastAPI, HTTPException, Path, Response, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import AnyHttpUrl, SecretStr
+from pydantic import AnyHttpUrl, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from orin_control.auth import SupabaseJwtVerifier
@@ -25,17 +26,31 @@ from orin_control.repository import (
     PostgresRunRequestRepository,
     create_database_engine,
 )
+from orin_control.secrets import read_private_secret
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ORIN_", extra="ignore")
 
-    database_url: SecretStr
+    database_url: SecretStr | None = None
+    database_url_file: FilePath | None = None
     supabase_url: AnyHttpUrl
     jwt_audience: Literal["authenticated"] = "authenticated"
     jwt_algorithm: Literal["ES256"] = "ES256"
     db_pool_size: int = 1
     database_role: str = "orin_api"
+
+    @model_validator(mode="after")
+    def require_one_database_url_source(self) -> "Settings":
+        if (self.database_url is None) == (self.database_url_file is None):
+            raise ValueError("configure exactly one of ORIN_DATABASE_URL or ORIN_DATABASE_URL_FILE")
+        return self
+
+    def resolved_database_url(self) -> str:
+        if self.database_url is not None:
+            return self.database_url.get_secret_value()
+        assert self.database_url_file is not None
+        return read_private_secret(self.database_url_file, label="database URL")
 
 
 class Verifier(Protocol):
@@ -61,7 +76,7 @@ def create_app(
         assert settings is not None
         repository = PostgresRunRequestRepository(
             create_database_engine(
-                settings.database_url.get_secret_value(),
+                settings.resolved_database_url(),
                 pool_size=settings.db_pool_size,
             ),
             expected_role=settings.database_role,

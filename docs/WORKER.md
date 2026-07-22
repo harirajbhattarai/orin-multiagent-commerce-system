@@ -34,9 +34,11 @@ python -m orin_worker once \
   --artifact-root /evidence
 ```
 
-The command requires `ORIN_WORKER_DATABASE_URL` for the dedicated
-`orin_worker` login and verifies `current_user` before every operation. Never
-use a `postgres` connection or Supabase service-role key.
+The command requires either `ORIN_WORKER_DATABASE_URL` for isolated development
+or a private file named by `ORIN_WORKER_DATABASE_URL_FILE`. The VPS contract
+uses `/run/secrets/worker_database_url`. Configuring both is rejected. The
+worker verifies `current_user` before every operation; never use a `postgres`
+connection or Supabase service-role key.
 
 The default lease is 1,200 seconds and the heartbeat interval is 60 seconds.
 The worker exits successfully with `status: no_job_due` when no job is
@@ -45,6 +47,5 @@ eligible. It does not poll or schedule itself.
 ## Current deployment state
 
 No worker credential exists, the image is not deployed, automation remains
-disabled, and the legacy OpenClaw scheduler remains disabled. Phase 3B tests
-must pass before provisioning the role password directly into the VPS secret
-store.
+disabled, and the legacy OpenClaw scheduler remains disabled. The
+disabled-by-default VPS sequence is documented in `deploy/vps/README.md`.

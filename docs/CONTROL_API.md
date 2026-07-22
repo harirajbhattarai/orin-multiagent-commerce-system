@@ -60,6 +60,12 @@ key. The role password must be generated and installed outside migrations,
 source control, chat, OpenClaw, and container images. Deployment is blocked
 until that one-time provisioning step is designed and verified.
 
+The VPS contract mounts the complete database URL as a mode-`0400` file and
+sets only `ORIN_DATABASE_URL_FILE=/run/secrets/control_database_url`. A direct
+`ORIN_DATABASE_URL` remains available for isolated development, but configuring
+both sources is rejected. The disabled-by-default deployment sequence is in
+`deploy/vps/README.md`.
+
 ## Safety gates
 
 All current development gates remain closed:
