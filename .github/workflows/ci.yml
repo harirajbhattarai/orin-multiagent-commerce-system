@@ -35,3 +35,22 @@ jobs:
             .
           docker run --rm orin-runner:ci --help
           test "$(docker image inspect orin-runner:ci --format '{{.Config.User}}')" = "10001:10001"
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Start local Supabase
+        run: npx --yes supabase@2.109.1 start
+      - name: Run database tests
+        run: npx --yes supabase@2.109.1 test db --local
+      - name: Lint database schema
+        run: >-
+          npx --yes supabase@2.109.1 db lint
+          --local
+          --schema public
+          --level warning
+          --fail-on error
+      - name: Stop local Supabase
+        if: always()
+        run: npx --yes supabase@2.109.1 stop --no-backup
