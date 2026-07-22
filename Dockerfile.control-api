@@ -23,7 +23,7 @@ COPY src/ ./src/
 
 RUN python -m pip install --no-cache-dir uv==0.11.16 \
     && python -m uv sync --frozen --no-dev --no-editable \
-    && python -m pip uninstall --yes uv \
+    && /usr/local/bin/python -m pip uninstall --yes uv \
     && chown -R 10001:10001 /app
 
 USER 10001:10001
