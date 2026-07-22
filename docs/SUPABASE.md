@@ -41,9 +41,9 @@ The `orin-evidence` Storage bucket is private. Object keys must use:
 ```
 
 Authenticated customer access is read-only and limited by `client_members`.
-There are no authenticated insert, update, or delete grants in Phase 2. The
-future API and worker will use a server-only credential and must still enforce
-the same tenant identifier in every operation.
+There are no authenticated insert, update, or delete grants. The API and worker
+use separate backend-only roles and must still enforce the same tenant
+identifier in every operation.
 
 ## Initial safety state
 
@@ -87,6 +87,12 @@ role. The role intentionally remains `NOLOGIN`, and request intake remains
 disabled, until credential provisioning and a controlled API integration test
 are approved. See `docs/CONTROL_API.md`.
 
-The worker is still unimplemented. Do not place a database password or
-service-role key in OpenClaw, the frontend, GitHub, or this repository, and do
-not enable any scheduler.
+Phase 3B adds the `orin_worker` role and stored functions for atomic claim,
+renewal, and idempotent completion. The role has no table privileges and
+remains `NOLOGIN`. Claims are possible only when the client and automation gate
+are active, Shopify writes are disabled, and the job is an empty `dry-run`.
+The unique active-job index is the database-level concurrency-one backstop.
+
+Do not place a database password or service-role key in OpenClaw, the frontend,
+GitHub, or this repository, and do not enable any scheduler. See
+`docs/WORKER.md`.

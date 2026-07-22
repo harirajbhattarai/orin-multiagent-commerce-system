@@ -46,6 +46,16 @@ jobs:
           docker run --rm orin-control-api:ci \
             python -c "from orin_control.app import create_app; print('control-api-import-ok')"
           test "$(docker image inspect orin-control-api:ci --format '{{.Config.User}}')" = "10001:10001"
+      - name: Build and smoke-test worker image
+        run: |
+          docker build \
+            --file Dockerfile.worker \
+            --build-arg "VERSION=ci" \
+            --build-arg "VCS_REF=${GITHUB_SHA}" \
+            --tag orin-worker:ci \
+            .
+          docker run --rm orin-worker:ci --help
+          test "$(docker image inspect orin-worker:ci --format '{{.Config.User}}')" = "10001:10001"
 
   database:
     runs-on: ubuntu-latest

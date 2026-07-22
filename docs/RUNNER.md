@@ -1,6 +1,6 @@
 # ORIN Runner
 
-The deterministic runner is the only approved command boundary for ORIN pipeline execution. OpenClaw must not receive shell access or Shopify credentials; the future control API will submit a tenant-scoped request to this runner.
+The deterministic runner is the only approved command boundary for ORIN pipeline execution. OpenClaw must not receive shell access or Shopify credentials; the control API creates a tenant-scoped job and the lease-bound worker invokes this runner.
 
 ## Install and test
 

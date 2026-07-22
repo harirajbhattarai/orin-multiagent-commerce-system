@@ -1,0 +1,227 @@
+from __future__ import annotations
+
+import time
+from datetime import datetime, timezone
+from typing import Any
+from uuid import UUID
+
+import pytest
+
+from orin_worker.models import ClaimedJob, CompletionRecord
+from orin_worker.repository import PostgresWorkerRepository
+from orin_worker.service import LeaseLostError, ResultContractError, work_once
+
+
+JOB_ID = UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
+REQUEST_ID = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+
+
+def claimed_job(*, payload: dict[str, Any] | None = None) -> ClaimedJob:
+    return ClaimedJob(
+        job_id=JOB_ID,
+        client_id="hoverboard_store",
+        request_id=REQUEST_ID,
+        requested_mode="dry-run",
+        attempt_count=1,
+        payload={} if payload is None else payload,
+        lease_expires_at=datetime.now(timezone.utc),
+    )
+
+
+def final_result(**overrides: object) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "schema": "orin.final-result/v1",
+        "run_id": "hb_20260722T180000Z_12345678",
+        "request_id": str(REQUEST_ID),
+        "client_id": "hoverboard_store",
+        "job_id": None,
+        "attempt": 1,
+        "requested_mode": "dry-run",
+        "effective_mode": "dry-run",
+        "status": "completed",
+        "decision": "no_job_due",
+        "code_version": "test-sha",
+        "config_version": None,
+        "idempotency_key": f"hoverboard_store:{REQUEST_ID}",
+        "shopify_article_id": None,
+        "shopify_create_count": 0,
+        "shopify_published": False,
+        "queue_changed": False,
+        "reconciliation_status": "not_required",
+        "started_at": "2026-07-22T18:00:00+00:00",
+        "finished_at": "2026-07-22T18:00:01+00:00",
+        "artifact_uri": "/private/evidence/run",
+        "error_code": None,
+        "pipeline_exit_code": 0,
+    }
+    result.update(overrides)
+    return result
+
+
+class FakeRepository:
+    def __init__(self, job: ClaimedJob | None) -> None:
+        self.job = job
+        self.claims: list[tuple[str, int]] = []
+        self.renewals: list[tuple[UUID, str, int]] = []
+        self.completions: list[dict[str, Any]] = []
+        self.renew_result = True
+        self.completion = CompletionRecord(
+            run_id="hb_20260722T180000Z_12345678",
+            status="completed",
+            replayed=False,
+        )
+
+    def claim_next(self, *, worker_id: str, lease_seconds: int) -> ClaimedJob | None:
+        self.claims.append((worker_id, lease_seconds))
+        return self.job
+
+    def renew(self, *, job_id: UUID, worker_id: str, lease_seconds: int) -> bool:
+        self.renewals.append((job_id, worker_id, lease_seconds))
+        return self.renew_result
+
+    def complete(
+        self,
+        *,
+        job_id: UUID,
+        worker_id: str,
+        final_result: dict[str, Any],
+    ) -> CompletionRecord:
+        self.completions.append(
+            {"job_id": job_id, "worker_id": worker_id, "final_result": final_result}
+        )
+        return self.completion
+
+
+def test_no_due_job_is_a_successful_noop():
+    repository = FakeRepository(None)
+    executed = False
+
+    def execute(_: ClaimedJob) -> dict[str, Any]:
+        nonlocal executed
+        executed = True
+        return final_result()
+
+    outcome = work_once(repository, worker_id="worker:test:1", execute=execute)
+
+    assert outcome.to_dict() == {
+        "status": "no_job_due",
+        "job_id": None,
+        "run_id": None,
+        "replayed": False,
+    }
+    assert executed is False
+    assert repository.completions == []
+
+
+def test_claimed_job_is_completed_with_the_exact_runner_result():
+    repository = FakeRepository(claimed_job())
+    result = final_result()
+
+    outcome = work_once(
+        repository,
+        worker_id="worker:test:1",
+        execute=lambda _: result,
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.job_id == str(JOB_ID)
+    assert outcome.run_id == result["run_id"]
+    assert repository.completions[0]["final_result"] is result
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        final_result(client_id="another_client"),
+        final_result(request_id="cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+        final_result(requested_mode="hidden-draft"),
+        final_result(shopify_create_count=1),
+        final_result(shopify_published=True),
+        final_result(queue_changed=True),
+    ],
+)
+def test_mismatched_or_mutating_results_are_never_persisted(result):
+    repository = FakeRepository(claimed_job())
+
+    with pytest.raises(ResultContractError):
+        work_once(repository, worker_id="worker:test:1", execute=lambda _: result)
+
+    assert repository.completions == []
+
+
+def test_nonempty_job_payload_is_rejected_before_execution():
+    repository = FakeRepository(claimed_job(payload={"command": "anything"}))
+
+    with pytest.raises(ResultContractError, match="empty dry-run"):
+        work_once(repository, worker_id="worker:test:1", execute=lambda _: final_result())
+
+    assert repository.completions == []
+
+
+def test_lost_lease_blocks_finalization():
+    repository = FakeRepository(claimed_job())
+    repository.renew_result = False
+
+    def slow_result(_: ClaimedJob) -> dict[str, Any]:
+        time.sleep(0.03)
+        return final_result()
+
+    with pytest.raises(LeaseLostError):
+        work_once(
+            repository,
+            worker_id="worker:test:1",
+            execute=slow_result,
+            lease_seconds=1,
+            heartbeat_interval_seconds=0.01,
+        )
+
+    assert repository.renewals
+    assert repository.completions == []
+
+
+class ScalarResult:
+    def __init__(self, value: object) -> None:
+        self.value = value
+
+    def scalar_one(self) -> object:
+        return self.value
+
+
+class RoleConnection:
+    def __init__(self, role: str) -> None:
+        self.role = role
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        pass
+
+    def execute(self, statement: object) -> ScalarResult:
+        if str(statement) == "select current_user":
+            return ScalarResult(self.role)
+        return ScalarResult(1)
+
+
+class RoleEngine:
+    def __init__(self, role: str) -> None:
+        self.connection = RoleConnection(role)
+
+    def connect(self) -> RoleConnection:
+        return self.connection
+
+    def dispose(self) -> None:
+        pass
+
+
+def test_repository_rejects_an_overprivileged_database_role():
+    repository = PostgresWorkerRepository(RoleEngine("postgres"))  # type: ignore[arg-type]
+
+    with pytest.raises(RuntimeError, match="required=orin_worker, received=postgres"):
+        repository.ping()
+
+
+def test_repository_accepts_only_the_narrow_worker_role():
+    repository = PostgresWorkerRepository(RoleEngine("orin_worker"))  # type: ignore[arg-type]
+
+    repository.ping()

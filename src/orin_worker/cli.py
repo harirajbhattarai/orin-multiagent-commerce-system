@@ -1,0 +1,96 @@
+"""One-shot CLI for the disconnected ORIN worker."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import socket
+import sys
+import uuid
+from pathlib import Path
+
+from orin_control.repository import create_database_engine
+from orin_runner.runner import run_client
+from orin_worker.models import ClaimedJob
+from orin_worker.repository import PostgresWorkerRepository
+from orin_worker.service import work_once
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="orin-worker")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    once = subparsers.add_parser("once", help="claim and execute at most one due dry-run job")
+    once.add_argument("--workspace-root", type=Path)
+    once.add_argument("--artifact-root", type=Path)
+    once.add_argument("--worker-id")
+    once.add_argument("--lease-seconds", type=int, default=1200)
+    once.add_argument("--heartbeat-seconds", type=float, default=60)
+    return parser
+
+
+def _worker_id(configured: str | None) -> str:
+    if configured:
+        return configured
+    host = socket.gethostname().replace(" ", "_")
+    return f"{host}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    database_url = os.environ.get("ORIN_WORKER_DATABASE_URL")
+    if not database_url:
+        print(json.dumps({"status": "failed", "error_code": "ORIN_WORKER_CONFIG_MISSING"}))
+        return 2
+
+    repo_root = Path(__file__).resolve().parents[2]
+    workspace_root = (args.workspace_root or Path(os.environ.get("ORIN_WORKSPACE_ROOT", repo_root))).resolve()
+    artifact_root = (
+        args.artifact_root
+        or workspace_root / "clients" / "hoverboard_store" / "content_engine" / "automation_state" / "runs"
+    ).resolve()
+    worker_id = _worker_id(args.worker_id)
+    repository = PostgresWorkerRepository(
+        create_database_engine(database_url, pool_size=1),
+        expected_role=os.environ.get("ORIN_WORKER_DATABASE_ROLE", "orin_worker"),
+    )
+
+    def execute(job: ClaimedJob) -> dict[str, object]:
+        return run_client(
+            client_id=job.client_id,
+            request_id=str(job.request_id),
+            mode=job.requested_mode,
+            workspace_root=workspace_root,
+            artifact_root=artifact_root,
+            repo_root=repo_root,
+        )
+
+    try:
+        outcome = work_once(
+            repository,
+            worker_id=worker_id,
+            execute=execute,
+            lease_seconds=args.lease_seconds,
+            heartbeat_interval_seconds=args.heartbeat_seconds,
+        )
+    except Exception as exc:
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "error_code": "ORIN_WORKER_FAILED",
+                    "detail": type(exc).__name__,
+                },
+                sort_keys=True,
+            )
+        )
+        return 1
+    finally:
+        repository.close()
+
+    print(json.dumps(outcome.to_dict(), sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
