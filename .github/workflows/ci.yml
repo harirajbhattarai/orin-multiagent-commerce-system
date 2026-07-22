@@ -56,6 +56,35 @@ jobs:
             .
           docker run --rm orin-worker:ci --help
           test "$(docker image inspect orin-worker:ci --format '{{.Config.User}}')" = "10001:10001"
+      - name: Validate disabled VPS deployment contract
+        run: |
+          bash -n deploy/vps/preflight.sh
+          deployment_tmp="$(mktemp -d)"
+          mkdir -p \
+            "${deployment_tmp}/runtime" \
+            "${deployment_tmp}/evidence" \
+            "${deployment_tmp}/secrets"
+          touch \
+            "${deployment_tmp}/secrets/control_database_url" \
+            "${deployment_tmp}/secrets/worker_database_url"
+          ORIN_DEPLOY_SHA="${GITHUB_SHA}" \
+          ORIN_PROJECT_ROOT="${GITHUB_WORKSPACE}" \
+          ORIN_RUNTIME_ROOT="${deployment_tmp}/runtime" \
+          ORIN_EVIDENCE_ROOT="${deployment_tmp}/evidence" \
+          ORIN_SECRETS_DIR="${deployment_tmp}/secrets" \
+          ORIN_RUNTIME_UID=1000 \
+          ORIN_RUNTIME_GID=1000 \
+          ORIN_API_PORT=58080 \
+            docker compose -f deploy/vps/compose.yml --profile "*" config --quiet
+          test -z "$(ORIN_DEPLOY_SHA="${GITHUB_SHA}" \
+            ORIN_PROJECT_ROOT="${GITHUB_WORKSPACE}" \
+            ORIN_RUNTIME_ROOT="${deployment_tmp}/runtime" \
+            ORIN_EVIDENCE_ROOT="${deployment_tmp}/evidence" \
+            ORIN_SECRETS_DIR="${deployment_tmp}/secrets" \
+            ORIN_RUNTIME_UID=1000 \
+            ORIN_RUNTIME_GID=1000 \
+            ORIN_API_PORT=58080 \
+              docker compose -f deploy/vps/compose.yml config --services)"
 
   database:
     runs-on: ubuntu-latest

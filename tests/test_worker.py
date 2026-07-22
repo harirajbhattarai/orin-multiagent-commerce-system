@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 
 from orin_worker.models import ClaimedJob, CompletionRecord
+from orin_worker.cli import database_url_from_environment
 from orin_worker.repository import PostgresWorkerRepository
 from orin_worker.service import LeaseLostError, ResultContractError, work_once
 
@@ -225,3 +226,24 @@ def test_repository_accepts_only_the_narrow_worker_role():
     repository = PostgresWorkerRepository(RoleEngine("orin_worker"))  # type: ignore[arg-type]
 
     repository.ping()
+
+
+def test_worker_reads_database_url_from_private_file(tmp_path, monkeypatch):
+    secret = tmp_path / "database_url"
+    secret.write_text("postgresql://orin_worker:secret@example.test/postgres\n")
+    secret.chmod(0o400)
+    monkeypatch.delenv("ORIN_WORKER_DATABASE_URL", raising=False)
+    monkeypatch.setenv("ORIN_WORKER_DATABASE_URL_FILE", str(secret))
+
+    assert database_url_from_environment() == "postgresql://orin_worker:secret@example.test/postgres"
+
+
+def test_worker_rejects_ambiguous_database_url_sources(tmp_path, monkeypatch):
+    secret = tmp_path / "database_url"
+    secret.write_text("postgresql://orin_worker:secret@example.test/postgres\n")
+    secret.chmod(0o400)
+    monkeypatch.setenv("ORIN_WORKER_DATABASE_URL", "postgresql://direct")
+    monkeypatch.setenv("ORIN_WORKER_DATABASE_URL_FILE", str(secret))
+
+    with pytest.raises(ValueError, match="exactly one"):
+        database_url_from_environment()

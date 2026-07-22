@@ -7,7 +7,7 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
-from orin_control.app import create_app
+from orin_control.app import Settings, create_app
 from orin_control.errors import (
     AuthenticationError,
     ClientAccessDenied,
@@ -193,6 +193,52 @@ def test_database_url_normalization_uses_psycopg3(value, expected):
 def test_non_postgresql_database_url_is_rejected():
     with pytest.raises(ValueError):
         normalize_database_url("sqlite:///unsafe.db")
+
+
+def test_control_api_reads_database_url_from_private_file(tmp_path):
+    secret = tmp_path / "database_url"
+    secret.write_text("postgresql://orin_api:secret@example.test/postgres\n")
+    secret.chmod(0o400)
+    settings = Settings(
+        database_url_file=secret,
+        supabase_url="https://example.supabase.co",
+    )
+
+    assert settings.resolved_database_url() == "postgresql://orin_api:secret@example.test/postgres"
+
+
+def test_control_api_rejects_ambiguous_or_overexposed_secret_sources(tmp_path):
+    secret = tmp_path / "database_url"
+    secret.write_text("postgresql://orin_api:secret@example.test/postgres\n")
+    secret.chmod(0o644)
+
+    with pytest.raises(ValueError, match="exactly one"):
+        Settings(
+            database_url="postgresql://orin_api:secret@example.test/postgres",
+            database_url_file=secret,
+            supabase_url="https://example.supabase.co",
+        )
+    settings = Settings(
+        database_url_file=secret,
+        supabase_url="https://example.supabase.co",
+    )
+    with pytest.raises(ValueError, match="group or others"):
+        settings.resolved_database_url()
+
+
+def test_control_api_rejects_a_symlinked_secret_file(tmp_path):
+    target = tmp_path / "database_url_target"
+    target.write_text("postgresql://orin_api:secret@example.test/postgres\n")
+    target.chmod(0o400)
+    link = tmp_path / "database_url"
+    link.symlink_to(target)
+    settings = Settings(
+        database_url_file=link,
+        supabase_url="https://example.supabase.co",
+    )
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        settings.resolved_database_url()
 
 
 class ScalarResult:
