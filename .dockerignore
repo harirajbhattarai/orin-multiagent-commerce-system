@@ -1,5 +1,6 @@
 *
 !Dockerfile.runner
+!Dockerfile.control-api
 !pyproject.toml
 !uv.lock
 !src/

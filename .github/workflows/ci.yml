@@ -35,6 +35,17 @@ jobs:
             .
           docker run --rm orin-runner:ci --help
           test "$(docker image inspect orin-runner:ci --format '{{.Config.User}}')" = "10001:10001"
+      - name: Build and smoke-test control API image
+        run: |
+          docker build \
+            --file Dockerfile.control-api \
+            --build-arg "VERSION=ci" \
+            --build-arg "VCS_REF=${GITHUB_SHA}" \
+            --tag orin-control-api:ci \
+            .
+          docker run --rm orin-control-api:ci \
+            python -c "from orin_control.app import create_app; print('control-api-import-ok')"
+          test "$(docker image inspect orin-control-api:ci --format '{{.Config.User}}')" = "10001:10001"
 
   database:
     runs-on: ubuntu-latest
