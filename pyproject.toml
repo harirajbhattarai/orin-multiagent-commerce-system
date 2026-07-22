@@ -7,18 +7,26 @@ name = "orin-runner"
 version = "0.1.0"
 description = "Deterministic, evidence-producing runner for ORIN client workflows"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.116,<1",
+    "psycopg[binary]>=3.2,<4",
+    "pydantic-settings>=2.10,<3",
+    "pyjwt[crypto]>=2.10,<3",
+    "sqlalchemy>=2.0,<2.1",
+    "uvicorn>=0.35,<1",
+]
 
 [project.scripts]
 orin-runner = "orin_runner.cli:main"
 
 [dependency-groups]
 dev = [
+  "httpx2>=2,<3",
   "pytest>=8.4,<9",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/orin_runner"]
+packages = ["src/orin_runner", "src/orin_control"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

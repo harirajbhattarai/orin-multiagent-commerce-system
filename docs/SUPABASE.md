@@ -80,8 +80,13 @@ advisors. New empty indexes can appear as unused; missing RLS policies, mutable
 function search paths, public security-definer functions, and unindexed foreign
 keys are release blockers.
 
-## Next integration boundary
+## Current integration boundary
 
-Phase 3 adds a narrow authenticated API and a single-concurrency worker. Until
-that is implemented and tested, do not place a service-role key in OpenClaw,
-the frontend, GitHub, or this repository, and do not enable any scheduler.
+Phase 3A adds the narrow authenticated request API and the `orin_api` database
+role. The role intentionally remains `NOLOGIN`, and request intake remains
+disabled, until credential provisioning and a controlled API integration test
+are approved. See `docs/CONTROL_API.md`.
+
+The worker is still unimplemented. Do not place a database password or
+service-role key in OpenClaw, the frontend, GitHub, or this repository, and do
+not enable any scheduler.

@@ -56,7 +56,8 @@ select ok(
 select ok(
   (
     select
-      not automation_enabled
+      not request_intake_enabled
+      and not automation_enabled
       and not shopify_writes_enabled
       and max_concurrency = 1
       and allowed_mode = 'dry-run'
@@ -68,7 +69,7 @@ select ok(
     from public.scheduler_health
     where client_id = 'hoverboard_store'
   ),
-  'automation, Shopify writes, and scheduler ownership start disabled'
+  'request intake, automation, Shopify writes, and scheduler ownership start disabled'
 );
 
 select ok(
