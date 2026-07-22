@@ -49,8 +49,9 @@ select ok(
         'scheduler_health'
       )
       and cmd <> 'SELECT'
+      and roles && array['anon', 'authenticated', 'public']::name[]
   ),
-  'customer-facing policies are read-only in Phase 2'
+  'customer-facing policies remain read-only'
 );
 
 select ok(
