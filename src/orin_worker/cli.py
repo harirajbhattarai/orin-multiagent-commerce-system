@@ -8,6 +8,7 @@ import os
 import socket
 import sys
 import uuid
+from datetime import date
 from pathlib import Path
 
 from orin_control.repository import create_database_engine
@@ -27,7 +28,19 @@ def build_parser() -> argparse.ArgumentParser:
     once.add_argument("--worker-id")
     once.add_argument("--lease-seconds", type=int, default=1200)
     once.add_argument("--heartbeat-seconds", type=float, default=60)
+    once.add_argument(
+        "--as-of-date",
+        type=_as_of_date,
+        help="manual test-only business date override in YYYY-MM-DD form",
+    )
     return parser
+
+
+def _as_of_date(value: str) -> str:
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("as-of-date must use YYYY-MM-DD") from exc
 
 
 def _worker_id(configured: str | None) -> str:
@@ -78,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
             workspace_root=workspace_root,
             artifact_root=artifact_root,
             repo_root=repo_root,
+            as_of_date=args.as_of_date,
+            durable_db_mode=True,
         )
 
     try:

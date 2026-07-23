@@ -320,7 +320,8 @@ def test_hidden_draft_child_receives_durable_marker_context(tmp_path):
         "import json, os, pathlib\n"
         f"pathlib.Path({str(env_path)!r}).write_text(json.dumps(dict("
         "key=os.environ.get('ORIN_IDEMPOTENCY_KEY'), "
-        "durable=os.environ.get('ORIN_DURABLE_DB_MODE'))))\n"
+        "durable=os.environ.get('ORIN_DURABLE_DB_MODE'), "
+        "artifact_dir=os.environ.get('ORIN_RUN_ARTIFACT_DIR'))))\n"
         f"pathlib.Path({str(preview_path)!r}).write_text(json.dumps({{'blocked': True, 'effective_mode': 'live-draft'}}))\n",
         encoding="utf-8",
     )
@@ -333,11 +334,43 @@ def test_hidden_draft_child_receives_durable_marker_context(tmp_path):
         mode="hidden-draft",
     )
 
-    assert json.loads(env_path.read_text()) == {
-        "key": f"hoverboard_store:{request_id}",
-        "durable": "1",
-    }
+    child_environment = json.loads(env_path.read_text())
+    assert child_environment["key"] == f"hoverboard_store:{request_id}"
+    assert child_environment["durable"] == "1"
+    assert child_environment["artifact_dir"] == result["artifact_uri"]
     assert result["effective_mode"] == "hidden-draft"
+
+
+def test_database_worker_dry_run_uses_private_artifact_directory(tmp_path):
+    preview_path = tmp_path / "pipeline-preview.json"
+    env_path = tmp_path / "durable-dry-run-env.json"
+    script_path = tmp_path / "capture_durable_dry_run_env.py"
+    script_path.write_text(
+        "import json, os, pathlib\n"
+        f"pathlib.Path({str(env_path)!r}).write_text(json.dumps(dict("
+        "durable=os.environ.get('ORIN_DURABLE_DB_MODE'), "
+        "artifact_dir=os.environ.get('ORIN_RUN_ARTIFACT_DIR'))))\n"
+        f"pathlib.Path({str(preview_path)!r}).write_text(json.dumps("
+        "{'blocked': False, 'effective_mode': 'dry-run'}))\n",
+        encoding="utf-8",
+    )
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    result = run_client(
+        client_id="hoverboard_store",
+        request_id=str(uuid.uuid4()),
+        mode="dry-run",
+        workspace_root=workspace,
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        pipeline_command=[sys.executable, str(script_path)],
+        pipeline_preview_path=preview_path,
+    )
+
+    child_environment = json.loads(env_path.read_text())
+    assert child_environment["durable"] == "1"
+    assert child_environment["artifact_dir"] == result["artifact_uri"]
 
 
 def test_dry_run_removes_shopify_credentials_from_child(tmp_path, monkeypatch):

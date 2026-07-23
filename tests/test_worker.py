@@ -8,7 +8,7 @@ from uuid import UUID
 import pytest
 
 from orin_worker.models import ClaimedJob, CompletionRecord
-from orin_worker.cli import database_url_from_environment
+from orin_worker.cli import build_parser, database_url_from_environment
 from orin_worker.repository import PostgresWorkerRepository
 from orin_worker.service import LeaseLostError, ResultContractError, work_once
 
@@ -136,6 +136,16 @@ def test_no_due_job_is_a_successful_noop():
     }
     assert executed is False
     assert repository.completions == []
+
+
+def test_manual_worker_accepts_only_an_iso_as_of_date():
+    parsed = build_parser().parse_args(
+        ["once", "--as-of-date", "2026-08-08"]
+    )
+    assert parsed.as_of_date == "2026-08-08"
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["once", "--as-of-date", "08/08/2026"])
 
 
 def test_claimed_job_is_completed_with_the_exact_runner_result():

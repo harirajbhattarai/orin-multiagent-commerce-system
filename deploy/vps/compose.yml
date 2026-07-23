@@ -80,8 +80,13 @@ services:
       ORIN_WORKER_DATABASE_URL_FILE: /run/secrets/worker_database_url
       ORIN_WORKER_DATABASE_ROLE: orin_worker
       ORIN_WORKSPACE_ROOT: /runtime
+      HOVERBOARD_STORE_SHOPIFY_STORE_DOMAIN: hoverboardstore.myshopify.com
+      HOVERBOARD_STORE_SHOPIFY_API_VERSION: "2026-07"
+      HOVERBOARD_STORE_SHOPIFY_BLOG_ID: "113430790492"
+      HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE: /run/secrets/hoverboard_shopify_access_token
     secrets:
       - worker_database_url
+      - hoverboard_shopify_access_token
     volumes:
       - type: bind
         source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}
@@ -107,3 +112,5 @@ secrets:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/control_database_url
   worker_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/worker_database_url
+  hoverboard_shopify_access_token:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hoverboard_shopify_access_token

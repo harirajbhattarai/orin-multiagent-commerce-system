@@ -51,8 +51,10 @@ The default lease is 1,200 seconds and the heartbeat interval is 60 seconds.
 The worker exits successfully with `status: no_job_due` when no job is
 eligible. It does not poll or schedule itself.
 
-## Current deployment state
+For a supervised controlled-write test, `once` accepts an explicit
+`--as-of-date YYYY-MM-DD`. The normal Compose command and all schedulers omit
+this flag. Database-backed runs keep the operational workspace read-only and
+write generated HTML into the private per-run evidence directory.
 
-No worker credential exists, the image is not deployed, automation remains
-disabled, and the legacy OpenClaw scheduler remains disabled. The
-disabled-by-default VPS sequence is documented in `deploy/vps/README.md`.
+The disabled-by-default VPS sequence and private Shopify token handoff are
+documented in `deploy/vps/README.md`.
