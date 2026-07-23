@@ -79,6 +79,7 @@ services:
     environment:
       ORIN_WORKER_DATABASE_URL_FILE: /run/secrets/worker_database_url
       ORIN_WORKER_DATABASE_ROLE: orin_worker
+      ORIN_REPO_ROOT: /app
       ORIN_WORKSPACE_ROOT: /runtime
       HOVERBOARD_STORE_SHOPIFY_STORE_DOMAIN: 5a1679-88.myshopify.com
       HOVERBOARD_STORE_SHOPIFY_API_VERSION: "2026-07"

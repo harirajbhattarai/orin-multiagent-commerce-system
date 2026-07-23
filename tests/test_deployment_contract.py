@@ -54,6 +54,7 @@ def test_shopify_credential_is_file_backed_and_namespaced():
 def test_worker_has_no_port_and_uses_read_only_runtime_plus_private_evidence():
     worker = COMPOSE.split("  worker:", 1)[1].split("\nsecrets:", 1)[0]
     assert "ports:" not in worker
+    assert "ORIN_REPO_ROOT: /app" in worker
     assert "target: /runtime\n        read_only: true" in worker
     assert "target: /evidence" in worker
     assert "--artifact-root" in worker

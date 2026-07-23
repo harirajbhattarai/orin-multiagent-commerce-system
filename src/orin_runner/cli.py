@@ -21,6 +21,7 @@ from orin_runner.runner import (
     RunnerBusyError,
     SUPPORTED_CLIENTS,
     SUPPORTED_MODES,
+    configured_repo_root,
     run_client,
 )
 
@@ -58,7 +59,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(_error_payload(ERROR_INVALID_REQUEST, "request-id must be a UUID"), sort_keys=True))
         return 2
 
-    repo_root = Path(__file__).resolve().parents[2]
+    try:
+        repo_root = configured_repo_root()
+    except ValueError as exc:
+        print(json.dumps(_error_payload(ERROR_INVALID_REQUEST, str(exc)), sort_keys=True))
+        return 2
     workspace_root = (args.workspace_root or Path(os.environ.get("ORIN_WORKSPACE_ROOT", repo_root))).resolve()
     artifact_root = (
         args.artifact_root
