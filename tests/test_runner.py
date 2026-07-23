@@ -12,7 +12,7 @@ from orin_runner.contract import (
     ERROR_PIPELINE_TIMEOUT,
     SCHEMA_VERSION,
 )
-from orin_runner.runner import default_code_version, run_client
+from orin_runner.runner import configured_repo_root, default_code_version, run_client
 from orin_runner.runner import IdempotencyConflictError
 
 
@@ -123,6 +123,22 @@ def test_code_version_matches_checkout_without_global_git_configuration():
         check=True,
     ).stdout.strip()
     assert default_code_version(repo_root) == expected
+
+
+def test_configured_repo_root_accepts_checkout_with_approved_pipeline(tmp_path, monkeypatch):
+    entrypoint = tmp_path / "tools/shopify_publisher/orin/cron_entrypoint.py"
+    entrypoint.parent.mkdir(parents=True)
+    entrypoint.touch()
+    monkeypatch.setenv("ORIN_REPO_ROOT", str(tmp_path))
+
+    assert configured_repo_root() == tmp_path.resolve()
+
+
+def test_configured_repo_root_rejects_missing_approved_pipeline(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORIN_REPO_ROOT", str(tmp_path))
+
+    with pytest.raises(ValueError, match="does not contain"):
+        configured_repo_root()
 
 
 def test_missing_pipeline_result_fails_with_stable_error(tmp_path):

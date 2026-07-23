@@ -13,7 +13,7 @@ from pathlib import Path
 
 from orin_control.repository import create_database_engine
 from orin_control.secrets import read_private_secret
-from orin_runner.runner import run_client
+from orin_runner.runner import configured_repo_root, run_client
 from orin_worker.models import ClaimedJob
 from orin_worker.repository import PostgresWorkerRepository
 from orin_worker.service import work_once
@@ -67,11 +67,11 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         database_url = database_url_from_environment()
+        repo_root = configured_repo_root()
     except (OSError, ValueError):
         print(json.dumps({"status": "failed", "error_code": "ORIN_WORKER_CONFIG_MISSING"}))
         return 2
 
-    repo_root = Path(__file__).resolve().parents[2]
     workspace_root = (args.workspace_root or Path(os.environ.get("ORIN_WORKSPACE_ROOT", repo_root))).resolve()
     artifact_root = (
         args.artifact_root

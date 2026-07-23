@@ -32,6 +32,7 @@ from orin_runner.contract import (
 SUPPORTED_CLIENTS = {"hoverboard_store"}
 SUPPORTED_MODES = {"dry-run", "hidden-draft"}
 PIPELINE_PREVIEW_PATH = Path("/tmp/orin_phase3b_cron_entrypoint_preview.json")
+APPROVED_PIPELINE_PATH = Path("tools/shopify_publisher/orin/cron_entrypoint.py")
 
 
 class RunnerBusyError(RuntimeError):
@@ -44,6 +45,21 @@ class IdempotencyConflictError(RuntimeError):
 
 class UnsupportedClientError(ValueError):
     """Raised when the Python API receives a client without a pipeline binding."""
+
+
+def configured_repo_root() -> Path:
+    """Resolve and validate the checkout containing the approved ORIN pipeline."""
+    configured = os.environ.get("ORIN_REPO_ROOT")
+    candidate = (
+        Path(configured).expanduser().resolve()
+        if configured
+        else Path(__file__).resolve().parents[2]
+    )
+    if not (candidate / APPROVED_PIPELINE_PATH).is_file():
+        raise ValueError(
+            "ORIN_REPO_ROOT does not contain tools/shopify_publisher/orin/cron_entrypoint.py"
+        )
+    return candidate
 
 
 def utc_now() -> str:
