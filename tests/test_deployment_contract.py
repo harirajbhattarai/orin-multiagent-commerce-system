@@ -44,6 +44,9 @@ def test_shopify_credential_is_file_backed_and_namespaced():
         "${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/"
         "hoverboard_shopify_access_token"
     ) in COMPOSE
+    assert (
+        "HOVERBOARD_STORE_SHOPIFY_STORE_DOMAIN: 5a1679-88.myshopify.com"
+    ) in COMPOSE
     assert "HOVERBOARD_STORE_SHOPIFY_API_VERSION: \"2026-07\"" in COMPOSE
     assert "HOVERBOARD_STORE_SHOPIFY_BLOG_ID: \"113430790492\"" in COMPOSE
 
