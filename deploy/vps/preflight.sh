@@ -2,12 +2,22 @@
 set -euo pipefail
 
 require_secrets=false
-if [[ "${1:-}" == "--require-secrets" ]]; then
-  require_secrets=true
-elif [[ -n "${1:-}" ]]; then
-  echo "usage: $0 [--require-secrets]" >&2
-  exit 2
-fi
+require_shopify_secret=false
+for argument in "$@"; do
+  case "${argument}" in
+    --require-secrets)
+      require_secrets=true
+      ;;
+    --require-shopify-secret)
+      require_secrets=true
+      require_shopify_secret=true
+      ;;
+    *)
+      echo "usage: $0 [--require-secrets] [--require-shopify-secret]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 required=(
   ORIN_DEPLOY_SHA
@@ -94,8 +104,13 @@ if [[ "${require_secrets}" == true ]]; then
   declare -A expected_uid=(
     [control_database_url]=10001
     [worker_database_url]="${ORIN_RUNTIME_UID}"
+    [hoverboard_shopify_access_token]="${ORIN_RUNTIME_UID}"
   )
-  for secret_name in control_database_url worker_database_url; do
+  secret_names=(control_database_url worker_database_url)
+  if [[ "${require_shopify_secret}" == true ]]; then
+    secret_names+=(hoverboard_shopify_access_token)
+  fi
+  for secret_name in "${secret_names[@]}"; do
     secret_path="${ORIN_SECRETS_DIR}/${secret_name}"
     if [[ ! -f "${secret_path}" ]]; then
       echo "missing secret file: ${secret_path}" >&2

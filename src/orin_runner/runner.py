@@ -369,6 +369,7 @@ def run_client(
     artifact_root: Path,
     repo_root: Path,
     as_of_date: str | None = None,
+    durable_db_mode: bool = False,
     pipeline_command: Sequence[str] | None = None,
     pipeline_preview_path: Path = PIPELINE_PREVIEW_PATH,
     pipeline_timeout_seconds: float = 900,
@@ -417,9 +418,12 @@ def run_client(
 
         environment = os.environ.copy()
         environment["ORIN_WORKSPACE_ROOT"] = str(workspace_root.resolve())
+        durable_execution = durable_db_mode or mode == "hidden-draft"
+        if durable_execution:
+            environment["ORIN_DURABLE_DB_MODE"] = "1"
+            environment["ORIN_RUN_ARTIFACT_DIR"] = artifact_uri
         if mode == "hidden-draft":
             environment["ORIN_IDEMPOTENCY_KEY"] = f"{client_id}:{request_id}"
-            environment["ORIN_DURABLE_DB_MODE"] = "1"
         if mode == "dry-run":
             for name in (
                 "HOVERBOARD_STORE_SHOPIFY_STORE_DOMAIN",

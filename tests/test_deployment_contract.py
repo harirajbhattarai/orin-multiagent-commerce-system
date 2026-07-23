@@ -34,6 +34,20 @@ def test_database_credentials_are_file_backed_and_role_separated():
     assert "postgresql://" not in COMPOSE
 
 
+def test_shopify_credential_is_file_backed_and_namespaced():
+    assert (
+        "HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE: "
+        "/run/secrets/hoverboard_shopify_access_token"
+    ) in COMPOSE
+    assert "HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN:" not in COMPOSE
+    assert (
+        "${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/"
+        "hoverboard_shopify_access_token"
+    ) in COMPOSE
+    assert "HOVERBOARD_STORE_SHOPIFY_API_VERSION: \"2026-07\"" in COMPOSE
+    assert "HOVERBOARD_STORE_SHOPIFY_BLOG_ID: \"113430790492\"" in COMPOSE
+
+
 def test_worker_has_no_port_and_uses_read_only_runtime_plus_private_evidence():
     worker = COMPOSE.split("  worker:", 1)[1].split("\nsecrets:", 1)[0]
     assert "ports:" not in worker

@@ -4,10 +4,13 @@ import runpy
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ENTRYPOINT = Path(__file__).resolve().parent / "cron_entrypoint.py"
 MODULE = runpy.run_path(str(ENTRYPOINT), run_name="orin_reporting_test")
 build_report = MODULE["build_report"]
+writer_output_path = MODULE["writer_output_path"]
 
 
 def load_entrypoint_with_args(*args):
@@ -25,6 +28,27 @@ def test_no_mode_flag_defaults_to_dry_run():
     assert module["DRY_RUN"] is True
     assert module["LIVE_DRAFT"] is False
     assert module["REQUESTED_MODE"] == "dry-run"
+
+
+def test_durable_writer_output_stays_in_private_run_evidence(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORIN_DURABLE_DB_MODE", "1")
+    monkeypatch.setenv("ORIN_RUN_ARTIFACT_DIR", str(tmp_path))
+
+    resolved = writer_output_path(
+        "/runtime/clients/hoverboard_store/content_engine/drafts/job-28.html",
+        "28",
+        "job28_test",
+    )
+
+    assert resolved == str(tmp_path / "writer_output_job28_test.html")
+
+
+def test_durable_writer_output_requires_an_absolute_artifact_directory(monkeypatch):
+    monkeypatch.setenv("ORIN_DURABLE_DB_MODE", "1")
+    monkeypatch.setenv("ORIN_RUN_ARTIFACT_DIR", "relative/path")
+
+    with pytest.raises(RuntimeError, match="absolute ORIN_RUN_ARTIFACT_DIR"):
+        writer_output_path(None, "28", "job28_test")
 
 
 def test_explicit_dry_run_takes_precedence_in_cli_parsing():

@@ -176,6 +176,20 @@ def log(msg):
     print(f"  [{ts}] {msg}")
 
 
+def writer_output_path(planned_draft_path, job_num, pipeline_run_id):
+    """Keep database-backed worker output in its private evidence directory."""
+    if os.environ.get("ORIN_DURABLE_DB_MODE") != "1":
+        return planned_draft_path or f"/tmp/orin_job{job_num}_writer_exec.html"
+
+    artifact_dir = os.environ.get("ORIN_RUN_ARTIFACT_DIR", "")
+    artifact_root = Path(artifact_dir)
+    if not artifact_dir or not artifact_root.is_absolute():
+        raise RuntimeError(
+            "durable database mode requires an absolute ORIN_RUN_ARTIFACT_DIR"
+        )
+    return str(artifact_root / f"writer_output_{pipeline_run_id}.html")
+
+
 def run_phase_wrapper(phase_key, extra_args=None):
     """
     Run a phase dry-run wrapper script.
@@ -461,7 +475,11 @@ def run_pipeline():
     print()
     log("Running Phase 2D: Writer Execution + Topic Identity Gate...")
     writer_agent = WriterAgent(str(BASE_DIR), BUSINESS_TODAY.isoformat())
-    exec_output_path = planned_draft_path or f"/tmp/orin_job{job_num}_writer_exec.html"
+    exec_output_path = writer_output_path(
+        planned_draft_path,
+        job_num,
+        pipeline_run_id,
+    )
     try:
         exec_stats = writer_agent.write_selected_job_draft(
             job_ctx=job_ctx,
@@ -872,6 +890,7 @@ def run_pipeline():
             "publisher_route": publisher_route,
             "pipeline_phases_completed": ["1A", "1B", "1C", "2D-WRITER", "2A-POST-WRITE-INLINE", "2B-INLINE", "2E"],
             "pipeline_run_id": pipeline_run_id,
+            "writer_output_path": exec_output_path,
             "next_action": (
                 f"Publisher route: {publisher_route}. "
                 f"Queue status: {job.get('queue_status')}. "
@@ -1010,6 +1029,7 @@ def run_pipeline():
                 "queue_commit_result": {"decision": "dry_run_skipped", "approved": False},
                 "pipeline_phases_completed": ["1A", "1B", "1C", "2D-WRITER", "2A-POST-WRITE-INLINE", "2B-INLINE", "2E", "H"],
                 "pipeline_run_id": pipeline_run_id,
+                "writer_output_path": exec_output_path,
                 "next_action": (
                     f"Gate approved (decision={gate_decision}). "
                     f"DRY-RUN: transaction skipped. "
@@ -1119,6 +1139,7 @@ def run_pipeline():
             "queue_commit_result": commit_result,
             "pipeline_phases_completed": ["1A", "1B", "1C", "2D-WRITER", "2A-POST-WRITE-INLINE", "2B-INLINE", "2E", "H", "I-TX", "I7"],
             "pipeline_run_id": pipeline_run_id,
+            "writer_output_path": exec_output_path,
             "next_action": (
                 f"Transaction: {transaction_decision} ({transaction_approved}). "
                 f"Queue commit: {commit_decision} ({commit_approved}). "
@@ -1171,6 +1192,7 @@ def build_report(result, *, timestamp=None):
         "publisher_decision": result.get("publisher_decision"),
         "review_decision": result.get("review_decision"),
         "pipeline_run_id": result.get("pipeline_run_id", ""),
+        "writer_output_path": result.get("writer_output_path"),
         "transaction_decision": transaction_result.get("decision"),
         "queue_commit_decision": queue_commit_result.get("decision"),
         "shopify_article_id": transaction_result.get("shopify_article_id"),

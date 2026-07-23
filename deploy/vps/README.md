@@ -13,7 +13,8 @@ project.
 - Neither service mounts the Docker socket or OpenClaw configuration.
 - The worker mounts operational workspace data read-only and a separate private
   evidence directory read-write.
-- Database URLs are file-backed Compose secrets, not environment values.
+- Database URLs and the Shopify access token are file-backed Compose secrets,
+  not environment values.
 - Containers are non-root, read-only, capability-free, resource-limited, and
   use `no-new-privileges`.
 - Images are built from one exact reviewed Git commit and tagged with that
@@ -94,6 +95,28 @@ the controlled source update.
 11. Stop and remove the new Compose project. Do not enable request intake,
     automation, Shopify writes, or any scheduler during this test.
 
+12. Before the controlled hidden-draft test, install the Hoverboard Store
+    Shopify token at the path below and run:
+
+    ```bash
+    deploy/vps/preflight.sh --require-secrets --require-shopify-secret
+    ```
+
+    A supervised test may select a future planned item without editing the
+    Markdown queue by adding an explicit worker argument:
+
+    ```bash
+    docker compose --env-file /docker/orin/deployment.env \
+      -f deploy/vps/compose.yml --profile manual-worker \
+      run --rm worker once \
+      --workspace-root /runtime \
+      --artifact-root /evidence \
+      --as-of-date 2026-08-08
+    ```
+
+    This flag is for a supervised manual test only. It is absent from the
+    Compose service command and every scheduler.
+
 ## Credential handoff — user action required
 
 Create independent random passwords for `orin_api` and `orin_worker` without
@@ -110,6 +133,15 @@ on the VPS:
 Do not use `postgres`, `service_role`, or one shared credential. The application
 verifies the exact database role on every operation and fails readiness if the
 URL points at an overprivileged role.
+
+Store the existing Hoverboard Store Admin API token separately at:
+
+- `/docker/orin/secrets/hoverboard_shopify_access_token`, owner UID `1000`,
+  mode `0400`
+
+The worker receives only the token file path. The store domain, pinned API
+version, and blog ID are non-secret reviewed Compose configuration. OpenClaw
+does not receive or mount this secret.
 
 ## Rollback
 

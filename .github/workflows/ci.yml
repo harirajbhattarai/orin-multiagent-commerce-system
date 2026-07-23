@@ -66,7 +66,8 @@ jobs:
             "${deployment_tmp}/secrets"
           touch \
             "${deployment_tmp}/secrets/control_database_url" \
-            "${deployment_tmp}/secrets/worker_database_url"
+            "${deployment_tmp}/secrets/worker_database_url" \
+            "${deployment_tmp}/secrets/hoverboard_shopify_access_token"
           ORIN_DEPLOY_SHA="${GITHUB_SHA}" \
           ORIN_PROJECT_ROOT="${GITHUB_WORKSPACE}" \
           ORIN_RUNTIME_ROOT="${deployment_tmp}/runtime" \
