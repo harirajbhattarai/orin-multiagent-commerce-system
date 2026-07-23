@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 
-SCHEMA_VERSION = "orin.final-result/v1"
+SCHEMA_VERSION = "orin.final-result/v2"
 
 ERROR_INVALID_REQUEST = "ORIN_INVALID_REQUEST"
 ERROR_UNSUPPORTED_CLIENT = "ORIN_UNSUPPORTED_CLIENT"
@@ -37,6 +37,9 @@ class FinalResult:
     code_version: str
     config_version: str | None
     idempotency_key: str
+    replay_disposition: str
+    shopify_write_state: str
+    shopify_idempotency_marker: str | None
     shopify_article_id: str | None
     shopify_create_count: int
     shopify_published: bool

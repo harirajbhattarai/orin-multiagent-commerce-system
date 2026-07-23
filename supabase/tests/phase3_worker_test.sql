@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(18);
 
 select ok(
   (
@@ -40,6 +40,11 @@ select ok(
   and has_function_privilege(
     'orin_worker',
     'orin_private.complete_job(uuid,text,jsonb)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'orin_worker',
+    'orin_private.defer_job(uuid,text,jsonb)',
     'EXECUTE'
   ),
   'orin_worker can execute only the worker capability functions'
@@ -195,7 +200,7 @@ select ok(
 
 insert into worker_payload values (
   jsonb_build_object(
-    'schema', 'orin.final-result/v1',
+    'schema', 'orin.final-result/v2',
     'run_id', 'hb_20260722T180000Z_12345678',
     'request_id', '55555555-5555-4555-8555-555555555555',
     'client_id', 'hoverboard_store',
@@ -208,6 +213,8 @@ insert into worker_payload values (
     'code_version', 'test-sha',
     'config_version', null,
     'idempotency_key', 'hoverboard_store:55555555-5555-4555-8555-555555555555',
+    'replay_disposition', 'terminal',
+    'shopify_write_state', 'not_attempted',
     'shopify_article_id', null,
     'shopify_create_count', 0,
     'shopify_published', false,
@@ -314,6 +321,99 @@ select ok(
   )
   and (select count(*) from public.runs where request_id = '55555555-5555-4555-8555-555555555555') = 1,
   'repeating an identical completion is idempotent'
+);
+
+insert into public.content_jobs (
+  client_id,
+  source_job_key,
+  request_id,
+  requested_mode,
+  scheduled_for,
+  payload
+) values (
+  'hoverboard_store',
+  'worker-cached-terminal',
+  '99999999-9999-4999-8999-999999999999',
+  'dry-run',
+  now(),
+  '{}'::jsonb
+);
+
+set local role orin_worker;
+insert into worker_claims
+select * from orin_private.claim_next_job('worker:test:cached-one', 1200);
+reset role;
+
+update public.content_jobs
+set locked_at = statement_timestamp() - interval '2 minutes',
+    lease_expires_at = statement_timestamp() - interval '1 second'
+where request_id = '99999999-9999-4999-8999-999999999999';
+
+set local role orin_worker;
+insert into worker_claims
+select * from orin_private.claim_next_job('worker:test:cached-two', 1200);
+reset role;
+
+select is(
+  (
+    select max(attempt_count)
+    from worker_claims
+    where request_id = '99999999-9999-4999-8999-999999999999'
+  ),
+  2::smallint,
+  'an expired lease creates a second database claim attempt'
+);
+
+set local role orin_worker;
+insert into worker_completions
+select * from orin_private.complete_job(
+  (
+    select job_id
+    from worker_claims
+    where request_id = '99999999-9999-4999-8999-999999999999'
+    limit 1
+  ),
+  'worker:test:cached-two',
+  jsonb_build_object(
+    'schema', 'orin.final-result/v2',
+    'run_id', 'hb_20260723T130000Z_11223344',
+    'request_id', '99999999-9999-4999-8999-999999999999',
+    'client_id', 'hoverboard_store',
+    'job_id', null,
+    'attempt', 1,
+    'requested_mode', 'dry-run',
+    'effective_mode', 'dry-run',
+    'status', 'completed',
+    'decision', 'no_job_due',
+    'code_version', 'test-sha',
+    'config_version', null,
+    'idempotency_key', 'hoverboard_store:99999999-9999-4999-8999-999999999999',
+    'replay_disposition', 'terminal',
+    'shopify_write_state', 'not_attempted',
+    'shopify_article_id', null,
+    'shopify_create_count', 0,
+    'shopify_published', false,
+    'queue_changed', false,
+    'reconciliation_status', 'not_required',
+    'started_at', '2026-07-23T13:00:00+00:00',
+    'finished_at', '2026-07-23T13:00:01+00:00',
+    'artifact_uri', '/private/evidence/cached-run',
+    'error_code', null,
+    'pipeline_exit_code', 0
+  )
+);
+reset role;
+
+select ok(
+  (
+    select
+      attempt = 1
+      and status = 'completed'
+      and replay_disposition = 'terminal'
+    from public.runs
+    where request_id = '99999999-9999-4999-8999-999999999999'
+  ),
+  'a cached terminal result from the prior lease can finalize after reclaim'
 );
 
 select * from finish();

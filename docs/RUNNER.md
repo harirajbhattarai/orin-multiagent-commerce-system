@@ -21,7 +21,9 @@ uv run --frozen python -m orin_runner run \
   --workspace-root /data/.openclaw/workspace
 ```
 
-`--request-id` is mandatory and UUID-shaped. Reusing a request ID returns its existing durable result instead of executing the pipeline again.
+`--request-id` is mandatory and UUID-shaped. Reusing a request ID returns an
+existing terminal result. A `retry` or `reconcile` result executes the pipeline
+again with the same Shopify marker and a higher attempt number.
 
 `hidden-draft` maps to the existing double-confirmation safety gate. It must remain unscheduled until controlled write, retry, and reconciliation tests pass.
 
@@ -41,7 +43,13 @@ It contains:
 - `pipeline_preview.json` when produced
 - authoritative `final_result.json`
 
-The result follows `schemas/final_result.v1.schema.json`. It always records `shopify_published: false`, a create count no greater than one, queue-change status, code version, timestamps, and a stable error code for failures.
+The result follows `schemas/final_result.v2.schema.json`. It always records
+`shopify_published: false`, `queue_changed: false`, a request-level observed
+article count no greater than one, code version, timestamps, and a stable error
+code for failures. `shopify_write_state` distinguishes no attempt, uncertainty,
+and one marker-owned article. `replay_disposition` determines whether the
+request is cacheable, safely retryable, or must reconcile before another
+create.
 
 The local file lock enforces one runner process per client artifact root. Supabase leases and database idempotency replace this local mechanism in the production worker phase.
 

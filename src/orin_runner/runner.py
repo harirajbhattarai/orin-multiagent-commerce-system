@@ -42,6 +42,10 @@ class IdempotencyConflictError(RuntimeError):
     """Raised when a request ID is reused with different immutable inputs."""
 
 
+class UnsupportedClientError(ValueError):
+    """Raised when the Python API receives a client without a pipeline binding."""
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -123,9 +127,9 @@ def _read_existing_result(
     client_id: str,
     requested_mode: str,
     as_of_date: str | None,
-) -> dict[str, Any] | None:
+) -> tuple[dict[str, Any] | None, int]:
     if not request_index.exists():
-        return None
+        return None, 1
     pointer = json.loads(request_index.read_text(encoding="utf-8"))
     expected = {
         "client_id": client_id,
@@ -136,7 +140,31 @@ def _read_existing_result(
     if actual != expected:
         raise IdempotencyConflictError(f"request inputs differ: expected={actual}, received={expected}")
     result_path = Path(pointer["final_result_path"])
-    return json.loads(result_path.read_text(encoding="utf-8"))
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    attempt = int(result.get("attempt", pointer.get("attempt", 1)))
+    disposition = result.get("replay_disposition")
+    if result.get("schema") != SCHEMA_VERSION:
+        # v1 did not encode replay safety. Re-execute through the marker-first
+        # pipeline so every cached result is upgraded to the v2 contract.
+        disposition = "reconcile" if requested_mode == "hidden-draft" else "retry"
+    elif disposition is None:
+        # Recover safely from pre-v2 request indexes. Hidden-draft process
+        # failures may have reached Shopify and must not remain cached.
+        uncertain_errors = {
+            ERROR_PIPELINE_TIMEOUT,
+            ERROR_PIPELINE_RESULT_MISSING,
+            ERROR_PIPELINE_RESULT_INVALID,
+            ERROR_PIPELINE_EXIT_NONZERO,
+        }
+        disposition = (
+            "reconcile"
+            if requested_mode == "hidden-draft"
+            and result.get("error_code") in uncertain_errors
+            else "terminal"
+        )
+    if disposition == "terminal":
+        return result, attempt
+    return None, attempt + 1
 
 
 def _pipeline_decision(preview: dict[str, Any]) -> str:
@@ -189,8 +217,42 @@ def _result_from_pipeline(
     finished_at: str,
     artifact_uri: str,
     pipeline_exit_code: int,
+    attempt: int,
 ) -> FinalResult:
-    blocked = bool(preview.get("blocked"))
+    reconciliation_status = str(preview.get("reconciliation_status") or "not_required")
+    article_id = preview.get("shopify_article_id")
+    shopify_write_state = str(
+        preview.get("shopify_write_state")
+        or (
+            "article_observed"
+            if article_id is not None
+            else "unknown"
+            if requested_mode == "hidden-draft"
+            and reconciliation_status == "needs_review"
+            else "not_attempted"
+        )
+    )
+    replay_disposition = str(
+        preview.get("replay_disposition")
+        or (
+            "reconcile"
+            if requested_mode == "hidden-draft"
+            and (
+                reconciliation_status == "needs_review"
+                or shopify_write_state == "unknown"
+            )
+            else "terminal"
+        )
+    )
+    if pipeline_exit_code != 0:
+        replay_disposition = (
+            "reconcile"
+            if requested_mode == "hidden-draft"
+            and shopify_write_state != "not_attempted"
+            else "retry"
+        )
+
+    blocked = bool(preview.get("blocked")) or replay_disposition != "terminal"
     error_code = ERROR_PIPELINE_BLOCKED if blocked else None
     status = "blocked" if blocked else "completed"
     if pipeline_exit_code != 0:
@@ -198,8 +260,19 @@ def _result_from_pipeline(
         error_code = ERROR_PIPELINE_EXIT_NONZERO
 
     transaction_decision = str(preview.get("transaction_decision") or "")
-    create_count = 1 if transaction_decision == "DRAFT_CREATED_VERIFICATION_PASSED" else 0
-    article_id = preview.get("shopify_article_id")
+    create_count = int(
+        preview.get(
+            "shopify_create_count",
+            1 if transaction_decision == "DRAFT_CREATED_VERIFICATION_PASSED" else 0,
+        )
+    )
+    if article_id is not None and shopify_write_state == "article_observed":
+        create_count = 1
+    effective_mode = (
+        "hidden-draft"
+        if requested_mode == "hidden-draft"
+        else str(preview.get("effective_mode") or preview.get("mode") or requested_mode)
+    )
 
     return FinalResult(
         schema=SCHEMA_VERSION,
@@ -207,19 +280,29 @@ def _result_from_pipeline(
         request_id=request_id,
         client_id=client_id,
         job_id=str(preview["selected_job"]) if preview.get("selected_job") is not None else None,
-        attempt=1,
+        attempt=attempt,
         requested_mode=requested_mode,
-        effective_mode=str(preview.get("effective_mode") or preview.get("mode") or requested_mode),
+        effective_mode=effective_mode,
         status=status,
         decision=_pipeline_decision(preview),
         code_version=code_version,
         config_version=os.environ.get("ORIN_CONFIG_VERSION"),
         idempotency_key=f"{client_id}:{request_id}",
+        replay_disposition=replay_disposition,
+        shopify_write_state=shopify_write_state,
+        shopify_idempotency_marker=(
+            preview.get("shopify_idempotency_marker")
+            or (
+                f"orin-v1:{client_id}:{request_id}"
+                if requested_mode == "hidden-draft"
+                else None
+            )
+        ),
         shopify_article_id=str(article_id) if article_id is not None else None,
         shopify_create_count=create_count,
         shopify_published=False,
         queue_changed=bool(preview.get("queue_touched", False)),
-        reconciliation_status=str(preview.get("reconciliation_status") or "not_required"),
+        reconciliation_status=reconciliation_status,
         started_at=started_at,
         finished_at=finished_at,
         artifact_uri=artifact_uri,
@@ -240,6 +323,10 @@ def _failure_result(
     started_at: str,
     artifact_uri: str,
     pipeline_exit_code: int | None,
+    attempt: int,
+    replay_disposition: str,
+    shopify_write_state: str,
+    reconciliation_status: str,
 ) -> FinalResult:
     return FinalResult(
         schema=SCHEMA_VERSION,
@@ -247,7 +334,7 @@ def _failure_result(
         request_id=request_id,
         client_id=client_id,
         job_id=None,
-        attempt=1,
+        attempt=attempt,
         requested_mode=requested_mode,
         effective_mode="none",
         status="failed",
@@ -255,11 +342,16 @@ def _failure_result(
         code_version=code_version,
         config_version=os.environ.get("ORIN_CONFIG_VERSION"),
         idempotency_key=f"{client_id}:{request_id}",
+        replay_disposition=replay_disposition,
+        shopify_write_state=shopify_write_state,
+        shopify_idempotency_marker=(
+            f"orin-v1:{client_id}:{request_id}" if requested_mode == "hidden-draft" else None
+        ),
         shopify_article_id=None,
         shopify_create_count=0,
         shopify_published=False,
         queue_changed=False,
-        reconciliation_status="not_started",
+        reconciliation_status=reconciliation_status,
         started_at=started_at,
         finished_at=utc_now(),
         artifact_uri=artifact_uri,
@@ -282,6 +374,9 @@ def run_client(
     pipeline_timeout_seconds: float = 900,
 ) -> dict[str, Any]:
     """Run one idempotent client request and return its final-result payload."""
+    if client_id not in SUPPORTED_CLIENTS:
+        raise UnsupportedClientError(f"unsupported client: {client_id}")
+
     artifact_root.mkdir(parents=True, exist_ok=True, mode=0o700)
     artifact_root.chmod(0o700)
     requests_dir = artifact_root / "requests"
@@ -290,7 +385,7 @@ def run_client(
     request_index = requests_dir / f"{_safe_request_name(request_id)}.json"
 
     with _runner_lock(artifact_root):
-        existing = _read_existing_result(
+        existing, attempt = _read_existing_result(
             request_index,
             client_id=client_id,
             requested_mode=mode,
@@ -316,16 +411,20 @@ def run_client(
         command.append("--dry-run" if mode == "dry-run" else "--live-draft")
         if mode == "hidden-draft":
             command.append("--confirm-live-draft")
-        command.extend(["--client=hoverboard_store", "--json"])
+        command.extend([f"--client={client_id}", "--json"])
         if as_of_date:
             command.append(f"--as-of-date={as_of_date}")
 
         environment = os.environ.copy()
         environment["ORIN_WORKSPACE_ROOT"] = str(workspace_root.resolve())
+        if mode == "hidden-draft":
+            environment["ORIN_IDEMPOTENCY_KEY"] = f"{client_id}:{request_id}"
+            environment["ORIN_DURABLE_DB_MODE"] = "1"
         if mode == "dry-run":
             for name in (
                 "HOVERBOARD_STORE_SHOPIFY_STORE_DOMAIN",
                 "HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN",
+                "HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE",
                 "HOVERBOARD_STORE_SHOPIFY_API_VERSION",
                 "HOVERBOARD_STORE_SHOPIFY_BLOG_ID",
             ):
@@ -360,6 +459,16 @@ def run_client(
                 started_at=started_at,
                 artifact_uri=artifact_uri,
                 pipeline_exit_code=None,
+                attempt=attempt,
+                replay_disposition=(
+                    "reconcile" if mode == "hidden-draft" else "retry"
+                ),
+                shopify_write_state=(
+                    "unknown" if mode == "hidden-draft" else "not_attempted"
+                ),
+                reconciliation_status=(
+                    "needs_review" if mode == "hidden-draft" else "not_required"
+                ),
             )
         except OSError as exc:
             _write_private(run_dir / "stdout.log", "")
@@ -375,6 +484,12 @@ def run_client(
                 started_at=started_at,
                 artifact_uri=artifact_uri,
                 pipeline_exit_code=None,
+                attempt=attempt,
+                replay_disposition="retry",
+                shopify_write_state="not_attempted",
+                reconciliation_status=(
+                    "not_started" if mode == "hidden-draft" else "not_required"
+                ),
             )
 
         if completed is not None and not pipeline_preview_path.exists():
@@ -389,6 +504,16 @@ def run_client(
                 started_at=started_at,
                 artifact_uri=artifact_uri,
                 pipeline_exit_code=completed.returncode,
+                attempt=attempt,
+                replay_disposition=(
+                    "reconcile" if mode == "hidden-draft" else "retry"
+                ),
+                shopify_write_state=(
+                    "unknown" if mode == "hidden-draft" else "not_attempted"
+                ),
+                reconciliation_status=(
+                    "needs_review" if mode == "hidden-draft" else "not_required"
+                ),
             )
         elif completed is not None:
             try:
@@ -405,6 +530,7 @@ def run_client(
                     finished_at=utc_now(),
                     artifact_uri=artifact_uri,
                     pipeline_exit_code=completed.returncode,
+                    attempt=attempt,
                 )
             except (json.JSONDecodeError, OSError, TypeError, ValueError):
                 result = _failure_result(
@@ -418,6 +544,16 @@ def run_client(
                     started_at=started_at,
                     artifact_uri=artifact_uri,
                     pipeline_exit_code=completed.returncode,
+                    attempt=attempt,
+                    replay_disposition=(
+                        "reconcile" if mode == "hidden-draft" else "retry"
+                    ),
+                    shopify_write_state=(
+                        "unknown" if mode == "hidden-draft" else "not_attempted"
+                    ),
+                    reconciliation_status=(
+                        "needs_review" if mode == "hidden-draft" else "not_required"
+                    ),
                 )
 
         assert result is not None
@@ -431,6 +567,8 @@ def run_client(
                 "client_id": client_id,
                 "requested_mode": mode,
                 "as_of_date": as_of_date,
+                "attempt": attempt,
+                "replay_disposition": result.replay_disposition,
             },
         )
         _event(events_path, "run_finished", run_id=run_id, status=result.status, decision=result.decision, error_code=result.error_code)

@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://orin.local/schemas/final_result.v2.schema.json",
+  "title": "ORIN Final Result v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "run_id",
+    "request_id",
+    "client_id",
+    "job_id",
+    "attempt",
+    "requested_mode",
+    "effective_mode",
+    "status",
+    "decision",
+    "code_version",
+    "config_version",
+    "idempotency_key",
+    "replay_disposition",
+    "shopify_write_state",
+    "shopify_idempotency_marker",
+    "shopify_article_id",
+    "shopify_create_count",
+    "shopify_published",
+    "queue_changed",
+    "reconciliation_status",
+    "started_at",
+    "finished_at",
+    "artifact_uri",
+    "error_code",
+    "pipeline_exit_code"
+  ],
+  "properties": {
+    "schema": {"const": "orin.final-result/v2"},
+    "run_id": {"type": "string", "minLength": 1},
+    "request_id": {"type": "string", "format": "uuid"},
+    "client_id": {"const": "hoverboard_store"},
+    "job_id": {"type": ["string", "null"]},
+    "attempt": {"type": "integer", "minimum": 1},
+    "requested_mode": {"enum": ["dry-run", "hidden-draft"]},
+    "effective_mode": {"type": "string"},
+    "status": {"enum": ["completed", "blocked", "failed"]},
+    "decision": {"type": "string", "minLength": 1},
+    "code_version": {"type": "string", "minLength": 1},
+    "config_version": {"type": ["string", "null"]},
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "replay_disposition": {"enum": ["terminal", "retry", "reconcile"]},
+    "shopify_write_state": {
+      "enum": ["not_attempted", "unknown", "article_observed"]
+    },
+    "shopify_idempotency_marker": {"type": ["string", "null"]},
+    "shopify_article_id": {"type": ["string", "null"]},
+    "shopify_create_count": {"type": "integer", "minimum": 0, "maximum": 1},
+    "shopify_published": {"const": false},
+    "queue_changed": {"const": false},
+    "reconciliation_status": {
+      "enum": [
+        "not_started",
+        "not_required",
+        "pending",
+        "reconciled",
+        "needs_review",
+        "failed"
+      ]
+    },
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "artifact_uri": {"type": "string", "minLength": 1},
+    "error_code": {"type": ["string", "null"]},
+    "pipeline_exit_code": {"type": ["integer", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "replay_disposition": {"enum": ["retry", "reconcile"]}
+        },
+        "required": ["replay_disposition"]
+      },
+      "then": {
+        "properties": {
+          "status": {"enum": ["blocked", "failed"]}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "shopify_write_state": {"const": "article_observed"}
+        },
+        "required": ["shopify_write_state"]
+      },
+      "then": {
+        "properties": {
+          "shopify_article_id": {"type": "string", "minLength": 1},
+          "shopify_create_count": {"const": 1}
+        }
+      },
+      "else": {
+        "properties": {
+          "shopify_article_id": {"type": "null"},
+          "shopify_create_count": {"const": 0}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "requested_mode": {"const": "dry-run"}
+        },
+        "required": ["requested_mode"]
+      },
+      "then": {
+        "properties": {
+          "shopify_write_state": {"const": "not_attempted"},
+          "shopify_idempotency_marker": {"type": "null"}
+        }
+      },
+      "else": {
+        "properties": {
+          "shopify_idempotency_marker": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  ]
+}

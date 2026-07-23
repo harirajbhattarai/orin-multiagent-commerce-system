@@ -62,6 +62,34 @@ def test_dry_run_report_is_truthful():
     assert report["queue_touched"] is False
 
 
+def test_needs_review_report_preserves_nonterminal_reconciliation_state():
+    report = build_report(
+        {
+            "blocked": True,
+            "dry_run": False,
+            "requested_mode": "live-draft",
+            "shopify_touched": True,
+            "shopify_write_state": "article_observed",
+            "replay_disposition": "reconcile",
+            "transaction_result": {
+                "decision": "DRAFT_CREATED_VERIFICATION_FAILED",
+                "approved": False,
+                "shopify_article_id": 9001,
+                "shopify_create_count": 1,
+                "shopify_write_state": "article_observed",
+                "reconciliation_status": "needs_review",
+            },
+        },
+        timestamp="2026-07-23T12:00:00+00:00",
+    )
+
+    assert report["blocked"] is True
+    assert report["shopify_create_count"] == 1
+    assert report["shopify_write_state"] == "article_observed"
+    assert report["reconciliation_status"] == "needs_review"
+    assert report["replay_disposition"] == "reconcile"
+
+
 def test_live_draft_result_is_not_reported_as_dry_run():
     report = build_report(
         {

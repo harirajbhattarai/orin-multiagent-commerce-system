@@ -11,6 +11,9 @@ No hardcoded credentials. No token defaults. No credential in docstrings.
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
+from orin_control.secrets import read_private_secret
 
 
 # ── Error classification ───────────────────────────────────────────────────────
@@ -53,10 +56,11 @@ def load_hoverboard_shopify_config() -> dict:
     """
     Load Hoverboard Store Shopify configuration from environment variables.
 
-    Required variables:
+    Required configuration:
         HOVERBOARD_STORE_SHOPIFY_STORE_DOMAIN
-        HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN
         HOVERBOARD_STORE_SHOPIFY_API_VERSION
+        Exactly one of HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN or
+        HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE
 
     Returns:
         dict with keys:
@@ -75,9 +79,13 @@ def load_hoverboard_shopify_config() -> dict:
     if not store_domain:
         missing.append("HOVERBOARD_STORE_SHOPIFY_STORE_DOMAIN")
 
-    access_token = os.environ.get("HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN", "")
-    if not access_token:
-        missing.append("HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN")
+    direct_access_token = os.environ.get("HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN", "")
+    access_token_file = os.environ.get("HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE", "")
+    if bool(direct_access_token) == bool(access_token_file):
+        missing.append(
+            "exactly one of HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN "
+            "or HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE"
+        )
 
     api_version = os.environ.get("HOVERBOARD_STORE_SHOPIFY_API_VERSION", "")
     if not api_version:
@@ -85,6 +93,12 @@ def load_hoverboard_shopify_config() -> dict:
 
     if missing:
         raise HoverboardShopifyConfigError(missing)
+
+    access_token = (
+        direct_access_token
+        if direct_access_token
+        else read_private_secret(Path(access_token_file), label="Shopify access token")
+    )
 
     # Blog ID is optional — fall back to a known default if not set
     blog_id_str = os.environ.get("HOVERBOARD_STORE_SHOPIFY_BLOG_ID", "")
@@ -96,6 +110,4 @@ def load_hoverboard_shopify_config() -> dict:
         "api_version": api_version,
         "blog_id": blog_id,
     }
-
-
 

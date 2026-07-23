@@ -27,7 +27,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/orin_runner", "src/orin_control", "src/orin_worker"]
+packages = ["src/orin_runner", "src/orin_control", "src/orin_worker", "src/orin_shopify"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

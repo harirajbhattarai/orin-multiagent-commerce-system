@@ -101,6 +101,38 @@ class PostgresWorkerRepository:
             replayed=value["replayed"],
         )
 
+    def defer(
+        self,
+        *,
+        job_id: UUID,
+        worker_id: str,
+        final_result: dict[str, Any],
+    ) -> CompletionRecord:
+        with self.engine.begin() as connection:
+            self._assert_narrow_role(connection)
+            statement = text(
+                """
+                select *
+                from orin_private.defer_job(
+                  :job_id, :worker_id, :final_result
+                )
+                """
+            ).bindparams(bindparam("final_result", type_=JSONB))
+            row = connection.execute(
+                statement,
+                {
+                    "job_id": job_id,
+                    "worker_id": worker_id,
+                    "final_result": final_result,
+                },
+            ).one()
+        value = row._mapping
+        return CompletionRecord(
+            run_id=value["run_id"],
+            status=value["status"],
+            replayed=value["replayed"],
+        )
+
     def ping(self) -> None:
         with self.engine.connect() as connection:
             self._assert_narrow_role(connection)
