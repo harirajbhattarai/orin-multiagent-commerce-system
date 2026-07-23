@@ -1,4 +1,8 @@
 import runpy
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -13,6 +17,7 @@ MODULE_PATH = (
 )
 MODULE = runpy.run_path(str(MODULE_PATH))
 writable_report_path = MODULE["writable_report_path"]
+writable_output_path = MODULE["writable_output_path"]
 
 
 def test_durable_report_uses_private_run_evidence(tmp_path, monkeypatch):
@@ -59,3 +64,38 @@ def test_durable_report_rejects_relative_artifact_directory(monkeypatch):
                 "clients/hoverboard_store/content_engine/orin_status_phase2e.md"
             ),
         )
+
+
+def test_transaction_evidence_uses_private_run_directory(tmp_path):
+    repository_root = Path(__file__).resolve().parents[1]
+    agents_dir = (
+        repository_root / "tools" / "shopify_publisher" / "orin"
+    )
+    environment = os.environ.copy()
+    environment["ORIN_RUN_ARTIFACT_DIR"] = str(tmp_path)
+    environment["PYTHONPATH"] = os.pathsep.join(
+        [str(agents_dir), str(repository_root / "src")]
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json; "
+                "from shopify_draft_transaction import _EVIDENCE_BASE; "
+                "from live_draft_gate import _check_verification_capability; "
+                "print(json.dumps({'base': str(_EVIDENCE_BASE), "
+                "'capability': _check_verification_capability()}))"
+            ),
+        ],
+        cwd=repository_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    diagnostic = json.loads(result.stdout)
+    assert diagnostic["base"] == str(tmp_path / "shopify_transaction")
+    assert diagnostic["capability"] == [True, []]

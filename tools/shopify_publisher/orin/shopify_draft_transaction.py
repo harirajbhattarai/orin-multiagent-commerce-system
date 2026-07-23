@@ -39,7 +39,7 @@ from orin_shopify import (
     HiddenDraftGateway,
     ShopifyRequestError,
 )
-from workspace_paths import workspace_root
+from workspace_paths import writable_output_path
 
 # ── Canonical HTML comparator (Tier C verification) ────────────────────────
 # Production verification contract: Tier A (raw exact) → Tier B (inter-tag LF)
@@ -81,9 +81,15 @@ BLOG_TITLE = "Journal Insights"
 # ── Durable evidence retention ───────────────────────────────────────────────
 # Per-transaction evidence directory: automation_state/runs/<run_id>/
 # Contains: sent_body.html, fetched_body.html, verification.json, transaction_result.json
-# Resolve absolute path to avoid double-".." traversal landing in tools/clients/...
-_WORKSPACE_ROOT = workspace_root()
-_EVIDENCE_BASE = _WORKSPACE_ROOT / "clients" / "hoverboard_store" / "content_engine" / "automation_state" / "runs"
+# Database-backed workers keep transaction evidence inside the same private
+# per-run directory as final_result.json. Local legacy execution retains its
+# existing workspace path.
+_EVIDENCE_BASE = writable_output_path(
+    artifact_relative_path="shopify_transaction",
+    workspace_relative_path=(
+        "clients/hoverboard_store/content_engine/automation_state/runs"
+    ),
+)
 
 
 def _create_transaction_run_dir(job_number: str) -> Path | None:
