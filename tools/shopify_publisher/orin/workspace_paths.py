@@ -19,12 +19,24 @@ def workspace_root() -> Path:
     return Path(os.environ.get("ORIN_WORKSPACE_ROOT", _SOURCE_ROOT)).expanduser().resolve()
 
 
-def writable_report_path(*, artifact_name: str, workspace_relative_path: str) -> Path:
-    """Keep generated reports out of a read-only runtime workspace."""
+def writable_output_path(
+    *,
+    artifact_relative_path: str,
+    workspace_relative_path: str,
+) -> Path:
+    """Resolve mutable output into private run evidence when configured."""
     artifact_dir = os.environ.get("ORIN_RUN_ARTIFACT_DIR")
     if artifact_dir:
         artifact_root = Path(artifact_dir).expanduser()
         if not artifact_root.is_absolute():
             raise RuntimeError("ORIN_RUN_ARTIFACT_DIR must be absolute")
-        return artifact_root.resolve() / artifact_name
+        return artifact_root.resolve() / artifact_relative_path
     return workspace_root() / workspace_relative_path
+
+
+def writable_report_path(*, artifact_name: str, workspace_relative_path: str) -> Path:
+    """Keep generated reports out of a read-only runtime workspace."""
+    return writable_output_path(
+        artifact_relative_path=artifact_name,
+        workspace_relative_path=workspace_relative_path,
+    )
