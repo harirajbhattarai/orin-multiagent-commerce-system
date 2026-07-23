@@ -17,11 +17,16 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from workspace_paths import workspace_root
+from workspace_paths import workspace_root, writable_report_path
 
 AGENT_SCRIPT = Path(__file__).resolve().parent / "publisher_agent.py"
 BASE_DIR = workspace_root()
-REPORT_PATH = BASE_DIR / "clients/hoverboard_store/content_engine/orin_status_phase2e.md"
+REPORT_PATH = writable_report_path(
+    artifact_name="orin_status_phase2e.md",
+    workspace_relative_path=(
+        "clients/hoverboard_store/content_engine/orin_status_phase2e.md"
+    ),
+)
 JSON_PATH = Path("/tmp/orin_phase2e_publisher_preview.json")
 JOB_CONTEXT_ARG = "--job-context"
 WRITER_EXECUTION_ARG = "--writer-execution"

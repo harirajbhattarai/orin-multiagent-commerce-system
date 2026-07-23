@@ -28,7 +28,7 @@ import os
 import sys
 from pathlib import Path
 
-from workspace_paths import workspace_root
+from workspace_paths import workspace_root, writable_report_path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from business_time import get_business_today_from_args
@@ -43,7 +43,12 @@ CURRENT_DATE_STR = get_business_today_from_args(sys.argv[1:]).isoformat()
 
 SELECTED_JOB_WRITER_PLAN_PATH = Path("/tmp/orin_selected_job_writer_plan.json")
 SELECTED_JOB_CONTEXT_PATH = Path("/tmp/orin_selected_job_context.json")
-STATUS_REPORT_PATH = BASE_DIR / "clients" / "hoverboard_store" / "content_engine" / "orin_status_phase2c.md"
+STATUS_REPORT_PATH = writable_report_path(
+    artifact_name="orin_status_phase2c.md",
+    workspace_relative_path=(
+        "clients/hoverboard_store/content_engine/orin_status_phase2c.md"
+    ),
+)
 
 
 def flines(items):
