@@ -4,6 +4,9 @@ This directory defines the maintenance-only deployment boundary for
 `srv1532965`. It does not replace or modify the Hostinger OpenClaw Compose
 project.
 
+The current verified production state and next approved step are recorded in
+[`docs/MAINTENANCE_STATUS.md`](../../docs/MAINTENANCE_STATUS.md).
+
 ## Invariants
 
 - Both services require explicit Compose profiles; a normal `compose up` starts
