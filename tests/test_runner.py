@@ -56,6 +56,37 @@ def invoke(
     )
 
 
+@pytest.mark.parametrize(
+    "client_id",
+    ["aroma_store", "", "Hoverboard_Store", "../hoverboard_store"],
+)
+def test_python_api_rejects_unsupported_client_before_pipeline_or_evidence(
+    tmp_path,
+    client_id,
+):
+    preview_path = tmp_path / "pipeline-preview.json"
+    command, _, counter_path = fake_pipeline(
+        tmp_path,
+        {"blocked": False, "planner_decision": "no_job_due"},
+    )
+    artifact_root = tmp_path / "unsupported-client-artifacts"
+
+    with pytest.raises(ValueError, match="unsupported client"):
+        run_client(
+            client_id=client_id,
+            request_id=str(uuid.uuid4()),
+            mode="hidden-draft",
+            workspace_root=tmp_path / "workspace",
+            artifact_root=artifact_root,
+            repo_root=Path.cwd(),
+            pipeline_command=command,
+            pipeline_preview_path=preview_path,
+        )
+
+    assert counter_path.exists() is False
+    assert artifact_root.exists() is False
+
+
 def test_no_job_run_writes_versioned_durable_result(tmp_path):
     preview = {
         "blocked": False,
@@ -74,9 +105,13 @@ def test_no_job_run_writes_versioned_durable_result(tmp_path):
     assert result["shopify_create_count"] == 0
     assert result["shopify_published"] is False
     assert result["queue_changed"] is False
+    assert result["replay_disposition"] == "terminal"
+    assert result["shopify_write_state"] == "not_attempted"
     final_path = Path(result["artifact_uri"]) / "final_result.json"
     assert json.loads(final_path.read_text()) == result
     assert final_path.stat().st_mode & 0o077 == 0
+    contract = json.loads(Path("schemas/final_result.v2.schema.json").read_text())
+    assert set(result) == set(contract["required"])
 
 
 def test_code_version_matches_checkout_without_global_git_configuration():
@@ -110,6 +145,25 @@ def test_request_id_is_locally_idempotent(tmp_path):
 
     assert second == first
     assert counter_path.read_text() == "1"
+
+
+def test_legacy_cached_result_is_reexecuted_into_v2_contract(tmp_path):
+    preview = {"blocked": False, "planner_decision": "no_job_due", "effective_mode": "dry-run"}
+    command, preview_path, counter_path = fake_pipeline(tmp_path, preview)
+    request_id = str(uuid.uuid4())
+    first = invoke(tmp_path, command, preview_path, request_id)
+    final_path = Path(first["artifact_uri"]) / "final_result.json"
+    legacy = dict(first)
+    legacy["schema"] = "orin.final-result/v1"
+    legacy.pop("replay_disposition")
+    legacy.pop("shopify_write_state")
+    final_path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    upgraded = invoke(tmp_path, command, preview_path, request_id)
+
+    assert upgraded["schema"] == SCHEMA_VERSION
+    assert upgraded["attempt"] == 2
+    assert counter_path.read_text() == "2"
 
 
 def test_request_id_reuse_with_different_mode_is_rejected(tmp_path):
@@ -148,7 +202,88 @@ def test_timeout_is_recorded_as_durable_failure(tmp_path):
 
     assert result["status"] == "failed"
     assert result["error_code"] == ERROR_PIPELINE_TIMEOUT
+    assert result["replay_disposition"] == "retry"
     assert Path(result["artifact_uri"], "final_result.json").exists()
+
+
+def test_hidden_draft_timeout_is_replayed_for_marker_reconciliation(tmp_path):
+    preview_path = tmp_path / "replay-preview.json"
+    counter_path = tmp_path / "timeout-counter.txt"
+    script_path = tmp_path / "timeout_then_reconcile.py"
+    script_path.write_text(
+        "import json, pathlib, sys, time\n"
+        f"counter = pathlib.Path({str(counter_path)!r})\n"
+        "count = int(counter.read_text()) + 1 if counter.exists() else 1\n"
+        "counter.write_text(str(count))\n"
+        "if count == 1:\n"
+        "    time.sleep(2)\n"
+        "else:\n"
+        f"    pathlib.Path({str(preview_path)!r}).write_text(json.dumps({{"
+        "'blocked': False, 'transaction_decision': 'DRAFT_CREATED_VERIFICATION_PASSED', "
+        "'effective_mode': 'live-draft', 'shopify_article_id': 9001, "
+        "'shopify_create_count': 1, 'shopify_write_state': 'article_observed', "
+        "'reconciliation_status': 'reconciled', 'replay_disposition': 'terminal'"
+        "}))\n",
+        encoding="utf-8",
+    )
+    request_id = str(uuid.uuid4())
+
+    first = invoke(
+        tmp_path,
+        [sys.executable, str(script_path)],
+        preview_path,
+        request_id,
+        mode="hidden-draft",
+        timeout=0.1,
+    )
+    second = invoke(
+        tmp_path,
+        [sys.executable, str(script_path)],
+        preview_path,
+        request_id,
+        mode="hidden-draft",
+        timeout=1,
+    )
+    third = invoke(
+        tmp_path,
+        [sys.executable, str(script_path)],
+        preview_path,
+        request_id,
+        mode="hidden-draft",
+        timeout=1,
+    )
+
+    assert first["replay_disposition"] == "reconcile"
+    assert first["shopify_write_state"] == "unknown"
+    assert second["attempt"] == 2
+    assert second["replay_disposition"] == "terminal"
+    assert second["shopify_create_count"] == 1
+    assert third == second
+    assert counter_path.read_text() == "2"
+
+
+def test_needs_review_preview_cannot_be_terminalized(tmp_path):
+    preview = {
+        "blocked": False,
+        "transaction_decision": "DRAFT_CREATED_VERIFICATION_FAILED",
+        "effective_mode": "live-draft",
+        "shopify_article_id": 9001,
+        "shopify_create_count": 1,
+        "shopify_write_state": "article_observed",
+        "reconciliation_status": "needs_review",
+    }
+    command, preview_path, _ = fake_pipeline(tmp_path, preview)
+
+    result = invoke(
+        tmp_path,
+        command,
+        preview_path,
+        str(uuid.uuid4()),
+        mode="hidden-draft",
+    )
+
+    assert result["status"] == "blocked"
+    assert result["replay_disposition"] == "reconcile"
 
 
 def test_hidden_draft_maps_to_existing_double_confirmation_gate(tmp_path):
@@ -172,20 +307,56 @@ def test_hidden_draft_maps_to_existing_double_confirmation_gate(tmp_path):
     captured = json.loads(args_path.read_text())
     assert "--live-draft" in captured
     assert "--confirm-live-draft" in captured
+    assert "--client=hoverboard_store" in captured
     assert "--dry-run" not in captured
+
+
+def test_hidden_draft_child_receives_durable_marker_context(tmp_path):
+    preview_path = tmp_path / "pipeline-preview.json"
+    env_path = tmp_path / "durable-env.json"
+    request_id = str(uuid.uuid4())
+    script_path = tmp_path / "capture_hidden_env.py"
+    script_path.write_text(
+        "import json, os, pathlib\n"
+        f"pathlib.Path({str(env_path)!r}).write_text(json.dumps(dict("
+        "key=os.environ.get('ORIN_IDEMPOTENCY_KEY'), "
+        "durable=os.environ.get('ORIN_DURABLE_DB_MODE'))))\n"
+        f"pathlib.Path({str(preview_path)!r}).write_text(json.dumps({{'blocked': True, 'effective_mode': 'live-draft'}}))\n",
+        encoding="utf-8",
+    )
+
+    result = invoke(
+        tmp_path,
+        [sys.executable, str(script_path)],
+        preview_path,
+        request_id,
+        mode="hidden-draft",
+    )
+
+    assert json.loads(env_path.read_text()) == {
+        "key": f"hoverboard_store:{request_id}",
+        "durable": "1",
+    }
+    assert result["effective_mode"] == "hidden-draft"
 
 
 def test_dry_run_removes_shopify_credentials_from_child(tmp_path, monkeypatch):
     preview_path = tmp_path / "pipeline-preview.json"
-    env_path = tmp_path / "shopify-env.txt"
+    env_path = tmp_path / "shopify-env.json"
     script_path = tmp_path / "capture_env.py"
     script_path.write_text(
         "import json, os, pathlib\n"
-        f"pathlib.Path({str(env_path)!r}).write_text(os.environ.get('HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN', 'missing'))\n"
+        f"pathlib.Path({str(env_path)!r}).write_text(json.dumps(dict("
+        "direct=os.environ.get('HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN', 'missing'), "
+        "file=os.environ.get('HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE', 'missing'))))\n"
         f"pathlib.Path({str(preview_path)!r}).write_text(json.dumps({{'blocked': False, 'effective_mode': 'dry-run'}}))\n",
         encoding="utf-8",
     )
     monkeypatch.setenv("HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN", "must-not-reach-child")
+    monkeypatch.setenv(
+        "HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE",
+        "/must/not/reach/child",
+    )
     invoke(tmp_path, [sys.executable, str(script_path)], preview_path, str(uuid.uuid4()))
 
-    assert env_path.read_text() == "missing"
+    assert json.loads(env_path.read_text()) == {"direct": "missing", "file": "missing"}

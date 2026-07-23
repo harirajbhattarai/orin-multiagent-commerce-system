@@ -28,6 +28,13 @@ class Repository(Protocol):
         worker_id: str,
         final_result: dict[str, Any],
     ) -> CompletionRecord: ...
+    def defer(
+        self,
+        *,
+        job_id: UUID,
+        worker_id: str,
+        final_result: dict[str, Any],
+    ) -> CompletionRecord: ...
 
 
 @dataclass(frozen=True)
@@ -89,23 +96,78 @@ class _LeaseHeartbeat:
 
 def _validate_result(job: ClaimedJob, result: dict[str, Any]) -> None:
     expected = {
-        "schema": "orin.final-result/v1",
+        "schema": "orin.final-result/v2",
         "client_id": job.client_id,
         "request_id": str(job.request_id),
-        "requested_mode": "dry-run",
-        "shopify_create_count": 0,
+        "requested_mode": job.requested_mode,
         "shopify_published": False,
         "queue_changed": False,
     }
     actual = {key: result.get(key) for key in expected}
     if actual != expected:
         raise ResultContractError(
-            f"runner result does not match the claimed dry-run job: expected={expected}, received={actual}"
+            f"runner result does not match the claimed job: expected={expected}, received={actual}"
         )
     if result.get("status") not in {"completed", "blocked", "failed"}:
         raise ResultContractError("runner returned an unsupported terminal status")
     if not result.get("run_id") or not result.get("decision"):
         raise ResultContractError("runner result is missing run identity or decision")
+    create_count = result.get("shopify_create_count")
+    article_id = result.get("shopify_article_id")
+    reconciliation = result.get("reconciliation_status")
+    replay_disposition = result.get("replay_disposition")
+    write_state = result.get("shopify_write_state")
+    if replay_disposition not in {"terminal", "retry", "reconcile"}:
+        raise ResultContractError("runner result has an invalid replay disposition")
+    if write_state not in {"not_attempted", "unknown", "article_observed"}:
+        raise ResultContractError("runner result has an invalid Shopify write state")
+    if replay_disposition != "terminal" and result.get("status") == "completed":
+        raise ResultContractError("nonterminal replay state cannot report completed")
+    if job.requested_mode == "dry-run":
+        if (
+            create_count != 0
+            or article_id is not None
+            or result.get("shopify_idempotency_marker") is not None
+            or write_state != "not_attempted"
+        ):
+            raise ResultContractError("dry-run result claims a Shopify mutation")
+        if replay_disposition == "reconcile":
+            raise ResultContractError("dry-run result cannot require Shopify reconciliation")
+        return
+    expected_marker = f"orin-v1:{job.client_id}:{job.request_id}"
+    if (
+        result.get("effective_mode") != "hidden-draft"
+        and not (
+            result.get("status") == "failed"
+            and article_id is None
+            and result.get("effective_mode") == "none"
+        )
+    ):
+        raise ResultContractError("hidden-draft result has an unsafe effective mode")
+    if result.get("shopify_idempotency_marker") != expected_marker:
+        raise ResultContractError("hidden-draft result has the wrong idempotency marker")
+    if create_count not in {0, 1}:
+        raise ResultContractError("hidden-draft result has an invalid Shopify create count")
+    if write_state == "article_observed":
+        if article_id is None or create_count != 1:
+            raise ResultContractError("observed Shopify article evidence is incomplete")
+        if reconciliation not in {"reconciled", "needs_review"}:
+            raise ResultContractError("hidden-draft article has an invalid reconciliation state")
+    elif article_id is not None or create_count != 0:
+        raise ResultContractError("hidden-draft result contradicts its Shopify write state")
+
+    if replay_disposition == "terminal":
+        if write_state == "unknown" or reconciliation == "needs_review":
+            raise ResultContractError("unresolved Shopify state cannot be terminal")
+        if article_id is not None and reconciliation != "reconciled":
+            raise ResultContractError("terminal hidden-draft article is not reconciled")
+    elif replay_disposition == "retry":
+        if write_state != "not_attempted" or article_id is not None:
+            raise ResultContractError("safe retry requires proof that Shopify was not attempted")
+    elif write_state == "not_attempted":
+        raise ResultContractError("reconciliation replay requires possible Shopify state")
+    elif write_state == "unknown" and reconciliation not in {"needs_review", "failed"}:
+        raise ResultContractError("unknown Shopify state requires unresolved reconciliation")
 
 
 def work_once(
@@ -122,8 +184,8 @@ def work_once(
     job = repository.claim_next(worker_id=worker_id, lease_seconds=lease_seconds)
     if job is None:
         return WorkOutcome(status="no_job_due", job_id=None, run_id=None, replayed=False)
-    if job.requested_mode != "dry-run" or job.payload != {}:
-        raise ResultContractError("Phase 3B worker accepts only empty dry-run jobs")
+    if job.requested_mode not in {"dry-run", "hidden-draft"} or job.payload != {}:
+        raise ResultContractError("worker accepts only empty, supported-mode jobs")
 
     heartbeat = _LeaseHeartbeat(
         repository,
@@ -141,11 +203,18 @@ def work_once(
     if heartbeat.lost:
         raise LeaseLostError("database lease was lost before finalization")
     _validate_result(job, result)
-    completion = repository.complete(
-        job_id=job.job_id,
-        worker_id=worker_id,
-        final_result=result,
-    )
+    if result["replay_disposition"] == "terminal":
+        completion = repository.complete(
+            job_id=job.job_id,
+            worker_id=worker_id,
+            final_result=result,
+        )
+    else:
+        completion = repository.defer(
+            job_id=job.job_id,
+            worker_id=worker_id,
+            final_result=result,
+        )
     return WorkOutcome(
         status=completion.status,
         job_id=str(job.job_id),

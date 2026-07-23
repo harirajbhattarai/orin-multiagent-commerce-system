@@ -21,7 +21,7 @@ from orin_worker.service import work_once
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="orin-worker")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    once = subparsers.add_parser("once", help="claim and execute at most one due dry-run job")
+    once = subparsers.add_parser("once", help="claim and execute at most one gated due job")
     once.add_argument("--workspace-root", type=Path)
     once.add_argument("--artifact-root", type=Path)
     once.add_argument("--worker-id")

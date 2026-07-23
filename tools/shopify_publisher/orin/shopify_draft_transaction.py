@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sys
 import time
@@ -31,6 +32,13 @@ from pathlib import Path
 from typing import Any
 
 from hoverboard_shopify_config import load_hoverboard_shopify_config
+from orin_shopify import (
+    DraftReconciliationError,
+    DraftSpec,
+    GraphQLHTTPTransport,
+    HiddenDraftGateway,
+    ShopifyRequestError,
+)
 from workspace_paths import workspace_root
 
 # ── Canonical HTML comparator (Tier C verification) ────────────────────────
@@ -755,38 +763,56 @@ def run_safe_draft_transaction(
     # published=false — explicit
     # published_at — NOT sent (null)
 
-    # ── I6 §30-31: Create draft ─────────────────────────────────────────
-    article, create_err = create_shopify_draft(
-        title=payload_title,
-        body_html=payload_body,
-        handle=payload_handle,
+    # ── I6 §30-31: Reconcile first, then create at most one hidden draft ─
+    idempotency_key = os.environ.get("ORIN_IDEMPOTENCY_KEY", "")
+    if not idempotency_key:
+        blockers.append(TRANSACTION_BLOCKED_SHOPIFY_ERROR)
+        return _return_with_evidence(
+            decision=TRANSACTION_BLOCKED_SHOPIFY_ERROR,
+            approved=False,
+            blockers=blockers,
+            message="Durable Shopify idempotency key is missing.",
+            job_number=job_number,
+            title=payload_title,
+            handle=payload_handle,
+            shopify_error="ORIN_IDEMPOTENCY_KEY is required",
+        )
+
+    cfg = _get_shopify_config()
+    gateway = HiddenDraftGateway(
+        GraphQLHTTPTransport(
+            store_domain=cfg["store_domain"],
+            access_token=cfg["access_token"],
+            api_version=cfg["api_version"],
+        )
     )
-
-    if create_err or article is None:
+    try:
+        draft_result = gateway.ensure(
+            DraftSpec(
+                blog_id=f"gid://shopify/Blog/{cfg['blog_id']}",
+                title=payload_title,
+                body_html=payload_body,
+                handle=payload_handle,
+                author_name="ORIN",
+                idempotency_key=idempotency_key,
+            )
+        )
+    except (DraftReconciliationError, ShopifyRequestError, ValueError) as error:
         blockers.append(TRANSACTION_BLOCKED_SHOPIFY_ERROR)
         return _return_with_evidence(
             decision=TRANSACTION_BLOCKED_SHOPIFY_ERROR,
             approved=False,
             blockers=blockers,
-            message=f"Shopify draft creation failed: {create_err}",
+            message=f"Shopify hidden-draft reconciliation failed: {error}",
             job_number=job_number,
             title=payload_title,
             handle=payload_handle,
-            shopify_error=create_err,
+            shopify_error=str(error),
+            reconciliation_status="needs_review",
+            shopify_write_state="unknown",
         )
 
-    returned_article_id = article.get("id")
-    if not returned_article_id:
-        blockers.append(TRANSACTION_BLOCKED_SHOPIFY_ERROR)
-        return _return_with_evidence(
-            decision=TRANSACTION_BLOCKED_SHOPIFY_ERROR,
-            approved=False,
-            blockers=blockers,
-            message=f"Shopify returned article with no ID: {article}",
-            job_number=job_number,
-            title=payload_title,
-            handle=payload_handle,
-        )
+    returned_article_id = draft_result.numeric_article_id
 
     # ── I6 §31: Immediately fetch exact article by ID (not from POST response)
     fetched_article, fetch_err = fetch_shopify_article(returned_article_id)
@@ -814,6 +840,10 @@ def run_safe_draft_transaction(
             handle=payload_handle,
             shopify_article_id=returned_article_id,
             shopify_error=fetch_err,
+            shopify_create_count=draft_result.create_count,
+            reconciliation_status="needs_review",
+            shopify_write_state=draft_result.shopify_write_state,
+            shopify_idempotency_marker=draft_result.idempotency_marker,
         )
 
     # ── I3 §17-18: Run post-fetch verification ────────────────────────────
@@ -861,6 +891,10 @@ def run_safe_draft_transaction(
             shopify_article_id=returned_article_id,
             verification_failures=verification_failures,
             verification_details=verification_details,
+            shopify_create_count=draft_result.create_count,
+            reconciliation_status="needs_review",
+            shopify_write_state=draft_result.shopify_write_state,
+            shopify_idempotency_marker=draft_result.idempotency_marker,
         )
 
     # ── All checks passed ───────────────────────────────────────────────
@@ -880,6 +914,10 @@ def run_safe_draft_transaction(
         shopify_body_sha256=verification_details.get("fetched_body_sha256"),
         local_sha256=expected_sha256,
         verification_details=verification_details,
+        shopify_create_count=draft_result.create_count,
+        reconciliation_status=draft_result.reconciliation_status,
+        shopify_write_state=draft_result.shopify_write_state,
+        shopify_idempotency_marker=draft_result.idempotency_marker,
     )
 
 
@@ -903,6 +941,10 @@ def _make_result(
     verification_failures: list[str] | None = None,
     verification_details: dict | None = None,
     shopify_error: str | None = None,
+    shopify_create_count: int = 0,
+    reconciliation_status: str = "not_started",
+    shopify_write_state: str = "not_attempted",
+    shopify_idempotency_marker: str | None = None,
     run_dir: Path | str | None = None,
     run_id: str = "",
 ) -> dict:
@@ -915,7 +957,12 @@ def _make_result(
         "handle": handle or None,
         "blockers": blockers,
         "message": message,
+        "shopify_create_count": shopify_create_count,
+        "reconciliation_status": reconciliation_status,
+        "shopify_write_state": shopify_write_state,
     }
+    if shopify_idempotency_marker is not None:
+        result["shopify_idempotency_marker"] = shopify_idempotency_marker
     if shopify_article_id is not None:
         result["shopify_article_id"] = shopify_article_id
     if shopify_fetched_article_id is not None:

@@ -1052,12 +1052,20 @@ def run_pipeline():
         if transaction_result.get("blockers"):
             log(f"  Transaction blockers: {transaction_result['blockers']}")
 
-        # ── Commit transaction result to queue state ─────────────────────
-        commit_result = commit_transaction_result(
-            queue_path=str(QUEUE_PATH),
-            transaction_result=transaction_result,
-            dry_run=DRY_RUN,
-        )
+        # Supabase-backed runs treat the database job/run records as transaction
+        # truth. The Markdown queue remains readable input and is never mutated.
+        if os.environ.get("ORIN_DURABLE_DB_MODE") == "1":
+            commit_result = {
+                "decision": "DATABASE_AUTHORITATIVE_NO_QUEUE_COMMIT",
+                "approved": True,
+                "blockers": [],
+            }
+        else:
+            commit_result = commit_transaction_result(
+                queue_path=str(QUEUE_PATH),
+                transaction_result=transaction_result,
+                dry_run=DRY_RUN,
+            )
         commit_decision = commit_result.get("decision", "")
         commit_approved = commit_result.get("approved", False)
         log(f"  Queue commit decision: {commit_decision}")
@@ -1065,14 +1073,30 @@ def run_pipeline():
         if commit_result.get("blockers"):
             log(f"  Queue commit blockers: {commit_result['blockers']}")
 
-        shopify_touched = transaction_decision == TRANSACTION_APPROVED_DRAFT_CREATED
+        shopify_write_state = transaction_result.get(
+            "shopify_write_state",
+            "article_observed"
+            if transaction_result.get("shopify_article_id") is not None
+            else "not_attempted",
+        )
+        reconciliation_status = transaction_result.get(
+            "reconciliation_status", "not_started"
+        )
+        shopify_touched = shopify_write_state == "article_observed"
         queue_touched = commit_decision in (
             "QUEUE_FINALISATION_APPROVED",
             "QUEUE_NEEDS_HUMAN_REVIEW_COMMITTED",
         )
+        blocked = not transaction_approved or not commit_approved
+        replay_disposition = (
+            "reconcile"
+            if reconciliation_status == "needs_review"
+            or shopify_write_state == "unknown"
+            else "terminal"
+        )
 
         return {
-            "blocked": False,
+            "blocked": blocked,
             "dry_run": False,
             "requested_mode": REQUESTED_MODE,
             "live_draft_requested": LIVE_DRAFT,
@@ -1081,6 +1105,8 @@ def run_pipeline():
             "gate_approved": True,
             "gate_decision": gate_decision,
             "shopify_touched": shopify_touched,
+            "shopify_write_state": shopify_write_state,
+            "replay_disposition": replay_disposition,
             "queue_touched": queue_touched,
             "selected_job": job_num,
             "selected_topic": job.get("topic"),
@@ -1148,6 +1174,14 @@ def build_report(result, *, timestamp=None):
         "transaction_decision": transaction_result.get("decision"),
         "queue_commit_decision": queue_commit_result.get("decision"),
         "shopify_article_id": transaction_result.get("shopify_article_id"),
+        "shopify_create_count": transaction_result.get("shopify_create_count", 0),
+        "shopify_write_state": transaction_result.get(
+            "shopify_write_state",
+            result.get("shopify_write_state", "not_attempted"),
+        ),
+        "shopify_idempotency_marker": transaction_result.get("shopify_idempotency_marker"),
+        "reconciliation_status": transaction_result.get("reconciliation_status", "not_required"),
+        "replay_disposition": result.get("replay_disposition", "terminal"),
         "next_action": result.get("next_action", default_next_action),
         "pipeline_phases": [
             "Phase 1A: State Agent (read-only, via orin_phase1a_state_dryrun.py)",

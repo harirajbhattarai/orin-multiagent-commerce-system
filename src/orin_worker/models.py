@@ -13,7 +13,7 @@ class ClaimedJob:
     job_id: UUID
     client_id: str
     request_id: UUID
-    requested_mode: Literal["dry-run"]
+    requested_mode: Literal["dry-run", "hidden-draft"]
     attempt_count: int
     payload: dict[str, Any]
     lease_expires_at: datetime
