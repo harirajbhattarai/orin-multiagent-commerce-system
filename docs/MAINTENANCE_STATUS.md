@@ -15,7 +15,7 @@ disabled, has no delivery, and has no agent or tool execution path.
 
 The reviewed code deployed on the VPS is:
 
-`9fd610a0e05aedcf571d133079d06e551b0fa421`
+`c569ab92e09f9ae2af86edb25d4baf62de1f546e`
 
 ## Verified results
 
@@ -56,6 +56,15 @@ The reviewed code deployed on the VPS is:
   claimed by the worker, and durably finalized. Shopify creates, publishing,
   and queue changes were all zero. The pipeline stopped at the content-quality
   gate before any Shopify transaction.
+- PR 36 added one bounded MiniMax quality-correction attempt. If an initial
+  model response fails the deterministic contract, ORIN regenerates once using
+  only the machine-readable failed requirements, stores private evidence for
+  both attempts, and remains blocked unless the replacement passes. It does
+  not send the prior article text back to the model and does not alter Shopify
+  or queue behavior.
+- PR 36 passed the application and database CI checks before merge. The VPS
+  trigger and dormant worker images were rebuilt from this exact commit; only
+  the trigger sidecar was restarted and it is healthy.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -147,25 +156,25 @@ blocked before Shopify):
 `/docker/orin/evidence/hb_20260726T210343Z_2dcfa08c`
 
 The Job 28 dry-run reached the actual writer and then failed closed because the
-output had 565 visible words, several underdeveloped sections, and 13 uses of
-the target keyword. The result recorded zero Shopify creates, no publish, and
-no queue change.
+first model output had 565 visible words, several underdeveloped sections, and
+13 uses of the target keyword. The result recorded zero Shopify creates, no
+publish, and no queue change. PR 36 is deployed to provide exactly one bounded
+correction attempt for this class of failure; it has not yet been exercised
+against MiniMax on the VPS.
 
 ## Next approved path
 
 Continue Phase 4 without enabling either schedule:
 
-1. Fix the Job 28 writer/content-quality failure: raise substantive article
-   depth and visible word count, and reduce target-keyword usage to the gate's
-   accepted range.
-2. Run another supervised dry-run through the already-attached disabled fixed
+1. Run another supervised dry-run through the already-attached disabled fixed
    trigger. Confirm a terminal `final_result.json` with zero Shopify creates,
-   publishing, and queue changes.
-3. Run the separately approved controlled hidden-draft test only after the
+   publishing, and queue changes, and verify that the bounded writer retry
+   either produces a clean content-quality receipt or still fails closed.
+2. Run the separately approved controlled hidden-draft test only after the
    dry-run content-quality result is clean.
-4. Transfer scheduler ownership only after that test. Keep exactly one
+3. Transfer scheduler ownership only after that test. Keep exactly one
    production scheduler enabled.
-5. Add the read-only watchdog after scheduler ownership is proven.
+4. Add the read-only watchdog after scheduler ownership is proven.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
 controlled transaction, or begin additional clients before HBStore scheduler
