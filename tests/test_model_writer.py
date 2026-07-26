@@ -64,6 +64,14 @@ class ModelWriterTests(unittest.TestCase):
         self.assertFalse(payload["stream"])
         self.assertGreaterEqual(payload["max_completion_tokens"], 6000)
         self.assertIn("1,500 visible words", payload["messages"][1]["content"])
+        self.assertIn(
+            "Attribute allowlist: class on allowed tags",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            "Do not add aria-*",
+            payload["messages"][1]["content"],
+        )
         self.assertEqual(MINIMAX_ENDPOINT, "https://api.minimax.io/v1/chat/completions")
 
     def test_extracts_exact_sentinel_artifact(self):
