@@ -159,6 +159,29 @@ class ContentQualityGateTests(unittest.TestCase):
                 ]
                 self.assertGreaterEqual(len(substantive), 4)
 
+    def test_writer_supporting_copy_does_not_force_keyword_repetition(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-26")
+        keyword = "birthday hoverboard gift guide"
+        job_context = {
+            "job_number": "299",
+            "job_label": "Job 299",
+            "topic": "Birthday Hoverboard Gift Guide for Kids UK",
+            "target_keyword": keyword,
+            "target_date": "2026-08-11",
+            "expected_draft_date": "2026-07-28",
+            "queue_status": "planned",
+            "file_path": "",
+            "shopify_handle": None,
+        }
+
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        supporting_copy = (
+            repr(plan["faq_plan"]) + repr(plan["cta_plan"])
+        ).lower()
+
+        self.assertNotIn(keyword, supporting_copy)
+
     def test_thin_template_is_blocked_with_machine_readable_codes(self):
         html = f"""<!--
 Meta Title: Hoverboard Charger Not Working: Safe Checks
