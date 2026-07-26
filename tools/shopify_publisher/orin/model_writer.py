@@ -161,6 +161,7 @@ _ALLOWED_TAGS = {
     "a", "b", "blockquote", "br", "div", "em", "h1", "h2", "h3", "h4",
     "i", "li", "ol", "p", "section", "span", "strong", "ul",
 }
+_HEADING_ANCHOR_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,127}$")
 
 
 class _ArticleHTMLPolicy(HTMLParser):
@@ -180,6 +181,12 @@ class _ArticleHTMLPolicy(HTMLParser):
             if name.startswith("on") or name in {"style", "hidden", "aria-hidden"}:
                 raise ModelWriterError(f"model article contains forbidden attribute: {name}")
             if name == "class":
+                continue
+            if tag == "h2" and name == "id":
+                if not _HEADING_ANCHOR_RE.fullmatch(value):
+                    raise ModelWriterError(
+                        "model article heading id is not a safe anchor"
+                    )
                 continue
             if tag == "a" and name == "href":
                 scheme = urlparse(value.strip()).scheme.lower()
