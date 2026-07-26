@@ -174,11 +174,7 @@ begin
     v_access.allowed_mode,
     'queued',
     clock_timestamp(),
-    jsonb_build_object(
-      'scheduler_owner', v_scheduler_owner,
-      'schedule', 'daily-1100-europe-london',
-      'schedule_date', v_schedule_date::text
-    )
+    '{}'::jsonb
   )
   on conflict do nothing
   returning * into v_job;

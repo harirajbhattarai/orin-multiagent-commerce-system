@@ -30,6 +30,10 @@ The private function accepts no parameters. It is hard-wired to:
 - mode: the database `allowed_mode`;
 - concurrency: exactly one.
 
+The resulting job has an empty payload—the worker rejects arbitrary job
+payloads by design. The immutable `source_job_key`
+(`scheduler:orin-hbstore-prod:<London-date>`) is the durable schedule identity.
+
 Before inserting, the function requires active client, request intake,
 automation, scheduler ownership, allowed mode, and—when the mode is
 `hidden-draft`—the Shopify write gate. Retries on the same London date return
