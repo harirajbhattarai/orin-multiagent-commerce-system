@@ -96,6 +96,7 @@ def build_writer_prompt(job_context: dict, writer_plan: dict) -> str:
         "reader_persona": writer_plan.get("reader_persona", ""),
         "article_angle": writer_plan.get("article_angle", ""),
         "cluster": writer_plan.get("cluster", ""),
+        "compliance_notes": writer_plan.get("compliance_notes", ""),
         "h2_outline": writer_plan.get("h2_outline", []),
         "faq_plan": writer_plan.get("faq_plan", []),
         "internal_link_plan": writer_plan.get("internal_link_plan", []),
@@ -140,6 +141,15 @@ Required output contract:
 - Attribute allowlist: class on allowed tags; href on a tags using HTTPS or a
   relative URL; and a lowercase anchor-safe id on h2 tags. Do not add aria-*,
   role, data-*, target, hidden, style, event-handler, or any other attributes.
+- Do not infer performance, stability, terrain suitability, rider suitability,
+  or safety from wheel size, deck width, appearance, build feel, price, brand,
+  lights, speakers, or other generic features.
+- Do not state a typical minimum age, weight range, charging time, speed, range,
+  or compatible terrain. Tell the reader to check the exact product listing,
+  label, manual, and manufacturer guidance for the model being considered.
+- Do not provide medical advice or tell the reader to contact a GP. When health
+  or ability could affect suitability, use neutral wording that recommends
+  seeking appropriate professional guidance before use.
 - Use only claims supported by the plan or safe general guidance. If a precise
   product fact is unavailable, advise checking the product label, manual,
   manufacturer, seller, or a qualified technician instead of guessing.

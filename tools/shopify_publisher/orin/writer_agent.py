@@ -580,6 +580,7 @@ class WriterAgent:
             "award-winning",
             "UK's #1",
             "single most effective",
+            "single most important",
             "prevents falls",
             "road legal",
             "pavement legal",

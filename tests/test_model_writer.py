@@ -39,6 +39,7 @@ WRITER_PLAN = {
     "reader_persona": "UK hoverboard owner",
     "article_angle": "Safe diagnostic checks",
     "cluster": "Troubleshooting",
+    "compliance_notes": "Use only model-specific manufacturer guidance.",
     "h2_outline": [],
     "faq_plan": [],
     "internal_link_plan": [],
@@ -70,6 +71,18 @@ class ModelWriterTests(unittest.TestCase):
         )
         self.assertIn(
             "Do not add aria-*",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            '"compliance_notes": "Use only model-specific manufacturer guidance."',
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            "Do not infer performance, stability, terrain suitability",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            "Do not provide medical advice",
             payload["messages"][1]["content"],
         )
         self.assertEqual(MINIMAX_ENDPOINT, "https://api.minimax.io/v1/chat/completions")
