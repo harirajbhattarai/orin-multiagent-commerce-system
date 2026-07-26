@@ -129,6 +129,11 @@ Required output contract:
 - Do not add FAQPage JSON-LD.
 - Do not include inline styles, style/script tags, document wrappers, or visible
   SEO metadata labels.
+- Use only these HTML tags: a, b, blockquote, br, div, em, h1, h2, h3, h4, i,
+  li, ol, p, section, span, strong, and ul.
+- Attribute allowlist: class on allowed tags; href on a tags using HTTPS or a
+  relative URL; and a lowercase anchor-safe id on h2 tags. Do not add aria-*,
+  role, data-*, target, hidden, style, event-handler, or any other attributes.
 - Use only claims supported by the plan or safe general guidance. If a precise
   product fact is unavailable, advise checking the product label, manual,
   manufacturer, seller, or a qualified technician instead of guessing.
