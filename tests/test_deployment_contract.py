@@ -51,6 +51,14 @@ def test_shopify_credential_is_file_backed_and_namespaced():
     assert "HOVERBOARD_STORE_SHOPIFY_BLOG_ID: \"113430790492\"" in COMPOSE
 
 
+def test_model_writer_is_pinned_opt_in_and_file_backed():
+    assert 'ORIN_MODEL_WRITER_ENABLED: "${ORIN_MODEL_WRITER_ENABLED:-0}"' in COMPOSE
+    assert "ORIN_WRITER_API_KEY_FILE: /run/secrets/writer_api_key" in COMPOSE
+    assert "ORIN_WRITER_API_KEY:" not in COMPOSE
+    assert "${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/writer_api_key" in COMPOSE
+    assert "ORIN_WRITER_TIMEOUT_SECONDS: \"240\"" in COMPOSE
+
+
 def test_worker_has_no_port_and_uses_read_only_runtime_plus_private_evidence():
     worker = COMPOSE.split("  worker:", 1)[1].split("\nsecrets:", 1)[0]
     assert "ports:" not in worker

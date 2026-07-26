@@ -1,11 +1,17 @@
 # ORIN maintenance status
 
-Last updated: 2026-07-23
+Last updated: 2026-07-26
 
 ## Current phase
 
 Phase 3 manual production verification is complete. ORIN is intentionally in
 maintenance observation; scheduler transfer has not started.
+
+Phase 3.5 content-quality hardening is now in local development. A fail-closed
+SEO quality contract has been implemented and tested, but it is not deployed.
+The existing deterministic writer produces approximately 598 visible words for
+the controlled topic and is correctly blocked. See
+`docs/PHASE3_5_CONTENT_QUALITY.md`.
 
 The reviewed code deployed on the VPS is:
 
@@ -81,11 +87,17 @@ window, use read-only checks only:
 
 After the observation window:
 
-1. Create the dedicated `orin-hbstore-prod` scheduler in a disabled state.
-2. Run one supervised near-term test and verify the exact model and
+1. Complete the Phase 3.5 model-based writer and pass its content-quality
+   contract in a local, no-Shopify test.
+2. Run one supervised pipeline dry-run and manually review the resulting
+   article and quality receipt.
+3. Deploy the reviewed Phase 3.5 commit without enabling runtime gates.
+4. Run one controlled hidden-draft test.
+5. Create the dedicated `orin-hbstore-prod` scheduler in a disabled state.
+6. Run one supervised near-term test and verify the exact model and
    `final_result.json`.
-3. Keep only one production scheduler owner.
-4. Add the read-only watchdog after scheduler ownership is proven.
+7. Keep only one production scheduler owner.
+8. Add the read-only watchdog after scheduler ownership is proven.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
 controlled transaction, or begin additional clients during the maintenance

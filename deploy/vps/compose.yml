@@ -85,9 +85,13 @@ services:
       HOVERBOARD_STORE_SHOPIFY_API_VERSION: "2026-07"
       HOVERBOARD_STORE_SHOPIFY_BLOG_ID: "113430790492"
       HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE: /run/secrets/hoverboard_shopify_access_token
+      ORIN_MODEL_WRITER_ENABLED: "${ORIN_MODEL_WRITER_ENABLED:-0}"
+      ORIN_WRITER_API_KEY_FILE: /run/secrets/writer_api_key
+      ORIN_WRITER_TIMEOUT_SECONDS: "240"
     secrets:
       - worker_database_url
       - hoverboard_shopify_access_token
+      - writer_api_key
     volumes:
       - type: bind
         source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}
@@ -115,3 +119,5 @@ secrets:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/worker_database_url
   hoverboard_shopify_access_token:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hoverboard_shopify_access_token
+  writer_api_key:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/writer_api_key

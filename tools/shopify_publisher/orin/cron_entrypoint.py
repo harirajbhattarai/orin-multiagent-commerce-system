@@ -49,6 +49,7 @@ from job_context import build_job_context, write_job_context, read_job_context, 
 from shopify_draft_transaction import run_safe_draft_transaction
 from queue_state_manager import commit_transaction_result, TRANSACTION_APPROVED_DRAFT_CREATED, \
     TRANSACTION_BLOCKED_VERIFICATION_FAILED
+from content_quality_gate import evaluate_article_quality
 from writer_agent import WriterAgent
 from topic_identity_gate import run_topic_identity_gate, TOPIC_IDENTITY_BLOCK
 
@@ -506,6 +507,10 @@ def run_pipeline():
         "sha256": sha256_hex,
         "word_count": len(exec_html.split()),
         "file_written": Path(exec_output_path).exists(),
+        "writer_source": exec_stats.get("writer_source"),
+        "writer_provider": exec_stats.get("writer_provider"),
+        "writer_model": exec_stats.get("writer_model"),
+        "model_response_id": exec_stats.get("model_response_id"),
     }
     exec_preview_path.write_text(json.dumps(exec_preview, indent=2), encoding="utf-8")
     log(f"  Execution preview written: {exec_preview_path}")
@@ -833,21 +838,31 @@ def run_pipeline():
         _hv_safe = False
         if exec_output_path and Path(exec_output_path).exists():
             _hv_html = Path(exec_output_path).read_text(encoding="utf-8")
-            _hv_words = len(_hv_html.split())
             _hv_has_h1 = bool(re.search(r"<h1", _hv_html, re.IGNORECASE))
             _hv_has_h2 = bool(re.search(r"<h2", _hv_html, re.IGNORECASE))
-            _hv_has_content = _hv_words >= 100
-            _hv_safe = True
+            _quality_receipt = evaluate_article_quality(
+                _hv_html,
+                target_keyword=writer_plan.get("target_keyword", ""),
+                site_url=writer_plan.get(
+                    "site_url",
+                    "https://hoverboardstore.co.uk",
+                ),
+            )
+            _hv_words = _quality_receipt["metrics"]["visible_word_count"]
+            _hv_safe = _quality_receipt["passed"]
             if not _hv_has_h1:
                 _hv_issues.append("missing_h1: article has no <h1>")
             if not _hv_has_h2:
                 _hv_issues.append("missing_h2: article has no <h2>")
-            if not _hv_has_content:
-                _hv_issues.append(f"insufficient_content: only {_hv_words} words")
+            _hv_issues.extend(
+                f"{blocker['code']}: {blocker['message']}"
+                for blocker in _quality_receipt["blockers"]
+            )
             _hv_passed = len(_hv_issues) == 0
         else:
             _hv_issues.append(f"no_draft_file: HTML file not written at {exec_output_path}")
             _hv_passed = False
+            _quality_receipt = None
         _hv_result = {
             "job_number": str(job_num),
             "pipeline_run_id": pipeline_run_id,
@@ -856,11 +871,9 @@ def run_pipeline():
             "safe_for_publisher_preflight": _hv_safe,
             "issues": _hv_issues,
             "validator_issues": _hv_issues,
-            "word_count": (
-                len(Path(exec_output_path).read_text(encoding="utf-8").split())
-                if Path(exec_output_path).exists() else 0
-            ),
-            "note": "inline_html_validation_job_scoped",
+            "word_count": _hv_words if Path(exec_output_path).exists() else 0,
+            "content_quality_receipt": _quality_receipt,
+            "note": "inline_html_and_content_quality_validation_job_scoped",
         }
         _hv_artefact_path.write_text(json.dumps(_hv_result, indent=2), encoding="utf-8")
         log(f"  Inline HTML validation: {'PASS' if _hv_passed else 'FAIL'} — {', '.join(_hv_issues) or 'ok'}")

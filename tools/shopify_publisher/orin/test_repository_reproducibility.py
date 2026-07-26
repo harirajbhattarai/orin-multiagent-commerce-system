@@ -20,6 +20,7 @@ def test_required_writer_planning_modules_are_tracked_source_files():
 def test_runtime_defaults_to_its_own_checkout_not_a_live_workspace():
     for filename in (
         "client_context.py",
+        "content_quality_gate.py",
         "cron_entrypoint.py",
         "duplicate_decision_agent.py",
         "hcs_cron_entrypoint.py",
@@ -27,6 +28,7 @@ def test_runtime_defaults_to_its_own_checkout_not_a_live_workspace():
         "hcs_phase1b_planner_dryrun.py",
         "hcs_writer_adapter.py",
         "job_context.py",
+        "model_writer.py",
         "orin_phase2a_post_write_review_dryrun.py",
         "orin_phase2c_writer_planning_dryrun.py",
         "orin_phase2d_writer_dryrun.py",

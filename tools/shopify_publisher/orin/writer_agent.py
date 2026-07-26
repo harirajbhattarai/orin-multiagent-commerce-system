@@ -8,6 +8,9 @@ import sys
 _AGENTS_DIR = Path(__file__).parent
 sys.path.insert(0, str(_AGENTS_DIR))
 
+from content_quality_gate import CONTRACT_VERSION, DEFAULT_CONTRACT
+from model_writer import generate_article, model_writer_enabled
+
 # Sentinels
 BLOCK_JOB_CONTEXT_MISMATCH = "BLOCK_JOB_CONTEXT_MISMATCH"
 BLOCK_INVALID_PLANNED_HANDLE = "BLOCK_INVALID_PLANNED_HANDLE"
@@ -340,6 +343,56 @@ class WriterAgent:
         for b in bl:
             links.append({**b, "type": "blog"})
 
+        if self.is_hcs:
+            return links
+
+        # Phase 3.5 requires five useful internal paths for a long-form blog
+        # post. Add stable collection and guide candidates, then de-duplicate by
+        # URL so the writer can place at least five distinct links.
+        standard_links = [
+            {
+                "anchor_text": "browse hoverboards",
+                "url": f"{self.site_url}/collections/hoverboards",
+                "reason": "Primary hoverboard collection",
+                "type": "collection",
+            },
+            {
+                "anchor_text": "explore hoverkarts",
+                "url": f"{self.site_url}/collections/hoverkarts",
+                "reason": "Hoverkart collection for compatible seated setups",
+                "type": "collection",
+            },
+            {
+                "anchor_text": "shop hoverboard accessories",
+                "url": f"{self.site_url}/collections/accessories",
+                "reason": "Accessories collection for relevant support products",
+                "type": "collection",
+            },
+            {
+                "anchor_text": "hoverboard safety checklist",
+                "url": (
+                    f"{self.site_url}/blogs/{self.blog_handle}/"
+                    "hoverboard-safety-checklist-before-every-ride"
+                ),
+                "reason": "Safety checklist for supporting guidance",
+                "type": "blog",
+            },
+            {
+                "anchor_text": "UK hoverboard laws guide",
+                "url": (
+                    f"{self.site_url}/blogs/{self.blog_handle}/"
+                    "hoverboard-laws-uk-where-you-can-and-cannot-ride"
+                ),
+                "reason": "UK use and legal-context guide",
+                "type": "blog",
+            },
+        ]
+        existing_urls = {link.get("url") for link in links}
+        for link in standard_links:
+            if link["url"] not in existing_urls:
+                links.append(link)
+                existing_urls.add(link["url"])
+
         return links
 
     def _generate_faq_plan(self, topic, target_keyword, cluster):
@@ -529,9 +582,12 @@ class WriterAgent:
         ]
 
         # ── Recommended word count ───────────────────────────────────────
-        word_count = 1200
-        if cluster in ("Hoverkart", "Buyer Guide"):
-            word_count = 1400
+        if self.is_hcs:
+            word_count = 1400 if cluster in ("Hoverkart", "Buyer Guide") else 1200
+        else:
+            word_count = DEFAULT_CONTRACT["min_visible_words"]
+            if cluster in ("Hoverkart", "Buyer Guide"):
+                word_count = 1800
 
         # ── H2 outline ───────────────────────────────────────────────────
         h2_outline = self._generate_h2_outline(topic, target_keyword, cluster)
@@ -608,6 +664,7 @@ class WriterAgent:
             "approved_handle": approved_handle,
             "target_keyword": target_keyword,
             "search_intent": search_intent,
+            "site_url": self.site_url,
             # Angle
             "article_angle": article_angle,
             "reader_persona": reader_persona,
@@ -616,6 +673,14 @@ class WriterAgent:
             "claims_to_avoid": claims_to_avoid,
             # Content plan
             "recommended_word_count": word_count,
+            "content_quality_contract": (
+                {
+                    "version": CONTRACT_VERSION,
+                    **DEFAULT_CONTRACT,
+                }
+                if not self.is_hcs
+                else None
+            ),
             "h2_outline": h2_outline,
             "toc_plan": toc_plan,
             "faq_plan": faq_plan,
@@ -820,11 +885,12 @@ class WriterAgent:
         # ── Build SEO metadata block ──────────────────────────────────────
         slug = approved_handle
         published_month = datetime.now().strftime("%B %Y")
+        meta_title = self._build_meta_title(title, target_keyword)
         meta_description = self._build_meta_description(title, target_keyword)
 
         seo_block = f"""<!--
-SEO Title: {title}
-Meta Title: {title}
+SEO Title: {meta_title}
+Meta Title: {meta_title}
 Meta Description: {meta_description}
 URL Slug: {slug}
 Target Keyword: {target_keyword}
@@ -907,6 +973,25 @@ Job: {job_number}
   </div>
 </div>"""
 
+        # Phase 3.5 model path. This is opt-in and fail-closed: when enabled,
+        # any provider, extraction, or validation error propagates and stops
+        # the pipeline. The deterministic template is never used as a silent
+        # fallback for a failed model request.
+        writer_source = "deterministic_template"
+        writer_model = None
+        writer_provider = None
+        model_response_id = None
+        if model_writer_enabled():
+            model_result = generate_article(
+                job_context=job_ctx,
+                writer_plan=writer_plan,
+            )
+            full_html = model_result.body_html
+            writer_source = "model"
+            writer_model = model_result.model
+            writer_provider = model_result.provider
+            model_response_id = model_result.response_id
+
         # ── Write to output path ──────────────────────────────────────────
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(full_html, encoding="utf-8")
@@ -930,6 +1015,10 @@ Job: {job_number}
             "h2_count": h2_count,
             "faq_count": len(faq_plan),
             "internal_link_count": len(internal_links),
+            "writer_source": writer_source,
+            "writer_provider": writer_provider,
+            "writer_model": writer_model,
+            "model_response_id": model_response_id,
         }
 
     def _escape_html(self, text):
@@ -939,12 +1028,32 @@ Job: {job_number}
 
     def _build_meta_description(self, title, keyword):
         """Build a meta description from title and keyword."""
-        title_clean = title.replace(" UK", "").replace(" 2026", "").strip()
-        return (
-            f"A practical guide to {keyword}. "
-            f"What to check before buying, which questions to ask, "
-            f"and how to verify fit — {title_clean}."
+        subject = keyword.strip() or title.strip()
+        description = (
+            f"Read this practical UK guide to {subject}. Check common causes, "
+            "safety warnings and next steps before replacing parts or seeking "
+            "qualified support."
         )
+        if len(description) < DEFAULT_CONTRACT["min_meta_description_chars"]:
+            description += " Use the checklist before you act."
+        if len(description) > DEFAULT_CONTRACT["max_meta_description_chars"]:
+            description = description[
+                : DEFAULT_CONTRACT["max_meta_description_chars"] - 1
+            ].rsplit(" ", 1)[0].rstrip(" ,;:") + "."
+        return description
+
+    def _build_meta_title(self, title, keyword):
+        """Build a complete SEO title within the approved 30-60 character range."""
+        candidate = title.strip()
+        if len(candidate) > DEFAULT_CONTRACT["max_seo_title_chars"]:
+            candidate = (keyword or title).strip().title()
+        if len(candidate) < DEFAULT_CONTRACT["min_seo_title_chars"]:
+            candidate = f"{candidate}: Practical UK Guide"
+        if len(candidate) > DEFAULT_CONTRACT["max_seo_title_chars"]:
+            candidate = candidate[
+                : DEFAULT_CONTRACT["max_seo_title_chars"]
+            ].rsplit(" ", 1)[0].rstrip(" ,;:-")
+        return candidate
 
     def _build_quick_answer(self, title, keyword, angle, cluster):
         """
@@ -1243,7 +1352,11 @@ Job: {job_number}
         results = []
         for faq in faq_plan[:6]:
             q = faq.get("question", "")
-            answer_dir = faq.get("answer_direction", "")
+            answer_dir = (
+                faq.get("answer_direction")
+                or faq.get("answer_template")
+                or ""
+            )
             # Generate answer from answer_direction + keyword + cluster
             a = self._build_faq_answer(q, keyword, answer_dir, claims_to_avoid, cluster)
             results.append((q, a))
@@ -1368,7 +1481,10 @@ Job: {job_number}
             f"find the right fit for your needs."
         )
         button_text = cta_plan.get("button_text", "Shop Now")
-        button_url = cta_plan.get("url", "/collections/hoverboards")
+        button_url = cta_plan.get(
+            "button_href",
+            cta_plan.get("url", "/collections/hoverboards"),
+        )
 
         return (
             f'<p>{self._escape_html(body)}</p>\n'
@@ -1378,7 +1494,7 @@ Job: {job_number}
     def _build_related_links(self, internal_links):
         """Build the related links section HTML."""
         lines = ['<h2>Related Guides</h2>', '<ul>']
-        for link in internal_links[:4]:
+        for link in internal_links[:8]:
             anchor = link.get("anchor_text", "")
             url = link.get("url", "#")
             lines.append(f'<li><a href="{url}">{self._escape_html(anchor)}</a></li>')
