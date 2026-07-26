@@ -16,6 +16,9 @@ The current verified production state and next approved step are recorded in
 - Neither service mounts the Docker socket or OpenClaw configuration.
 - The worker mounts operational workspace data read-only and a separate private
   evidence directory read-write.
+- The scheduler bridge is a fixed-input Unix-socket sidecar with no port,
+  Shopify credential, writer credential, worker credential, or OpenClaw
+  workspace mount.
 - Database URLs and the Shopify access token are file-backed Compose secrets,
   not environment values.
 - Containers are non-root, read-only, capability-free, resource-limited, and
@@ -54,6 +57,8 @@ the controlled source update.
    `main` using fast-forward only. Never reset the worktree.
 4. Create `/docker/orin/secrets` as root mode `0700` and
    `/docker/orin/evidence` as `ubuntu:ubuntu` mode `0700`.
+   Create `/docker/openclaw-utgd/data/.openclaw/run/orin` as UID/GID
+   `10002:10002` mode `0700` for the private scheduler socket.
 5. Copy `deployment.env.example` to `/docker/orin/deployment.env`, set its exact
    reviewed commit, and keep it mode `0600`. It contains no credential.
 6. Export that non-secret configuration and run preflight before creating any
@@ -119,6 +124,38 @@ the controlled source update.
 
     This flag is for a supervised manual test only. It is absent from the
     Compose service command and every scheduler.
+
+## Scheduler trigger commissioning
+
+The trigger design and database capability are documented in
+[`docs/SCHEDULER_TRIGGER.md`](../../docs/SCHEDULER_TRIGGER.md).
+
+After the `orin_scheduler` role has been migrated and separately changed to
+`LOGIN`, install its complete session-pooler URL:
+
+```bash
+deploy/vps/install_scheduler_db_secret.sh
+```
+
+Then run:
+
+```bash
+deploy/vps/preflight.sh --require-secrets --require-scheduler-secret
+```
+
+Build and start only the trigger profile while every OpenClaw schedule remains
+disabled:
+
+```bash
+docker compose --env-file /docker/orin/deployment.env \
+  -f deploy/vps/compose.yml --profile scheduler-trigger build scheduler-trigger
+
+docker compose --env-file /docker/orin/deployment.env \
+  -f deploy/vps/compose.yml --profile scheduler-trigger up -d scheduler-trigger
+```
+
+The first fixed-client call must be tested with database gates closed and must
+return a blocked response. Open gates only for a separately supervised dry-run.
 
 ## Credential handoff — user action required
 

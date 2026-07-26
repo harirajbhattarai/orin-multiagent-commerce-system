@@ -7,11 +7,12 @@ COMPOSE = Path("deploy/vps/compose.yml").read_text(encoding="utf-8")
 def test_deployment_is_manual_and_not_publicly_routed():
     assert 'profiles: ["manual-api"]' in COMPOSE
     assert 'profiles: ["manual-worker"]' in COMPOSE
+    assert 'profiles: ["scheduler-trigger"]' in COMPOSE
     assert '"127.0.0.1:${ORIN_API_PORT:-58080}:8000"' in COMPOSE
     assert "traefik." not in COMPOSE.lower()
     assert "50083" not in COMPOSE
     assert "network_mode: host" not in COMPOSE
-    assert COMPOSE.count("pull_policy: never") == 2
+    assert COMPOSE.count("pull_policy: never") == 3
     assert ":latest" not in COMPOSE
 
 
@@ -20,16 +21,21 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert "/data/.openclaw" not in COMPOSE
     assert "privileged:" not in COMPOSE
     assert COMPOSE.count("read_only: true") >= 3
-    assert COMPOSE.count('cap_drop: ["ALL"]') == 2
-    assert COMPOSE.count("no-new-privileges:true") == 2
-    assert COMPOSE.count('restart: "no"') == 2
+    assert COMPOSE.count('cap_drop: ["ALL"]') == 3
+    assert COMPOSE.count("no-new-privileges:true") == 3
+    assert COMPOSE.count('restart: "no"') == 3
 
 
 def test_database_credentials_are_file_backed_and_role_separated():
     assert "ORIN_DATABASE_URL_FILE: /run/secrets/control_database_url" in COMPOSE
     assert "ORIN_WORKER_DATABASE_URL_FILE: /run/secrets/worker_database_url" in COMPOSE
+    assert (
+        "ORIN_SCHEDULER_DATABASE_URL_FILE: /run/secrets/scheduler_database_url"
+        in COMPOSE
+    )
     assert "ORIN_DATABASE_URL:" not in COMPOSE
     assert "ORIN_WORKER_DATABASE_URL:" not in COMPOSE
+    assert "ORIN_SCHEDULER_DATABASE_URL:" not in COMPOSE
     assert "service_role" not in COMPOSE
     assert "postgresql://" not in COMPOSE
 
@@ -66,3 +72,17 @@ def test_worker_has_no_port_and_uses_read_only_runtime_plus_private_evidence():
     assert "target: /runtime\n        read_only: true" in worker
     assert "target: /evidence" in worker
     assert "--artifact-root" in worker
+
+
+def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():
+    trigger = COMPOSE.split("  scheduler-trigger:", 1)[1].split(
+        "\n  control-api:", 1
+    )[0]
+    assert 'user: "10002:10002"' in trigger
+    assert "ports:" not in trigger
+    assert "target: /run/orin" in trigger
+    assert "ORIN_SCHEDULER_SOCKET_PATH: /run/orin/orin-hbstore-trigger.sock" in trigger
+    assert "scheduler_database_url" in trigger
+    assert "worker_database_url" not in trigger
+    assert "hoverboard_shopify_access_token" not in trigger
+    assert "writer_api_key" not in trigger

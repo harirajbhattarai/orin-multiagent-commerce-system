@@ -6,7 +6,12 @@ REQUIRED_FILES = {"SOUL.md", "IDENTITY.md", "TOOLS.md", "MEMORY.md", "RUNBOOK.md
 
 
 def test_hbstore_agent_has_complete_isolated_boundary_files():
-    assert {path.name for path in WORKSPACE_TEMPLATE.iterdir()} == REQUIRED_FILES
+    assert {
+        path.name for path in WORKSPACE_TEMPLATE.iterdir() if path.is_file()
+    } == REQUIRED_FILES
+    assert (
+        WORKSPACE_TEMPLATE / "bin" / "orin_hbstore_trigger.py"
+    ).is_file()
 
     combined = "\n".join(
         (WORKSPACE_TEMPLATE / name).read_text(encoding="utf-8")
@@ -28,7 +33,9 @@ def test_hbstore_agent_has_complete_isolated_boundary_files():
 
 def test_hbstore_agent_template_contains_no_secret_values():
     combined = "\n".join(
-        path.read_text(encoding="utf-8") for path in WORKSPACE_TEMPLATE.iterdir()
+        path.read_text(encoding="utf-8")
+        for path in WORKSPACE_TEMPLATE.rglob("*")
+        if path.is_file() and path.suffix in {".md", ".py"}
     ).lower()
     forbidden_fragments = (
         "sk-cp",

@@ -1,6 +1,58 @@
 name: orin-control
 
 services:
+  scheduler-trigger:
+    profiles: ["scheduler-trigger"]
+    image: local/orin-scheduler-trigger:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
+    pull_policy: never
+    build:
+      context: ${ORIN_PROJECT_ROOT:?set ORIN_PROJECT_ROOT}
+      dockerfile: Dockerfile.scheduler-trigger
+      args:
+        VERSION: ${ORIN_DEPLOY_SHA}
+        VCS_REF: ${ORIN_DEPLOY_SHA}
+    init: true
+    user: "10002:10002"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 0.25
+    restart: "no"
+    stop_grace_period: 10s
+    environment:
+      ORIN_SCHEDULER_DATABASE_URL_FILE: /run/secrets/scheduler_database_url
+      ORIN_SCHEDULER_DATABASE_ROLE: orin_scheduler
+      ORIN_SCHEDULER_SOCKET_PATH: /run/orin/orin-hbstore-trigger.sock
+    secrets:
+      - scheduler_database_url
+    volumes:
+      - type: bind
+        source: ${ORIN_TRIGGER_SOCKET_DIR:?set ORIN_TRIGGER_SOCKET_DIR}
+        target: /run/orin
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import pathlib,stat;
+          mode=pathlib.Path('/run/orin/orin-hbstore-trigger.sock').stat().st_mode;
+          assert stat.S_ISSOCK(mode)
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   control-api:
     profiles: ["manual-api"]
     image: local/orin-control-api:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
@@ -113,6 +165,8 @@ services:
         max-file: "3"
 
 secrets:
+  scheduler_database_url:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/scheduler_database_url
   control_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/control_database_url
   worker_database_url:
