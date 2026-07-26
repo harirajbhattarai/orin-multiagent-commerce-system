@@ -26,6 +26,12 @@ from orin_runner.runner import (
 )
 
 
+def _job_number(value: str) -> str:
+    if not value.isascii() or not value.isdecimal() or int(value) < 1:
+        raise argparse.ArgumentTypeError("job-number must be a positive integer")
+    return str(int(value))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="orin-runner")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -36,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--workspace-root", type=Path, default=None)
     run_parser.add_argument("--artifact-root", type=Path, default=None)
     run_parser.add_argument("--as-of-date")
+    run_parser.add_argument("--job-number", type=_job_number)
     return parser
 
 
@@ -79,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
             artifact_root=artifact_root,
             repo_root=repo_root,
             as_of_date=args.as_of_date,
+            job_number=args.job_number,
         )
     except RunnerBusyError:
         print(json.dumps(_error_payload(ERROR_RUNNER_BUSY, "another local ORIN run is active"), sort_keys=True))

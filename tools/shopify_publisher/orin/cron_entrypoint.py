@@ -111,13 +111,28 @@ JSON_MODE = "--json" in sys.argv
 JOB_FILTER = None
 AS_OF_DATE = None  # resolved business date override
 CLIENT_ROUTE = None  # 'hcs_gadgets' | 'hoverboard_store' | None (default=Hoverboard)
-for arg in sys.argv:
+for index, arg in enumerate(sys.argv):
     m = re.match(r"^--client=(\w+)$", arg)
     if m:
         CLIENT_ROUTE = m.group(1)
     m_job = re.match(r"^--job=(\d+)$", arg)
     if m_job:
+        if int(m_job.group(1)) < 1:
+            print("ERROR: --job requires a positive integer")
+            sys.exit(2)
         JOB_FILTER = m_job.group(1)
+    elif arg == "--job":
+        if (
+            index + 1 >= len(sys.argv)
+            or not re.fullmatch(r"\d+", sys.argv[index + 1])
+            or int(sys.argv[index + 1]) < 1
+        ):
+            print("ERROR: --job requires a positive integer")
+            sys.exit(2)
+        JOB_FILTER = sys.argv[index + 1]
+    elif arg.startswith("--job="):
+        print("ERROR: --job requires a positive integer")
+        sys.exit(2)
     if arg == "--as-of-date":
         idx = sys.argv.index(arg)
         if idx + 1 < len(sys.argv):
@@ -189,6 +204,37 @@ def writer_output_path(planned_draft_path, job_num, pipeline_run_id):
             "durable database mode requires an absolute ORIN_RUN_ARTIFACT_DIR"
         )
     return str(artifact_root / f"writer_output_{pipeline_run_id}.html")
+
+
+def select_job_for_run(phase1b, job_filter):
+    """Apply a manual job pin without weakening the planner's safety gates."""
+    planner = phase1b.get("planner", {})
+    planner_decision = planner.get("planner_decision", "")
+    selected_job = planner.get("selected_job_number")
+    if not job_filter:
+        return planner_decision, selected_job
+
+    if planner_decision != "due_job_selected":
+        raise ValueError(
+            f"manual job pin rejected because planner decision is {planner_decision!r}"
+        )
+
+    requested = str(int(job_filter))
+    candidates = phase1b.get("planned_jobs", [])
+    target = None
+    for item in candidates:
+        candidate_number = str(item.get("job_number", ""))
+        if candidate_number.isascii() and candidate_number.isdecimal():
+            if str(int(candidate_number)) == requested:
+                target = item
+                break
+    if target is None:
+        raise ValueError(f"manual job pin {requested} is not an eligible planned job")
+    if target.get("queue_status") != "planned" or target.get("due_status") != "due_now":
+        raise ValueError(
+            f"manual job pin {requested} is not planned and due now"
+        )
+    return "due_job_selected", str(target["job_number"])
 
 
 def run_phase_wrapper(phase_key, extra_args=None):
@@ -366,8 +412,10 @@ def run_pipeline():
         return pipeline_blocked(f"Phase 1B failed: {err1b}")
 
     planner = phase1b.get("planner", {})
-    planner_decision = planner.get("planner_decision", "")
-    selected_job = planner.get("selected_job_number")
+    try:
+        planner_decision, selected_job = select_job_for_run(phase1b, JOB_FILTER)
+    except (TypeError, ValueError) as exc:
+        return pipeline_blocked(f"Phase 1B manual job selection blocked: {exc}")
     print(f"  Planner decision: {planner_decision}")
     print(f"  Selected job: {selected_job or 'none'}")
 

@@ -143,6 +143,7 @@ def _read_existing_result(
     client_id: str,
     requested_mode: str,
     as_of_date: str | None,
+    job_number: str | None,
 ) -> tuple[dict[str, Any] | None, int]:
     if not request_index.exists():
         return None, 1
@@ -151,6 +152,7 @@ def _read_existing_result(
         "client_id": client_id,
         "requested_mode": requested_mode,
         "as_of_date": as_of_date,
+        "job_number": job_number,
     }
     actual = {key: pointer.get(key) for key in expected}
     if actual != expected:
@@ -385,6 +387,7 @@ def run_client(
     artifact_root: Path,
     repo_root: Path,
     as_of_date: str | None = None,
+    job_number: str | None = None,
     durable_db_mode: bool = False,
     pipeline_command: Sequence[str] | None = None,
     pipeline_preview_path: Path = PIPELINE_PREVIEW_PATH,
@@ -393,6 +396,10 @@ def run_client(
     """Run one idempotent client request and return its final-result payload."""
     if client_id not in SUPPORTED_CLIENTS:
         raise UnsupportedClientError(f"unsupported client: {client_id}")
+    if job_number is not None:
+        if not re.fullmatch(r"[1-9][0-9]*", job_number):
+            raise ValueError("job_number must be a positive integer")
+        job_number = str(int(job_number))
 
     artifact_root.mkdir(parents=True, exist_ok=True, mode=0o700)
     artifact_root.chmod(0o700)
@@ -407,6 +414,7 @@ def run_client(
             client_id=client_id,
             requested_mode=mode,
             as_of_date=as_of_date,
+            job_number=job_number,
         )
         if existing is not None:
             return existing
@@ -431,6 +439,8 @@ def run_client(
         command.extend([f"--client={client_id}", "--json"])
         if as_of_date:
             command.append(f"--as-of-date={as_of_date}")
+        if job_number:
+            command.append(f"--job={job_number}")
 
         environment = os.environ.copy()
         environment["ORIN_WORKSPACE_ROOT"] = str(workspace_root.resolve())
@@ -587,6 +597,7 @@ def run_client(
                 "client_id": client_id,
                 "requested_mode": mode,
                 "as_of_date": as_of_date,
+                "job_number": job_number,
                 "attempt": attempt,
                 "replay_disposition": result.replay_disposition,
             },
