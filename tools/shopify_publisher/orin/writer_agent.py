@@ -8,13 +8,36 @@ import sys
 _AGENTS_DIR = Path(__file__).parent
 sys.path.insert(0, str(_AGENTS_DIR))
 
-from content_quality_gate import CONTRACT_VERSION, DEFAULT_CONTRACT
+from content_quality_gate import CONTRACT_VERSION, DEFAULT_CONTRACT, evaluate_article_quality
 from model_writer import generate_article, model_writer_enabled
 from topic_identity_gate import get_blocked_terms_for_cluster
 
 # Sentinels
 BLOCK_JOB_CONTEXT_MISMATCH = "BLOCK_JOB_CONTEXT_MISMATCH"
 BLOCK_INVALID_PLANNED_HANDLE = "BLOCK_INVALID_PLANNED_HANDLE"
+
+
+def _model_quality_retry_feedback(receipt):
+    """Return a small, deterministic retry brief from a quality receipt.
+
+    The prior article text is deliberately excluded: sending it back to the
+    model would widen prompt-injection exposure and makes evidence needlessly
+    large. Only machine-generated codes and numeric expectations are used.
+    """
+    return {
+        "visible_word_count": receipt["metrics"].get("visible_word_count", 0),
+        "target_keyword_occurrences": receipt["metrics"].get(
+            "target_keyword_occurrences", 0
+        ),
+        "failed_requirements": [
+            {
+                "code": blocker["code"],
+                "actual": blocker["actual"],
+                "expected": blocker["expected"],
+            }
+            for blocker in receipt["blockers"]
+        ],
+    }
 
 
 class WriterAgent:
@@ -1013,16 +1036,59 @@ Job: {job_number}
         writer_model = None
         writer_provider = None
         model_response_id = None
+        model_attempts = []
         if model_writer_enabled():
             model_result = generate_article(
                 job_context=job_ctx,
                 writer_plan=writer_plan,
+                attempt=1,
             )
             full_html = model_result.body_html
             writer_source = "model"
             writer_model = model_result.model
             writer_provider = model_result.provider
             model_response_id = model_result.response_id
+            initial_quality = evaluate_article_quality(
+                full_html,
+                target_keyword=target_keyword,
+                site_url=writer_plan.get("site_url", self.site_url),
+            )
+            model_attempts.append(
+                {
+                    "attempt": 1,
+                    "response_id": model_result.response_id,
+                    "quality_passed": initial_quality["passed"],
+                    "blocker_codes": [
+                        blocker["code"] for blocker in initial_quality["blockers"]
+                    ],
+                }
+            )
+            if not initial_quality["passed"]:
+                retry_result = generate_article(
+                    job_context=job_ctx,
+                    writer_plan=writer_plan,
+                    quality_retry=_model_quality_retry_feedback(initial_quality),
+                    attempt=2,
+                )
+                full_html = retry_result.body_html
+                writer_model = retry_result.model
+                writer_provider = retry_result.provider
+                model_response_id = retry_result.response_id
+                retry_quality = evaluate_article_quality(
+                    full_html,
+                    target_keyword=target_keyword,
+                    site_url=writer_plan.get("site_url", self.site_url),
+                )
+                model_attempts.append(
+                    {
+                        "attempt": 2,
+                        "response_id": retry_result.response_id,
+                        "quality_passed": retry_quality["passed"],
+                        "blocker_codes": [
+                            blocker["code"] for blocker in retry_quality["blockers"]
+                        ],
+                    }
+                )
 
         # ── Write to output path ──────────────────────────────────────────
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1051,6 +1117,7 @@ Job: {job_number}
             "writer_provider": writer_provider,
             "writer_model": writer_model,
             "model_response_id": model_response_id,
+            "model_attempts": model_attempts,
         }
 
     def _escape_html(self, text):

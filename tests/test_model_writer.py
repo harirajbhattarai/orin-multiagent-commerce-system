@@ -214,6 +214,56 @@ class ModelWriterTests(unittest.TestCase):
             self.assertEqual(request_path.stat().st_mode & 0o777, 0o600)
             self.assertEqual(response_path.stat().st_mode & 0o777, 0o600)
 
+    def test_second_attempt_requires_quality_feedback_and_preserves_evidence(self):
+        captured = {}
+
+        def fake_transport(payload, api_key, timeout):
+            captured["payload"] = payload
+            return {
+                "id": "response-retry",
+                "model": MINIMAX_MODEL,
+                "choices": [{"finish_reason": "stop", "message": {"content": f"{ARTICLE_START}{ARTICLE}{ARTICLE_END}"}}],
+                "usage": {},
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            key_path = root / "writer_api_key"
+            key_path.write_text("secret-test-key\n", encoding="utf-8")
+            key_path.chmod(0o400)
+            evidence_dir = root / "evidence"
+            evidence_dir.mkdir(mode=0o700)
+            with patch.dict(
+                os.environ,
+                {
+                    "ORIN_WRITER_API_KEY_FILE": str(key_path),
+                    "ORIN_RUN_ARTIFACT_DIR": str(evidence_dir),
+                },
+                clear=False,
+            ):
+                with self.assertRaises(ModelWriterError):
+                    generate_article(
+                        job_context=JOB_CONTEXT,
+                        writer_plan=WRITER_PLAN,
+                        transport=fake_transport,
+                        attempt=2,
+                    )
+                generate_article(
+                    job_context=JOB_CONTEXT,
+                    writer_plan=WRITER_PLAN,
+                    transport=fake_transport,
+                    attempt=2,
+                    quality_retry={"failed_requirements": [{"code": "CQ_VISIBLE_WORD_COUNT_LOW"}]},
+                )
+
+            retry_request = evidence_dir / "model_writer_attempt_2_request.json"
+            retry_response = evidence_dir / "model_writer_attempt_2_response.json"
+            self.assertTrue(retry_request.is_file())
+            self.assertTrue(retry_response.is_file())
+            self.assertFalse((evidence_dir / "model_writer_request.json").exists())
+            self.assertIn("final quality-correction attempt", captured["payload"]["messages"][1]["content"])
+            self.assertEqual(retry_request.stat().st_mode & 0o777, 0o600)
+
     def test_rejects_incomplete_or_wrong_model_response(self):
         def incomplete_transport(payload, api_key, timeout):
             return {
