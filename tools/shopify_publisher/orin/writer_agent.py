@@ -226,12 +226,14 @@ class WriterAgent:
             "Buyer Guide": [
                 {"id": "what-to-look-for", "h2": "What to Look For", "label": "What to look for"},
                 {"id": "key-factors", "h2": "Key Factors for Your Decision", "label": "Key factors"},
+                {"id": "suitability-and-support", "h2": "Suitability, Safety, and Support Checks", "label": "Suitability and support"},
                 {"id": "checklist", "h2": "Buyer's Checklist", "label": "Buyer's checklist"},
                 {"id": "faq", "h2": "Frequently Asked Questions", "label": "FAQs"},
             ],
             "Maintenance": [
                 {"id": "why-maintenance-matters", "h2": "Why Maintenance Matters", "label": "Why maintenance matters"},
                 {"id": "how-to-do-it-safely", "h2": "How to Do It Safely", "label": "How to do it safely"},
+                {"id": "warning-signs", "h2": "Warning Signs That Need Expert Help", "label": "Warning signs"},
                 {"id": "checklist", "h2": "Maintenance Checklist", "label": "Maintenance checklist"},
                 {"id": "faq", "h2": "Frequently Asked Questions", "label": "FAQs"},
             ],
@@ -239,6 +241,7 @@ class WriterAgent:
                 {"id": "what-to-consider", "h2": "What to Consider", "label": "What to consider"},
                 {"id": "top-picks", "h2": "Practical Picks for This Occasion", "label": "Practical picks"},
                 {"id": "safety-reminder", "h2": "A Quick Safety Reminder", "label": "Safety reminder"},
+                {"id": "before-you-order", "h2": "Checks to Make Before You Order", "label": "Before you order"},
                 {"id": "faq", "h2": "Frequently Asked Questions", "label": "FAQs"},
             ],
         }
@@ -246,6 +249,7 @@ class WriterAgent:
         content_outline = cluster_outlines.get(cluster, [
             {"id": "overview", "h2": "Overview", "label": "Overview"},
             {"id": "key-points", "h2": "Key Points", "label": "Key points"},
+            {"id": "practical-considerations", "h2": "Practical Considerations", "label": "Practical considerations"},
             {"id": "checklist", "h2": "Checklist", "label": "Checklist"},
             {"id": "faq", "h2": "Frequently Asked Questions", "label": "FAQs"},
         ])

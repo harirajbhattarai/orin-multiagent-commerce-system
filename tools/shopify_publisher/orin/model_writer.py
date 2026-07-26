@@ -121,10 +121,16 @@ Required output contract:
 - Include div.hs-quick-answer, div.hs-highlights, developed H2 sections,
   section.hs-faq with div.hs-faq-item/div.hs-faq-q/div.hs-faq-a, div.hs-cta,
   and a related-guides section.
+- Do not place an H2 inside div.hs-highlights. It is a short summary block, not
+  a substantive article section.
 - Write at least 1,500 visible words. Do not count metadata or HTML tags.
-- Develop at least four substantive sections with at least 100 words each.
+- Render every substantive item from h2_outline as its own H2 section; do not
+  merge or omit planned sections. Develop at least four substantive sections
+  with at least 120 words each so the 100-word quality threshold has margin.
 - Use at least ten useful paragraphs and five approved internal links.
-- Use the exact target keyword naturally 2-12 times, including the H1/opening.
+- Use the exact target keyword naturally 4-8 times, including the H1/opening,
+  and never more than 12 times. Use natural synonyms elsewhere instead of
+  repeating the exact phrase in every section heading or the CTA.
 - Do not repeat paragraphs or pad the article with generic filler.
 - Do not add FAQPage JSON-LD.
 - Do not include inline styles, style/script tags, document wrappers, or visible
