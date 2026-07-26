@@ -9,6 +9,7 @@ select ok(
       and not rolsuper
       and not rolcreaterole
       and not rolcreatedb
+      and not rolreplication
       and not rolbypassrls
     from pg_roles
     where rolname = 'orin_scheduler'

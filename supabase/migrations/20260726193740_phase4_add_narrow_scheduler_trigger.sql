@@ -1,7 +1,14 @@
 do $$
 begin
   if not exists (select 1 from pg_roles where rolname = 'orin_scheduler') then
-    create role orin_scheduler nologin noinherit nobypassrls;
+    create role orin_scheduler
+      nologin
+      noinherit
+      nosuperuser
+      nocreaterole
+      nocreatedb
+      noreplication
+      nobypassrls;
   end if;
 end;
 $$;
@@ -9,10 +16,28 @@ $$;
 alter role orin_scheduler
   nologin
   noinherit
-  nosuperuser
   nocreaterole
-  nocreatedb
-  nobypassrls;
+  nocreatedb;
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_roles
+    where rolname = 'orin_scheduler'
+      and (
+        rolsuper
+        or rolcreaterole
+        or rolcreatedb
+        or rolreplication
+        or rolbypassrls
+      )
+  ) then
+    raise exception 'orin_scheduler has prohibited privileged attributes'
+      using errcode = '42501';
+  end if;
+end;
+$$;
 
 revoke all on schema public from orin_scheduler;
 revoke all on schema orin_private from orin_scheduler;
