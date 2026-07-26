@@ -3,6 +3,7 @@ set -euo pipefail
 
 require_secrets=false
 require_shopify_secret=false
+require_writer_secret=false
 for argument in "$@"; do
   case "${argument}" in
     --require-secrets)
@@ -12,8 +13,12 @@ for argument in "$@"; do
       require_secrets=true
       require_shopify_secret=true
       ;;
+    --require-writer-secret)
+      require_secrets=true
+      require_writer_secret=true
+      ;;
     *)
-      echo "usage: $0 [--require-secrets] [--require-shopify-secret]" >&2
+      echo "usage: $0 [--require-secrets] [--require-shopify-secret] [--require-writer-secret]" >&2
       exit 2
       ;;
   esac
@@ -105,10 +110,14 @@ if [[ "${require_secrets}" == true ]]; then
     [control_database_url]=10001
     [worker_database_url]="${ORIN_RUNTIME_UID}"
     [hoverboard_shopify_access_token]="${ORIN_RUNTIME_UID}"
+    [writer_api_key]="${ORIN_RUNTIME_UID}"
   )
   secret_names=(control_database_url worker_database_url)
   if [[ "${require_shopify_secret}" == true ]]; then
     secret_names+=(hoverboard_shopify_access_token)
+  fi
+  if [[ "${require_writer_secret}" == true ]]; then
+    secret_names+=(writer_api_key)
   fi
   for secret_name in "${secret_names[@]}"; do
     secret_path="${ORIN_SECRETS_DIR}/${secret_name}"

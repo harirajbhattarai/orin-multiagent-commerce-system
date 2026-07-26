@@ -24,6 +24,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
+from content_quality_gate import evaluate_article_quality
 from workspace_paths import source_root, workspace_root
 
 BASE_DIR = workspace_root()
@@ -732,17 +733,64 @@ def review_selected_job_draft(
     quality["no_placeholder_text"] = len(placeholders_found) == 0
     quality["placeholders_found"] = placeholders_found
 
-    # Minimum word count
-    word_count = len(content.split())
-    target_words = writer_plan.get("recommended_word_count", 1000)
-    quality["word_count"] = word_count
-    quality["word_count_target"] = target_words
-    quality["word_count_adequate"] = word_count >= target_words * 0.8  # within 20% of target
-
-    # Substantive body (paragraphs)
-    paragraphs = re.findall(r"<p[\s>].*?</p>", content, re.DOTALL | re.IGNORECASE)
-    quality["paragraph_count"] = len(paragraphs)
-    quality["has_substantive_body"] = len(paragraphs) >= 5
+    # Phase 3.5 is initially scoped to the dedicated Hoverboard Store path.
+    # Other client contracts remain unchanged until they receive their own
+    # client-specific quality profile.
+    phase35_enforced = (
+        client_context is None
+        or getattr(client_context, "client_id", "") == "hoverboard_store"
+    )
+    quality_receipt = None
+    if phase35_enforced:
+        site_url = writer_plan.get("site_url", "")
+        if not site_url and client_context is not None:
+            site_url = getattr(client_context, "site_url", "")
+        if not site_url:
+            site_url = "https://hoverboardstore.co.uk"
+        quality_receipt = evaluate_article_quality(
+            content,
+            target_keyword=writer_plan.get("target_keyword", ""),
+            site_url=site_url,
+        )
+        quality.update(quality_receipt["metrics"])
+        quality["contract_version"] = quality_receipt["contract_version"]
+        quality["gate_passed"] = quality_receipt["passed"]
+        quality["gate_blockers"] = quality_receipt["blockers"]
+        quality["thresholds"] = quality_receipt["thresholds"]
+        quality["word_count"] = quality["visible_word_count"]
+        quality["word_count_target"] = quality_receipt["thresholds"][
+            "min_visible_words"
+        ]
+        quality["word_count_adequate"] = (
+            quality["visible_word_count"]
+            >= quality_receipt["thresholds"]["min_visible_words"]
+        )
+        quality["has_substantive_body"] = (
+            quality["paragraph_count"]
+            >= quality_receipt["thresholds"]["min_paragraph_count"]
+        )
+    else:
+        # Preserve the existing advisory metrics for clients not yet migrated
+        # to a Phase 3.5 content contract.
+        word_count = len(content.split())
+        target_words = writer_plan.get("recommended_word_count", 1000)
+        paragraphs = re.findall(
+            r"<p[\s>].*?</p>",
+            content,
+            re.DOTALL | re.IGNORECASE,
+        )
+        quality.update(
+            {
+                "contract_version": None,
+                "gate_passed": None,
+                "gate_blockers": [],
+                "word_count": word_count,
+                "word_count_target": target_words,
+                "word_count_adequate": word_count >= target_words * 0.8,
+                "paragraph_count": len(paragraphs),
+                "has_substantive_body": len(paragraphs) >= 5,
+            }
+        )
 
     # ── Compliance checks ────────────────────────────────────────────────────
     compliance = {}
@@ -971,15 +1019,34 @@ def review_selected_job_draft(
     if not identity["h1_match"]:
         blockers.append(f"identity: H1 mismatch (got: '{h1_text}', expected: '{expected_title}')")
 
+    # Phase 3.5 content quality failures are blocking before Shopify.
+    if phase35_enforced:
+        for quality_blocker in quality_receipt["blockers"]:
+            blockers.append(
+                "content_quality_gate: "
+                f"{quality_blocker['code']}: {quality_blocker['message']} "
+                f"(actual={quality_blocker['actual']!r}, "
+                f"expected={quality_blocker['expected']!r})"
+            )
+        if not quality["no_debug_text"]:
+            blockers.append(f"content_quality_gate: CQ_DEBUG_TEXT: {debug_found}")
+        if not quality["no_placeholder_text"]:
+            blockers.append(
+                f"content_quality_gate: CQ_PLACEHOLDER_CONTENT: {placeholders_found}"
+            )
+
     # Warnings
     if comp_result.get("status") == "warn":
         post_write_warnings.append(f"compliance_warn: {comp_result.get('detail', '')}")
     if html_q_result.get("status") == "warn":
         post_write_warnings.append(f"html_quality_warn: {html_q_result.get('detail', '')}")
-    if not quality["no_debug_text"]:
+    if not phase35_enforced and not quality["no_debug_text"]:
         post_write_warnings.append(f"debug_text_found: {debug_found}")
-    if not quality["word_count_adequate"]:
-        post_write_warnings.append(f"word_count_low: {word_count} (target: {target_words})")
+    if not phase35_enforced and not quality["word_count_adequate"]:
+        post_write_warnings.append(
+            f"word_count_low: {quality['word_count']} "
+            f"(target: {quality['word_count_target']})"
+        )
     if links["has_broken_hrefs"]:
         post_write_warnings.append(f"broken_hrefs: {broken_hrefs}")
     if not identity["topic_h1_relevant"]:
@@ -1015,6 +1082,7 @@ def review_selected_job_draft(
         "warnings": post_write_warnings,
         "identity_checks": identity,
         "content_quality_checks": quality,
+        "content_quality_receipt": quality_receipt,
         "compliance_checks": compliance,
         "source_grounding_checks": grounding,
         "structure_checks": structure,
