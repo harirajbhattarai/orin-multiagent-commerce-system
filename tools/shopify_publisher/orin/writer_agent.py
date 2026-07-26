@@ -443,22 +443,25 @@ class WriterAgent:
         }
         return faq_templates.get(cluster, [
             {
-                "question": f"What is {target_keyword}?",
+                "question": "What does this guide help me decide?",
                 "answer_template": (
-                    f"This guide covers practical advice on {target_keyword} for UK hoverboard riders. "
-                    "Always follow manufacturer guidance and use equipment safely in appropriate private spaces."
+                    "This guide explains the practical checks a UK buyer or rider "
+                    "can make before choosing or using a hoverboard setup. Always "
+                    "follow manufacturer guidance and use equipment in an "
+                    "appropriate private space."
                 ),
             },
             {
-                "question": f"Is {target_keyword} safe?",
+                "question": "How should I approach safety?",
                 "answer_template": (
-                    f"Safety depends on correct use, proper equipment condition, and following "
-                    f"manufacturer guidance. {target_keyword.title()} can help when used correctly, "
-                    "but no accessory or equipment guarantees safety. Always assess conditions yourself."
+                    "Safety depends on correct use, suitable protective equipment, "
+                    "the condition of the board and accessories, and following "
+                    "manufacturer guidance. No product or accessory removes all "
+                    "risk, so assess the rider and conditions each time."
                 ),
             },
             {
-                "question": f"What should I check before using {target_keyword}?",
+                "question": "What should I check before first use?",
                 "answer_template": (
                     "Check the equipment is in good condition, fits correctly, and is suitable "
                     "for your hoverboard model. Always follow the manufacturer's fitting instructions. "
@@ -622,11 +625,11 @@ class WriterAgent:
             }
         else:
             cta_plan = {
-                "heading": f"Find the Right {target_keyword.title()} at Hoverboard Store",
+                "heading": "Find the Right Hoverboard Setup at Hoverboard Store",
                 "body": (
-                    f"Browse our full range of hoverboards and accessories for {target_keyword}. "
-                    f"Every product ships with manufacturer guidance. "
-                    f"Always follow safety guidance and ride in appropriate private spaces."
+                    "Browse our range of hoverboards and relevant accessories. "
+                    "Every product ships with manufacturer guidance. Always "
+                    "follow safety guidance and ride in appropriate private spaces."
                 ),
                 "button_text": "Shop Hoverboards and Accessories",
                 "button_href": "https://hoverboardstore.co.uk/collections/hoverboards",
