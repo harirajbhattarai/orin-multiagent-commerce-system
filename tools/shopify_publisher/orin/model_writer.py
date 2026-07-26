@@ -84,7 +84,12 @@ Return only one complete HTML fragment between the exact sentinel tags
 not include reasoning, notes, or text outside the sentinel tags."""
 
 
-def build_writer_prompt(job_context: dict, writer_plan: dict) -> str:
+def build_writer_prompt(
+    job_context: dict,
+    writer_plan: dict,
+    *,
+    quality_retry: dict[str, Any] | None = None,
+) -> str:
     """Build a deterministic, non-secret prompt from the approved job plan."""
     prompt_payload = {
         "client_id": "hoverboard_store",
@@ -108,6 +113,22 @@ def build_writer_prompt(job_context: dict, writer_plan: dict) -> str:
             {},
         ),
     }
+    retry_instructions = ""
+    if quality_retry is not None:
+        # This structure is produced only from ORIN's deterministic quality
+        # receipt.  Never include the prior model output in a retry prompt.
+        retry_instructions = f"""
+
+This is a final quality-correction attempt. Generate a new complete article,
+not a partial patch and not an explanation. The prior attempt failed these
+machine-checked requirements:
+{json.dumps(quality_retry, ensure_ascii=False, sort_keys=True, indent=2)}
+
+Treat every failed requirement above as mandatory. Aim for at least 1,800
+visible words and at least 140 words in each substantive H2 section. Check the
+exact target-keyword count before returning the article. Do not mention this
+retry, the quality gate, or these instructions in the article.
+"""
     return f"""Create the article described by this approved plan:
 
 {json.dumps(prompt_payload, ensure_ascii=False, sort_keys=True, indent=2)}
@@ -159,11 +180,21 @@ Required output contract:
 - Use only claims supported by the plan or safe general guidance. If a precise
   product fact is unavailable, advise checking the product label, manual,
   manufacturer, seller, or a qualified technician instead of guessing.
+{retry_instructions}
 """
 
 
-def build_request_payload(job_context: dict, writer_plan: dict) -> dict:
-    writer_prompt = build_writer_prompt(job_context, writer_plan)
+def build_request_payload(
+    job_context: dict,
+    writer_plan: dict,
+    *,
+    quality_retry: dict[str, Any] | None = None,
+) -> dict:
+    writer_prompt = build_writer_prompt(
+        job_context,
+        writer_plan,
+        quality_retry=quality_retry,
+    )
     if len(writer_prompt.encode("utf-8")) > 200_000:
         raise ModelWriterError("model writer prompt exceeds the maximum accepted size")
     return {
@@ -319,13 +350,26 @@ def generate_article(
     job_context: dict,
     writer_plan: dict,
     transport: Callable[[dict, str, int], dict] | None = None,
+    quality_retry: dict[str, Any] | None = None,
+    attempt: int = 1,
 ) -> ModelWriterResult:
     """Call the pinned provider and return one extracted article fragment."""
     key_file = os.environ.get("ORIN_WRITER_API_KEY_FILE", "")
     if not key_file:
         raise ModelWriterError("ORIN_WRITER_API_KEY_FILE is required")
     api_key = _read_api_key(Path(key_file))
-    payload = build_request_payload(job_context, writer_plan)
+    if attempt not in {1, 2}:
+        raise ModelWriterError("model writer attempt must be 1 or 2")
+    if attempt == 1 and quality_retry is not None:
+        raise ModelWriterError("quality retry feedback is only valid for attempt 2")
+    if attempt == 2 and quality_retry is None:
+        raise ModelWriterError("attempt 2 requires quality retry feedback")
+
+    payload = build_request_payload(
+        job_context,
+        writer_plan,
+        quality_retry=quality_retry,
+    )
     timeout_seconds = int(
         os.environ.get(
             "ORIN_WRITER_TIMEOUT_SECONDS",
@@ -357,27 +401,36 @@ def generate_article(
         evidence_dir = Path(evidence_dir_value)
         if not evidence_dir.is_absolute():
             raise ModelWriterError("ORIN_RUN_ARTIFACT_DIR must be absolute")
+        request_evidence = {
+            "schema": MODEL_WRITER_VERSION,
+            "attempt": attempt,
+            "provider": "minimax",
+            "model": MINIMAX_MODEL,
+            "endpoint": MINIMAX_ENDPOINT,
+            "payload": payload,
+        }
+        response_evidence = {
+            "schema": MODEL_WRITER_VERSION,
+            "attempt": attempt,
+            "provider": "minimax",
+            "model": response_model,
+            "response_id": response.get("id"),
+            "finish_reason": choice.get("finish_reason"),
+            "usage": response.get("usage", {}),
+            "body_html": body_html,
+        }
+        # Preserve the historical paths for first-attempt consumers, while
+        # retaining every response whenever the bounded retry is used.
+        if attempt == 1:
+            _write_private_json(evidence_dir / "model_writer_request.json", request_evidence)
+            _write_private_json(evidence_dir / "model_writer_response.json", response_evidence)
         _write_private_json(
-            evidence_dir / "model_writer_request.json",
-            {
-                "schema": MODEL_WRITER_VERSION,
-                "provider": "minimax",
-                "model": MINIMAX_MODEL,
-                "endpoint": MINIMAX_ENDPOINT,
-                "payload": payload,
-            },
+            evidence_dir / f"model_writer_attempt_{attempt}_request.json",
+            request_evidence,
         )
         _write_private_json(
-            evidence_dir / "model_writer_response.json",
-            {
-                "schema": MODEL_WRITER_VERSION,
-                "provider": "minimax",
-                "model": response_model,
-                "response_id": response.get("id"),
-                "finish_reason": choice.get("finish_reason"),
-                "usage": response.get("usage", {}),
-                "body_html": body_html,
-            },
+            evidence_dir / f"model_writer_attempt_{attempt}_response.json",
+            response_evidence,
         )
 
     return ModelWriterResult(

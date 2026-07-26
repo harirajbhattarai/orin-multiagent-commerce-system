@@ -1,7 +1,9 @@
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ORIN_TOOLS = (
@@ -13,6 +15,7 @@ ORIN_TOOLS = (
 sys.path.insert(0, str(ORIN_TOOLS))
 
 from content_quality_gate import evaluate_article_quality  # noqa: E402
+from model_writer import ModelWriterResult  # noqa: E402
 from writer_agent import WriterAgent  # noqa: E402
 
 
@@ -336,6 +339,69 @@ Meta Description: Read this practical UK guide to hoverboard charger not working
         self.assertLessEqual(receipt["metrics"]["seo_title_chars"], 60)
         self.assertGreaterEqual(receipt["metrics"]["meta_description_chars"], 120)
         self.assertLessEqual(receipt["metrics"]["meta_description_chars"], 160)
+
+    def test_model_writer_gets_one_quality_retry_before_draft_is_written(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-26")
+        job_context = {
+            "job_number": "99",
+            "job_label": "Job 99",
+            "topic": "Hoverboard Charger Not Working: Safe Checks",
+            "target_keyword": TARGET_KEYWORD,
+            "target_date": "2026-07-26",
+            "expected_draft_date": "2026-07-26",
+            "queue_status": "planned",
+            "file_path": "",
+            "shopify_handle": None,
+        }
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        too_short = (
+            "<div class=\"hs-article\"><div class=\"hs-container\">"
+            "<h1>Hoverboard Charger Not Working: Safe Checks</h1>"
+            "<p>Too short to pass the quality contract.</p>"
+            "</div></div>"
+        )
+        first = ModelWriterResult(
+            body_html=too_short,
+            provider="minimax",
+            model="MiniMax-M3",
+            response_id="initial-response",
+            finish_reason="stop",
+            usage={},
+        )
+        second = ModelWriterResult(
+            body_html=_valid_article(),
+            provider="minimax",
+            model="MiniMax-M3",
+            response_id="retry-response",
+            finish_reason="stop",
+            usage={},
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "article.html"
+            with patch.dict(os.environ, {"ORIN_MODEL_WRITER_ENABLED": "1"}):
+                with patch("writer_agent.generate_article", side_effect=[first, second]) as generate:
+                    stats = writer.write_selected_job_draft(
+                        job_ctx=job_context,
+                        writer_plan=plan,
+                        output_path_override=str(output_path),
+                    )
+
+        self.assertEqual(generate.call_count, 2)
+        self.assertEqual(generate.call_args_list[0].kwargs["attempt"], 1)
+        self.assertEqual(generate.call_args_list[1].kwargs["attempt"], 2)
+        self.assertIn(
+            "CQ_VISIBLE_WORD_COUNT_LOW",
+            {
+                item["code"]
+                for item in generate.call_args_list[1].kwargs["quality_retry"][
+                    "failed_requirements"
+                ]
+            },
+        )
+        self.assertTrue(stats["model_attempts"][1]["quality_passed"])
+        self.assertEqual(stats["model_response_id"], "retry-response")
 
 
 if __name__ == "__main__":
