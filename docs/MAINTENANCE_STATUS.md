@@ -4,10 +4,14 @@ Last updated: 2026-07-26
 
 ## Current phase
 
-Phase 3 manual verification is complete, including Phase 3.5 model writing, the
-controlled Job 29 hidden-draft transaction, terminal replay/idempotency, and the
-network-isolated partial-failure reconciliation drill. ORIN is intentionally
-back in maintenance; scheduler transfer has not started.
+Phase 3 manual verification is complete. Phase 4 commissioning has started, but
+production scheduler ownership has not transferred. ORIN remains in
+maintenance.
+
+The isolated `orin-hbstore-prod` agent and its five boundary files are
+versioned, deployed, and verified. A dedicated schedule exists only in disabled
+commissioning form. It has no production trigger, no delivery, and only the
+`read` tool.
 
 The reviewed code deployed on the VPS is:
 
@@ -36,6 +40,12 @@ The reviewed code deployed on the VPS is:
   The exact reviewed drill image ran with `--network none`, a read-only root
   filesystem, no Shopify environment variables, and only the loopback network
   interface.
+- PR 31 versioned the five `orin-hbstore-prod` boundary files and added tests
+  for required safety statements and secret-value patterns.
+- The isolated commissioning test ran on `minimax/MiniMax-M3`. It correctly
+  identified Hoverboard Store, read-only commissioning mode, production
+  execution disabled, scheduler ownership none, no channel bindings, and
+  heartbeat disabled. Its runtime exposed only the `read` tool.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -77,6 +87,10 @@ possible during the drill.
 - Database scheduler state: `disabled`
 - Database scheduler owner: none
 - Legacy OpenClaw job: disabled
+- Dedicated `orin-hbstore-prod` commissioning job: disabled
+- Dedicated job tools: `read` only
+- Dedicated job delivery: none
+- Production trigger attached: no
 - OpenClaw next wake: none
 - ORIN containers: none
 - ORIN loopback API port: closed
@@ -112,16 +126,23 @@ The earlier fail-closed simulator timing result is intentionally preserved at:
 
 `/docker/orin/evidence/drills/partial_failure_reconciliation_a1fc792c_20260726T1903Z`
 
+The previous and deployed agent boundary files are preserved at:
+
+`/docker/orin/evidence/config-deployments/orin-hbstore-prod_ff1ccf_20260726T1922Z`
+
 ## Next approved path
 
-Phase 4 begins with scheduler-transfer preparation:
+Continue Phase 4 without enabling either schedule:
 
-1. Create or verify the isolated `orin-hbstore-prod` agent/workspace and its
-   client boundaries.
-2. Create the dedicated `orin-hbstore-prod` scheduler in a disabled state.
-3. Run one supervised near-term test and verify the exact model and
-   `final_result.json`.
-4. Keep only one production scheduler owner.
+1. Implement and review one narrow tenant-scoped request trigger. It may create
+   only Hoverboard Store requests through the control boundary and must not
+   expose general shell access, database credentials, or Shopify credentials to
+   OpenClaw.
+2. Attach that trigger to the dedicated job while the job remains disabled.
+3. Run one supervised manual or near-term automatic test and verify the exact
+   model and terminal `final_result.json`.
+4. Transfer scheduler ownership only after that test. Keep exactly one
+   production scheduler enabled.
 5. Add the read-only watchdog after scheduler ownership is proven.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
