@@ -38,6 +38,7 @@ _PLACEHOLDER_RE = re.compile(
 )
 _NON_SUBSTANTIVE_H2 = {
     "frequently asked questions",
+    "highlights",
     "related guides",
     "quick answer",
     "introduction",

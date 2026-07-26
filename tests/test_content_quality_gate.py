@@ -100,6 +100,65 @@ class ContentQualityGateTests(unittest.TestCase):
         self.assertEqual(receipt["metrics"]["internal_link_count"], 5)
         self.assertEqual(receipt["metrics"]["faq_item_count"], 3)
 
+    def test_highlights_h2_is_not_a_substantive_section(self):
+        html = _valid_article().replace(
+            '<div class="hs-quick-answer">',
+            (
+                '<div class="hs-highlights"><h2>Highlights</h2>'
+                "<p>Short summary points for the reader.</p></div>"
+                '<div class="hs-quick-answer">'
+            ),
+            1,
+        )
+
+        receipt = evaluate_article_quality(
+            html,
+            target_keyword=TARGET_KEYWORD,
+            site_url=SITE_URL,
+        )
+
+        self.assertTrue(receipt["passed"], receipt["blockers"])
+        headings = {
+            section["heading"]
+            for section in receipt["metrics"]["substantive_sections"]
+        }
+        self.assertNotIn("Highlights", headings)
+
+    def test_writer_plans_have_four_substantive_sections(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        cases = [
+            (
+                "Birthday Hoverboard Gift Guide for Kids UK",
+                "birthday hoverboard gift guide",
+            ),
+            ("Hoverboard Battery Care", "hoverboard battery care"),
+            ("Christmas Hoverboard Ideas", "christmas hoverboard ideas"),
+            ("Understanding Hoverboards", "understanding hoverboards"),
+        ]
+        non_substantive_ids = {"introduction", "quick-answer", "faq", "cta"}
+
+        for index, (topic, keyword) in enumerate(cases, start=1):
+            with self.subTest(topic=topic):
+                writer = WriterAgent(str(repository_root), "2026-07-26")
+                job_context = {
+                    "job_number": str(200 + index),
+                    "job_label": f"Job {200 + index}",
+                    "topic": topic,
+                    "target_keyword": keyword,
+                    "target_date": "2026-08-01",
+                    "expected_draft_date": "2026-07-18",
+                    "queue_status": "planned",
+                    "file_path": "",
+                    "shopify_handle": None,
+                }
+                plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+                substantive = [
+                    item
+                    for item in plan["h2_outline"]
+                    if item["id"] not in non_substantive_ids
+                ]
+                self.assertGreaterEqual(len(substantive), 4)
+
     def test_thin_template_is_blocked_with_machine_readable_codes(self):
         html = f"""<!--
 Meta Title: Hoverboard Charger Not Working: Safe Checks
