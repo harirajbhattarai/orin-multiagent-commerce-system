@@ -214,27 +214,38 @@ def select_job_for_run(phase1b, job_filter):
     if not job_filter:
         return planner_decision, selected_job
 
-    if planner_decision != "due_job_selected":
+    if planner_decision != "job_selected":
         raise ValueError(
             f"manual job pin rejected because planner decision is {planner_decision!r}"
         )
 
     requested = str(int(job_filter))
-    candidates = phase1b.get("planned_jobs", [])
+    candidates = planner.get("all_jobs_summary", {})
     target = None
-    for item in candidates:
-        candidate_number = str(item.get("job_number", ""))
+    target_number = None
+    for candidate_number, item in candidates.items():
+        candidate_number = str(candidate_number)
         if candidate_number.isascii() and candidate_number.isdecimal():
             if str(int(candidate_number)) == requested:
                 target = item
+                target_number = candidate_number
                 break
     if target is None:
         raise ValueError(f"manual job pin {requested} is not an eligible planned job")
-    if target.get("queue_status") != "planned" or target.get("due_status") != "due_now":
+    blocking_issues = target.get("blocking_issues")
+    days_until_draft = target.get("days_until_draft")
+    if (
+        target.get("queue_status") != "planned"
+        or not isinstance(blocking_issues, list)
+        or blocking_issues
+        or isinstance(days_until_draft, bool)
+        or not isinstance(days_until_draft, int)
+        or days_until_draft > 0
+    ):
         raise ValueError(
-            f"manual job pin {requested} is not planned and due now"
+            f"manual job pin {requested} is not planned, unblocked, and due now"
         )
-    return "due_job_selected", str(target["job_number"])
+    return "job_selected", target_number
 
 
 def run_phase_wrapper(phase_key, extra_args=None):

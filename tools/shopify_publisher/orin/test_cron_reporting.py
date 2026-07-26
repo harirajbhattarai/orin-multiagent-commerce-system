@@ -68,16 +68,24 @@ def test_explicit_dry_run_takes_precedence_in_cli_parsing():
 def test_manual_job_pin_selects_an_explicit_due_planned_job():
     phase1b = {
         "planner": {
-            "planner_decision": "due_job_selected",
+            "planner_decision": "job_selected",
             "selected_job_number": "28",
+            "all_jobs_summary": {
+                "28": {
+                    "queue_status": "planned",
+                    "days_until_draft": -3,
+                    "blocking_issues": [],
+                },
+                "29": {
+                    "queue_status": "planned",
+                    "days_until_draft": 0,
+                    "blocking_issues": [],
+                },
+            },
         },
-        "planned_jobs": [
-            {"job_number": "28", "queue_status": "planned", "due_status": "due_now"},
-            {"job_number": "29", "queue_status": "planned", "due_status": "due_now"},
-        ],
     }
 
-    assert select_job_for_run(phase1b, "29") == ("due_job_selected", "29")
+    assert select_job_for_run(phase1b, "29") == ("job_selected", "29")
 
 
 @pytest.mark.parametrize(
@@ -87,24 +95,65 @@ def test_manual_job_pin_selects_an_explicit_due_planned_job():
             "planner": {
                 "planner_decision": "waiting_for_future_date",
                 "selected_job_number": None,
+                "all_jobs_summary": {
+                    "29": {
+                        "queue_status": "planned",
+                        "days_until_draft": 1,
+                        "blocking_issues": [],
+                    }
+                },
             },
-            "planned_jobs": [
-                {"job_number": "29", "queue_status": "planned", "due_status": "not_yet"}
-            ],
         },
         {
             "planner": {
                 "planner_decision": "blocked_needs_human",
                 "selected_job_number": None,
+                "all_jobs_summary": {
+                    "29": {
+                        "queue_status": "planned",
+                        "days_until_draft": 0,
+                        "blocking_issues": [],
+                    }
+                },
             },
-            "planned_jobs": [
-                {"job_number": "29", "queue_status": "planned", "due_status": "due_now"}
-            ],
         },
     ],
 )
 def test_manual_job_pin_cannot_bypass_planner_safety(phase1b):
     with pytest.raises(ValueError, match="manual job pin rejected"):
+        select_job_for_run(phase1b, "29")
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        {
+            "queue_status": "planned",
+            "days_until_draft": 1,
+            "blocking_issues": [],
+        },
+        {
+            "queue_status": "planned",
+            "days_until_draft": 0,
+            "blocking_issues": ["duplicate_title"],
+        },
+        {
+            "queue_status": "needs_human_review",
+            "days_until_draft": 0,
+            "blocking_issues": [],
+        },
+    ],
+)
+def test_manual_job_pin_rejects_ineligible_target(target):
+    phase1b = {
+        "planner": {
+            "planner_decision": "job_selected",
+            "selected_job_number": "28",
+            "all_jobs_summary": {"29": target},
+        }
+    }
+
+    with pytest.raises(ValueError, match="not planned, unblocked, and due now"):
         select_job_for_run(phase1b, "29")
 
 
