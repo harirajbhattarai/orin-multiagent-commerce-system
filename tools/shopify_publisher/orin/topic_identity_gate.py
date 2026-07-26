@@ -94,7 +94,7 @@ CLUSTER_CONTAMINATION_BLOCKLIST: dict[str, list[str]] = {
 }
 
 
-def _get_blocked_terms_for_cluster(cluster: str) -> set[str]:
+def get_blocked_terms_for_cluster(cluster: str) -> set[str]:
     """Return the set of terms blocked for the given cluster."""
     blocked = set()
     for owning_cluster, terms in CLUSTER_CONTAMINATION_BLOCKLIST.items():
@@ -193,7 +193,7 @@ def _check_topic_term_clean(
     Check that output does not contain terms associated with a different cluster.
     Uses the CLUSTER_CONTAMINATION_BLOCKLIST to determine blocked terms.
     """
-    blocked = _get_blocked_terms_for_cluster(cluster)
+    blocked = get_blocked_terms_for_cluster(cluster)
     if not blocked:
         return True, "No blocked terms defined for this cluster."
 

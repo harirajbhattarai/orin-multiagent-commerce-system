@@ -98,6 +98,7 @@ def build_writer_prompt(job_context: dict, writer_plan: dict) -> str:
         "cluster": writer_plan.get("cluster", ""),
         "compliance_notes": writer_plan.get("compliance_notes", ""),
         "h2_outline": writer_plan.get("h2_outline", []),
+        "blocked_topic_terms": writer_plan.get("blocked_topic_terms", []),
         "faq_plan": writer_plan.get("faq_plan", []),
         "internal_link_plan": writer_plan.get("internal_link_plan", []),
         "cta_plan": writer_plan.get("cta_plan", {}),
@@ -128,6 +129,11 @@ Required output contract:
 - Render every substantive item from h2_outline as its own H2 section; do not
   merge or omit planned sections. Develop at least four substantive sections
   with at least 120 words each so the 100-word quality threshold has margin.
+- Use every h2_outline[].h2 value verbatim as its H2 text and preserve the
+  approved order. Do not rename, paraphrase, merge, or replace any planned H2,
+  including the CTA H2.
+- Do not use any word or phrase listed in blocked_topic_terms anywhere in
+  visible text, headings, link anchors, metadata, or URLs.
 - Use at least ten useful paragraphs and five approved internal links.
 - Use the exact target keyword naturally 4-8 times, including the H1/opening,
   and never more than 12 times. Use natural synonyms elsewhere instead of

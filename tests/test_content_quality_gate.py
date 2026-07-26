@@ -182,6 +182,33 @@ class ContentQualityGateTests(unittest.TestCase):
 
         self.assertNotIn(keyword, supporting_copy)
 
+    def test_buyer_plan_aligns_cta_heading_and_excludes_hoverkart_links(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-26")
+        job_context = {
+            "job_number": "299",
+            "job_label": "Job 299",
+            "topic": "Birthday Hoverboard Gift Guide for Kids UK",
+            "target_keyword": "birthday hoverboard gift guide",
+            "target_date": "2026-08-11",
+            "expected_draft_date": "2026-07-28",
+            "queue_status": "planned",
+            "cluster": "Buyer Guide",
+            "file_path": "",
+            "shopify_handle": None,
+        }
+
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        cta_heading = next(
+            item["h2"] for item in plan["h2_outline"] if item["id"] == "cta"
+        )
+        links_text = repr(plan["internal_link_plan"]).lower()
+
+        self.assertEqual(cta_heading, plan["cta_plan"]["heading"])
+        self.assertNotIn("hoverkart", links_text)
+        self.assertIn("hoverkart", plan["blocked_topic_terms"])
+        self.assertGreaterEqual(len(plan["internal_link_plan"]), 5)
+
     def test_thin_template_is_blocked_with_machine_readable_codes(self):
         html = f"""<!--
 Meta Title: Hoverboard Charger Not Working: Safe Checks

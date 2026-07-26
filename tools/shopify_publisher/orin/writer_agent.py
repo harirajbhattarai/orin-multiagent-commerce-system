@@ -10,6 +10,7 @@ sys.path.insert(0, str(_AGENTS_DIR))
 
 from content_quality_gate import CONTRACT_VERSION, DEFAULT_CONTRACT
 from model_writer import generate_article, model_writer_enabled
+from topic_identity_gate import get_blocked_terms_for_cluster
 
 # Sentinels
 BLOCK_JOB_CONTEXT_MISMATCH = "BLOCK_JOB_CONTEXT_MISMATCH"
@@ -255,7 +256,11 @@ class WriterAgent:
         ])
 
         closing = [
-            {"id": "cta", "h2": "Shop Hoverboards and Accessories", "label": "Shop now"},
+            {
+                "id": "cta",
+                "h2": "Find the Right Hoverboard Setup at Hoverboard Store",
+                "label": "Shop now",
+            },
         ]
 
         return base_outline + content_outline + closing
@@ -361,12 +366,6 @@ class WriterAgent:
                 "type": "collection",
             },
             {
-                "anchor_text": "explore hoverkarts",
-                "url": f"{self.site_url}/collections/hoverkarts",
-                "reason": "Hoverkart collection for compatible seated setups",
-                "type": "collection",
-            },
-            {
                 "anchor_text": "shop hoverboard accessories",
                 "url": f"{self.site_url}/collections/accessories",
                 "reason": "Accessories collection for relevant support products",
@@ -390,7 +389,26 @@ class WriterAgent:
                 "reason": "UK use and legal-context guide",
                 "type": "blog",
             },
+            {
+                "anchor_text": "new rider accessories guide",
+                "url": (
+                    f"{self.site_url}/blogs/{self.blog_handle}/"
+                    "hoverboard-accessories-checklist-new-riders"
+                ),
+                "reason": "Practical supporting guide for new riders and buyers",
+                "type": "blog",
+            },
         ]
+        if cluster == "Hoverkart":
+            standard_links.insert(
+                1,
+                {
+                    "anchor_text": "explore hoverkarts",
+                    "url": f"{self.site_url}/collections/hoverkarts",
+                    "reason": "Hoverkart collection for compatible seated setups",
+                    "type": "collection",
+                },
+            )
         existing_urls = {link.get("url") for link in links}
         for link in standard_links:
             if link["url"] not in existing_urls:
@@ -599,6 +617,11 @@ class WriterAgent:
 
         # ── H2 outline ───────────────────────────────────────────────────
         h2_outline = self._generate_h2_outline(topic, target_keyword, cluster)
+        blocked_topic_terms = (
+            []
+            if self.is_hcs
+            else sorted(get_blocked_terms_for_cluster(cluster))
+        )
 
         # ── TOC plan ──────────────────────────────────────────────────────
         toc_plan = [
@@ -690,6 +713,7 @@ class WriterAgent:
                 else None
             ),
             "h2_outline": h2_outline,
+            "blocked_topic_terms": blocked_topic_terms,
             "toc_plan": toc_plan,
             "faq_plan": faq_plan,
             "cta_plan": cta_plan,

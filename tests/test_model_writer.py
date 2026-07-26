@@ -40,7 +40,10 @@ WRITER_PLAN = {
     "article_angle": "Safe diagnostic checks",
     "cluster": "Troubleshooting",
     "compliance_notes": "Use only model-specific manufacturer guidance.",
-    "h2_outline": [],
+    "h2_outline": [
+        {"id": "safe-checks", "h2": "Safe Checks", "label": "Safe checks"},
+    ],
+    "blocked_topic_terms": ["hoverkart", "hoverkarts"],
     "faq_plan": [],
     "internal_link_plan": [],
     "cta_plan": {},
@@ -83,6 +86,18 @@ class ModelWriterTests(unittest.TestCase):
         )
         self.assertIn(
             "Do not provide medical advice",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            "Use every h2_outline[].h2 value verbatim",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            '"blocked_topic_terms": [',
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            "Do not use any word or phrase listed in blocked_topic_terms",
             payload["messages"][1]["content"],
         )
         self.assertEqual(MINIMAX_ENDPOINT, "https://api.minimax.io/v1/chat/completions")
