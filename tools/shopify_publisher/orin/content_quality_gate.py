@@ -95,7 +95,7 @@ class _ArticleParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.article = ParsedArticle()
-        self._stack: list[tuple[str, set[str]]] = []
+        self._stack: list[tuple[str, set[str], bool]] = []
         self._skip_depth = 0
         self._current_h1: list[str] | None = None
         self._current_h2: list[str] | None = None
@@ -109,11 +109,18 @@ class _ArticleParser(HTMLParser):
     ) -> None:
         tag = tag.lower()
         classes = _classes(attributes)
-        self._stack.append((tag, classes))
+        parent_hidden = self._stack[-1][2] if self._stack else False
+        style = (_attribute(attributes, "style") or "").replace(" ", "").lower()
+        hidden = parent_hidden or any(
+            name.lower() == "hidden"
+            or (name.lower() == "aria-hidden" and (value or "").lower() == "true")
+            for name, value in attributes
+        ) or "display:none" in style or "visibility:hidden" in style
+        self._stack.append((tag, classes, hidden))
         if tag in {"script", "style", "noscript", "template"}:
             self._skip_depth += 1
             return
-        if self._skip_depth:
+        if self._skip_depth or hidden:
             return
         if "hs-faq-item" in classes:
             self.article.faq_items += 1
@@ -158,7 +165,7 @@ class _ArticleParser(HTMLParser):
                 break
 
     def handle_data(self, data: str) -> None:
-        if self._skip_depth:
+        if self._skip_depth or (self._stack and self._stack[-1][2]):
             return
         text = _normalise_space(data)
         if not text:

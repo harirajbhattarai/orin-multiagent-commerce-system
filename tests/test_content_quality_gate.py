@@ -176,6 +176,20 @@ Meta Description: Read this practical UK guide to hoverboard charger not working
         self.assertEqual(receipt["metrics"]["internal_link_count"], 0)
         self.assertIn("CQ_INTERNAL_LINK_COUNT_LOW", codes)
 
+    def test_hidden_content_is_not_counted_as_visible(self):
+        for marker in (' hidden', ' style="display:none"'):
+            with self.subTest(marker=marker):
+                html = _valid_article().replace(
+                    '<div class="hs-article">',
+                    f'<div class="hs-article"{marker}>',
+                    1,
+                )
+                receipt = evaluate_article_quality(
+                    html, target_keyword=TARGET_KEYWORD, site_url=SITE_URL
+                )
+                self.assertEqual(receipt["metrics"]["visible_word_count"], 0)
+                self.assertFalse(receipt["passed"])
+
     def test_current_template_is_safely_blocked_until_long_form_writer_exists(self):
         repository_root = Path(__file__).resolve().parents[1]
         writer = WriterAgent(str(repository_root), "2026-07-26")

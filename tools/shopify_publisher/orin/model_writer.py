@@ -16,8 +16,10 @@ import stat
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 
 MODEL_WRITER_VERSION = "orin.minimax-writer/v1"
@@ -155,6 +157,67 @@ def build_request_payload(job_context: dict, writer_plan: dict) -> dict:
     }
 
 
+_ALLOWED_TAGS = {
+    "a", "b", "blockquote", "br", "div", "em", "h1", "h2", "h3", "h4",
+    "i", "li", "ol", "p", "section", "span", "strong", "ul",
+}
+
+
+class _ArticleHTMLPolicy(HTMLParser):
+    """Reject model HTML outside the small article fragment contract."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._stack: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        tag = tag.lower()
+        if tag not in _ALLOWED_TAGS:
+            raise ModelWriterError(f"model article contains unsupported tag: {tag}")
+        for name, value in attrs:
+            name = name.lower()
+            value = value or ""
+            if name.startswith("on") or name in {"style", "hidden", "aria-hidden"}:
+                raise ModelWriterError(f"model article contains forbidden attribute: {name}")
+            if name == "class":
+                continue
+            if tag == "a" and name == "href":
+                scheme = urlparse(value.strip()).scheme.lower()
+                if scheme and scheme != "https":
+                    raise ModelWriterError("model article link must use HTTPS or a relative URL")
+                continue
+            raise ModelWriterError(f"model article contains unsupported attribute: {name}")
+        if tag != "br":
+            self._stack.append(tag)
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+        if tag.lower() != "br":
+            self.handle_endtag(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+        if not self._stack or self._stack[-1] != tag:
+            raise ModelWriterError("model article contains malformed HTML nesting")
+        self._stack.pop()
+
+    def close(self) -> None:
+        super().close()
+        if self._stack:
+            raise ModelWriterError("model article contains unclosed HTML tags")
+
+
+def _validate_article_html(article: str) -> None:
+    parser = _ArticleHTMLPolicy()
+    try:
+        parser.feed(article)
+        parser.close()
+    except ModelWriterError:
+        raise
+    except Exception as exc:
+        raise ModelWriterError("model article is not safely parseable HTML") from exc
+
+
 def extract_article_html(content: str) -> str:
     if not isinstance(content, str):
         raise ModelWriterError("model response content is not text")
@@ -173,16 +236,7 @@ def extract_article_html(content: str) -> str:
         raise ModelWriterError("model returned an empty article")
     if len(article.encode("utf-8")) > 500_000:
         raise ModelWriterError("model article exceeds the maximum accepted size")
-    if re.search(
-        r"<(?:html|head|body|script|style|iframe|object|embed|form|input|button)\b",
-        article,
-        re.IGNORECASE,
-    ):
-        raise ModelWriterError("model article contains a forbidden document or active tag")
-    if re.search(r"\son[a-z]+\s*=", article, re.IGNORECASE):
-        raise ModelWriterError("model article contains a forbidden event handler")
-    if re.search(r"(?:href|src)\s*=\s*[\"']\s*javascript:", article, re.IGNORECASE):
-        raise ModelWriterError("model article contains a forbidden JavaScript URL")
+    _validate_article_html(article)
     return article
 
 

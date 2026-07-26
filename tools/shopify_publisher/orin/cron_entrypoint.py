@@ -489,8 +489,11 @@ def run_pipeline():
         )
         log(f"  Writer execution: {exec_output_path}")
     except Exception as e:
-        log(f"  ⚠️  Writer execution error: {e}")
-        exec_stats = {}
+        log(f"  ❌ Writer execution blocked: {type(e).__name__}")
+        return pipeline_blocked(
+            "Writer execution blocked: no current-run article was produced. "
+            f"Error type: {type(e).__name__}."
+        )
 
     # Write the execution preview JSON so downstream phases can load it
     exec_preview_path = Path(f"/tmp/orin_job{job_num}_writer_execution_preview.json")

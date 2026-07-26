@@ -89,6 +89,18 @@ class ModelWriterTests(unittest.TestCase):
                 f'{ARTICLE_START}<div onclick="alert(1)">x</div>{ARTICLE_END}'
             )
 
+    def test_rejects_parsed_active_urls_and_concealment(self):
+        unsafe_articles = [
+            '<a href=javascript:alert(1)>x</a>',
+            '<a href="java&#x73;cript:alert(1)">x</a>',
+            '<div hidden><p>x</p></div>',
+            '<div style="display:none"><p>x</p></div>',
+        ]
+        for article in unsafe_articles:
+            with self.subTest(article=article):
+                with self.assertRaises(ModelWriterError):
+                    extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}")
+
     def test_fake_provider_writes_private_non_secret_evidence(self):
         captured = {}
 
