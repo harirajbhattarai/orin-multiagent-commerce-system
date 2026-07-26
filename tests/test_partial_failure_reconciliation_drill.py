@@ -4,9 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.shopify_publisher.orin.partial_failure_reconciliation_drill import (
-    run_drill,
-)
+from orin_runner.reconciliation_drill import run_drill
 
 
 def test_partial_failure_drill_reconciles_and_caches_without_duplicate(tmp_path):
