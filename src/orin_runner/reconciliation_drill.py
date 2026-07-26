@@ -102,7 +102,7 @@ def run_drill(
     artifact_root: Path,
     repo_root: Path,
     request_id: str,
-    timeout_seconds: float = 0.1,
+    timeout_seconds: float = 2,
     require_network_none: bool = True,
 ) -> dict[str, Any]:
     """Execute the three-call timeout, reconcile, and cached-replay sequence."""
@@ -195,7 +195,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--artifact-root", type=Path, required=True)
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--request-id", default=None)
-    parser.add_argument("--timeout-seconds", type=float, default=0.1)
+    parser.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=2,
+        help="First-attempt timeout; two seconds allows the simulated marker to become durable.",
+    )
     parser.add_argument(
         "--allow-host-network",
         action="store_true",
