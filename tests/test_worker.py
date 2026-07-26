@@ -148,6 +148,16 @@ def test_manual_worker_accepts_only_an_iso_as_of_date():
         build_parser().parse_args(["once", "--as-of-date", "08/08/2026"])
 
 
+def test_manual_worker_accepts_only_a_positive_job_number():
+    parsed = build_parser().parse_args(["once", "--job-number", "029"])
+    assert parsed.job_number == "29"
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["once", "--job-number", "0"])
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["once", "--job-number", "job29"])
+
+
 def test_claimed_job_is_completed_with_the_exact_runner_result():
     repository = FakeRepository(claimed_job())
     result = final_result()

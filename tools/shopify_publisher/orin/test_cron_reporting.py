@@ -11,6 +11,7 @@ ENTRYPOINT = Path(__file__).resolve().parent / "cron_entrypoint.py"
 MODULE = runpy.run_path(str(ENTRYPOINT), run_name="orin_reporting_test")
 build_report = MODULE["build_report"]
 writer_output_path = MODULE["writer_output_path"]
+select_job_for_run = MODULE["select_job_for_run"]
 
 
 def load_entrypoint_with_args(*args):
@@ -62,6 +63,49 @@ def test_explicit_dry_run_takes_precedence_in_cli_parsing():
     assert module["LIVE_DRAFT"] is True
     assert module["CONFIRM_LIVE_DRAFT"] is True
     assert module["REQUESTED_MODE"] == "live-draft"
+
+
+def test_manual_job_pin_selects_an_explicit_due_planned_job():
+    phase1b = {
+        "planner": {
+            "planner_decision": "due_job_selected",
+            "selected_job_number": "28",
+        },
+        "planned_jobs": [
+            {"job_number": "28", "queue_status": "planned", "due_status": "due_now"},
+            {"job_number": "29", "queue_status": "planned", "due_status": "due_now"},
+        ],
+    }
+
+    assert select_job_for_run(phase1b, "29") == ("due_job_selected", "29")
+
+
+@pytest.mark.parametrize(
+    "phase1b",
+    [
+        {
+            "planner": {
+                "planner_decision": "waiting_for_future_date",
+                "selected_job_number": None,
+            },
+            "planned_jobs": [
+                {"job_number": "29", "queue_status": "planned", "due_status": "not_yet"}
+            ],
+        },
+        {
+            "planner": {
+                "planner_decision": "blocked_needs_human",
+                "selected_job_number": None,
+            },
+            "planned_jobs": [
+                {"job_number": "29", "queue_status": "planned", "due_status": "due_now"}
+            ],
+        },
+    ],
+)
+def test_manual_job_pin_cannot_bypass_planner_safety(phase1b):
+    with pytest.raises(ValueError, match="manual job pin rejected"):
+        select_job_for_run(phase1b, "29")
 
 
 def test_dry_run_report_is_truthful():

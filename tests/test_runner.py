@@ -40,6 +40,7 @@ def invoke(
     *,
     mode: str = "dry-run",
     timeout: float = 900,
+    job_number: str | None = None,
 ) -> dict:
     workspace = tmp_path / "workspace"
     workspace.mkdir(exist_ok=True)
@@ -53,6 +54,7 @@ def invoke(
         pipeline_command=command,
         pipeline_preview_path=preview_path,
         pipeline_timeout_seconds=timeout,
+        job_number=job_number,
     )
 
 
@@ -318,13 +320,27 @@ def test_hidden_draft_maps_to_existing_double_confirmation_gate(tmp_path):
         preview_path,
         str(uuid.uuid4()),
         mode="hidden-draft",
+        job_number="29",
     )
 
     captured = json.loads(args_path.read_text())
     assert "--live-draft" in captured
     assert "--confirm-live-draft" in captured
     assert "--client=hoverboard_store" in captured
+    assert "--job=29" in captured
     assert "--dry-run" not in captured
+
+
+def test_request_id_reuse_with_different_job_pin_is_rejected(tmp_path):
+    preview = {"blocked": False, "planner_decision": "no_job_due", "effective_mode": "dry-run"}
+    command, preview_path, counter_path = fake_pipeline(tmp_path, preview)
+    request_id = str(uuid.uuid4())
+    invoke(tmp_path, command, preview_path, request_id, job_number="28")
+
+    with pytest.raises(IdempotencyConflictError):
+        invoke(tmp_path, command, preview_path, request_id, job_number="29")
+
+    assert counter_path.read_text() == "1"
 
 
 def test_hidden_draft_child_receives_durable_marker_context(tmp_path):

@@ -33,6 +33,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=_as_of_date,
         help="manual test-only business date override in YYYY-MM-DD form",
     )
+    once.add_argument(
+        "--job-number",
+        type=_job_number,
+        help="manual test-only queue job pin; scheduled workers must omit it",
+    )
     return parser
 
 
@@ -41,6 +46,12 @@ def _as_of_date(value: str) -> str:
         return date.fromisoformat(value).isoformat()
     except ValueError as exc:
         raise argparse.ArgumentTypeError("as-of-date must use YYYY-MM-DD") from exc
+
+
+def _job_number(value: str) -> str:
+    if not value.isascii() or not value.isdecimal() or int(value) < 1:
+        raise argparse.ArgumentTypeError("job-number must be a positive integer")
+    return str(int(value))
 
 
 def _worker_id(configured: str | None) -> str:
@@ -92,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
             artifact_root=artifact_root,
             repo_root=repo_root,
             as_of_date=args.as_of_date,
+            job_number=args.job_number,
             durable_db_mode=True,
         )
 
