@@ -9,13 +9,13 @@ production scheduler ownership has not transferred. ORIN remains in
 maintenance.
 
 The isolated `orin-hbstore-prod` agent and its five boundary files are
-versioned, deployed, and verified. A dedicated schedule exists only in disabled
-commissioning form. It has no production trigger, no delivery, and only the
-`read` tool.
+versioned, deployed, and verified. Its dedicated schedule is wired only to one
+fixed no-argument Python client over a private Unix socket. The job remains
+disabled, has no delivery, and has no agent or tool execution path.
 
 The reviewed code deployed on the VPS is:
 
-`cee122f0853f2aa35f69adcf187e610b957a5b67`
+`9fd610a0e05aedcf571d133079d06e551b0fa421`
 
 ## Verified results
 
@@ -46,6 +46,16 @@ The reviewed code deployed on the VPS is:
   identified Hoverboard Store, read-only commissioning mode, production
   execution disabled, scheduler ownership none, no channel bindings, and
   heartbeat disabled. Its runtime exposed only the `read` tool.
+- PRs 33-34 added and corrected the narrow HBStore scheduler trigger. It uses
+  a distinct `orin_scheduler` role, a private Unix socket, one fixed argv, and
+  an immutable source-job key. The worker-compatible job payload is empty;
+  no client, mode, schedule, or arbitrary payload comes from OpenClaw.
+- Closed-gate trigger commissioning returned a blocked response with zero
+  queued scheduler jobs.
+- The supervised scheduler dry-run was accepted once, replayed idempotently,
+  claimed by the worker, and durably finalized. Shopify creates, publishing,
+  and queue changes were all zero. The pipeline stopped at the content-quality
+  gate before any Shopify transaction.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -88,11 +98,12 @@ possible during the drill.
 - Database scheduler owner: none
 - Legacy OpenClaw job: disabled
 - Dedicated `orin-hbstore-prod` commissioning job: disabled
-- Dedicated job tools: `read` only
+- Dedicated job payload: fixed `python3` argv to the HBStore socket client
+- Dedicated job agent/tools: none
 - Dedicated job delivery: none
-- Production trigger attached: no
+- Production trigger attached: yes, disabled
 - OpenClaw next wake: none
-- ORIN containers: none
+- ORIN containers: scheduler trigger sidecar only; no API or worker container
 - ORIN loopback API port: closed
 
 ## Durable evidence
@@ -130,17 +141,28 @@ The previous and deployed agent boundary files are preserved at:
 
 `/docker/orin/evidence/config-deployments/orin-hbstore-prod_ff1ccf_20260726T1922Z`
 
+Successful scheduler-boundary evidence (the content pipeline was correctly
+blocked before Shopify):
+
+`/docker/orin/evidence/hb_20260726T210343Z_2dcfa08c`
+
+The Job 28 dry-run reached the actual writer and then failed closed because the
+output had 565 visible words, several underdeveloped sections, and 13 uses of
+the target keyword. The result recorded zero Shopify creates, no publish, and
+no queue change.
+
 ## Next approved path
 
 Continue Phase 4 without enabling either schedule:
 
-1. Implement and review one narrow tenant-scoped request trigger. It may create
-   only Hoverboard Store requests through the control boundary and must not
-   expose general shell access, database credentials, or Shopify credentials to
-   OpenClaw.
-2. Attach that trigger to the dedicated job while the job remains disabled.
-3. Run one supervised manual or near-term automatic test and verify the exact
-   model and terminal `final_result.json`.
+1. Fix the Job 28 writer/content-quality failure: raise substantive article
+   depth and visible word count, and reduce target-keyword usage to the gate's
+   accepted range.
+2. Run another supervised dry-run through the already-attached disabled fixed
+   trigger. Confirm a terminal `final_result.json` with zero Shopify creates,
+   publishing, and queue changes.
+3. Run the separately approved controlled hidden-draft test only after the
+   dry-run content-quality result is clean.
 4. Transfer scheduler ownership only after that test. Keep exactly one
    production scheduler enabled.
 5. Add the read-only watchdog after scheduler ownership is proven.
