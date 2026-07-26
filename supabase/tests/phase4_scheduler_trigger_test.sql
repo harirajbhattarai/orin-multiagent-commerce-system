@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(11);
 
 select ok(
   (
@@ -46,6 +46,41 @@ select ok(
     'EXECUTE'
   ),
   'orin_scheduler cannot claim or complete worker jobs'
+);
+
+insert into public.content_jobs (
+  client_id,
+  source_job_key,
+  request_id,
+  requested_by,
+  requested_mode,
+  status,
+  scheduled_for,
+  payload
+)
+values (
+  'hoverboard_store',
+  'scheduler:orin-hbstore-prod:2099-01-01',
+  '99999999-9999-5999-8999-999999999999',
+  null,
+  'dry-run',
+  'queued',
+  now(),
+  jsonb_build_object(
+    'scheduler_owner', 'openclaw:orin-hbstore-prod',
+    'schedule', 'daily-1100-europe-london',
+    'schedule_date', '2099-01-01'
+  )
+);
+
+select is(
+  (
+    select payload::text
+    from public.content_jobs
+    where source_job_key = 'scheduler:orin-hbstore-prod:2099-01-01'
+  ),
+  '{}'::jsonb::text,
+  'legacy fixed scheduler provenance normalizes to an empty worker payload'
 );
 
 create temporary table scheduler_test_results (
@@ -159,12 +194,11 @@ select ok(
       requested_by is null
       and requested_mode = 'dry-run'
       and source_job_key like 'scheduler:orin-hbstore-prod:%'
-      and payload ->> 'scheduler_owner' = 'openclaw:orin-hbstore-prod'
-      and payload ->> 'schedule' = 'daily-1100-europe-london'
+      and payload = '{}'::jsonb
     from public.content_jobs
     where job_id = (select job_id from scheduler_jobs_result limit 1)
   ),
-  'scheduled job is system-owned, dry-run, and provenance-bound'
+  'scheduled job is system-owned, dry-run, source-key-bound, and payload-free'
 );
 
 select * from finish();
