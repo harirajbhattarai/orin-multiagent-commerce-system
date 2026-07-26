@@ -74,3 +74,26 @@ docker run --rm --network none --read-only \
 ```
 
 Do not solve mount permissions by running the worker as root.
+
+## Partial-failure reconciliation drill
+
+Before transferring scheduler ownership, run the credential-free fault drill
+against the reviewed runner image. The drill refuses Shopify environment
+variables and, by default, refuses any container network interface other than
+loopback:
+
+```bash
+docker run --rm --network none --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --mount type=bind,src=/path/to/drill-evidence,dst=/evidence \
+  --entrypoint python IMAGE \
+  /app/tools/shopify_publisher/orin/partial_failure_reconciliation_drill.py \
+  --artifact-root /evidence
+```
+
+The first simulated hidden-draft attempt records an unknown Shopify state and
+requires reconciliation. The second attempt observes the same marker-owned
+unpublished article and becomes terminal. A third invocation must return the
+cached terminal result. The simulated remote state must record exactly one
+create. The authoritative drill summary is written to
+`partial_failure_reconciliation_drill.json` inside the evidence directory.
