@@ -71,6 +71,28 @@ class ModelWriterTests(unittest.TestCase):
 
         self.assertEqual(extract_article_html(content), ARTICLE)
 
+    def test_allows_safe_h2_anchor_ids(self):
+        article = (
+            '<div class="hs-article"><h2 id="before-you-buy_2">'
+            "Before You Buy</h2></div>"
+        )
+
+        self.assertEqual(
+            extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}"),
+            article,
+        )
+
+    def test_rejects_unsafe_or_misplaced_ids(self):
+        unsafe_articles = [
+            '<h2 id="bad anchor">Heading</h2>',
+            '<h2 id="x&quot; onclick=&quot;alert(1)">Heading</h2>',
+            '<div id="allowed-looking">Content</div>',
+        ]
+        for article in unsafe_articles:
+            with self.subTest(article=article):
+                with self.assertRaises(ModelWriterError):
+                    extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}")
+
     def test_rejects_markdown_or_text_outside_sentinels(self):
         with self.assertRaises(ModelWriterError):
             extract_article_html(f"```html\n{ARTICLE}\n```")
