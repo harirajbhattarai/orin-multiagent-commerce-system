@@ -66,3 +66,12 @@ def test_workspace_root_defaults_to_checkout_and_honours_override(tmp_path):
         env={**os.environ, "ORIN_WORKSPACE_ROOT": str(tmp_path)},
     )
     assert Path(override_result.stdout.strip()) == tmp_path.resolve()
+
+
+def test_publisher_preview_is_persisted_before_markdown_projection():
+    path = AGENTS_DIR / "orin_phase2e_publisher_dryrun.py"
+    source = path.read_text(encoding="utf-8")
+
+    assert source.index('with open(JSON_PATH, "w"') < source.index(
+        'with open(REPORT_PATH, "w"'
+    )

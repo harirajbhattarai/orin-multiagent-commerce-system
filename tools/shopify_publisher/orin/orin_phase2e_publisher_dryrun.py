@@ -202,13 +202,15 @@ def run():
 *Mode: DRY-RUN — no live Shopify changes*
 """
 
+    # Persist the canonical machine-readable decision first. The Markdown
+    # projection is useful evidence, but a report-path failure must not erase
+    # an already-computed publisher decision from the supervising pipeline.
+    with open(JSON_PATH, "w", encoding="utf-8") as f:
+        json.dump(agent_results, f, indent=2, default=str)
+
     # Write report
     with open(REPORT_PATH, "w", encoding="utf-8") as f:
         f.write(report)
-
-    # Write JSON preview
-    with open(JSON_PATH, "w", encoding="utf-8") as f:
-        json.dump(agent_results, f, indent=2, default=str)
 
     print(f"\n📄 Report written: {REPORT_PATH}")
     print(f"📄 JSON written:   {JSON_PATH}")
