@@ -1,6 +1,6 @@
 # ORIN maintenance status
 
-Last updated: 2026-07-26
+Last updated: 2026-07-27
 
 ## Current phase
 
@@ -15,7 +15,7 @@ disabled, has no delivery, and has no agent or tool execution path.
 
 The reviewed code deployed on the VPS is:
 
-`c569ab92e09f9ae2af86edb25d4baf62de1f546e`
+`31c0357276e5cb815d83eb73264100e460fb43b6`
 
 ## Verified results
 
@@ -62,9 +62,25 @@ The reviewed code deployed on the VPS is:
   both attempts, and remains blocked unless the replacement passes. It does
   not send the prior article text back to the model and does not alter Shopify
   or queue behavior.
-- PR 36 passed the application and database CI checks before merge. The VPS
-  trigger and dormant worker images were rebuilt from this exact commit; only
-  the trigger sidecar was restarted and it is healthy.
+- PR 38 hardened the private trigger boundary with Linux peer-credential
+  authorization. The sidecar runs as UID/GID `10002:1000`; its private socket
+  is owned by `10002:1000` with mode `0620`, and only the OpenClaw UID is
+  accepted as a caller.
+- PRs 39-42 aligned the MiniMax prompt with deterministic review policy, added
+  non-secret model failure diagnostics, and applied exactly one bounded retry
+  to correctable structural and content-policy failures. Provider, network,
+  and credential failures remain non-retryable.
+- The bounded retry was exercised on the VPS. Attempt 1 failed the model-output
+  policy and attempt 2 produced a corrected article of approximately 2,369
+  words. Topic identity and the full post-write content review passed. No
+  Shopify write or queue change occurred.
+- PR 43 made publisher evidence fail-safe by persisting canonical JSON before
+  optional Markdown projection. A standalone Phase 2E verification against
+  the accepted article returned `BLOCKED_DUPLICATE_SHOPIFY_HANDLE`, preserved
+  both evidence formats, and recorded `shopify_touched=false` and
+  `queue_touched=false`.
+- PRs 38-43 passed application and database CI before merge. The VPS trigger
+  sidecar is healthy at the reviewed deployed revision shown above.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -155,26 +171,43 @@ blocked before Shopify):
 
 `/docker/orin/evidence/hb_20260726T210343Z_2dcfa08c`
 
-The Job 28 dry-run reached the actual writer and then failed closed because the
-first model output had 565 visible words, several underdeveloped sections, and
-13 uses of the target keyword. The result recorded zero Shopify creates, no
-publish, and no queue change. PR 36 is deployed to provide exactly one bounded
-correction attempt for this class of failure; it has not yet been exercised
-against MiniMax on the VPS.
+The first 2026-07-27 scheduler-bound dry-run reached the pipeline but used the
+deterministic template because model writing had not yet been enabled in the
+deployment environment. It failed closed at content quality with 565 words,
+underdeveloped sections, and 13 uses of the target keyword:
+
+`/docker/orin/evidence/hb_20260727T111055Z_03d424fb`
+
+After enabling the existing file-backed MiniMax credential path, the corrected
+model dry-run exercised the single bounded retry. Attempt 2 passed topic
+identity and the full content review:
+
+`/docker/orin/evidence/hb_20260727T114526Z_dcf4b8ad`
+
+The accepted article did not reach Shopify because publisher preflight found
+an existing hidden draft with the same handle:
+
+`hoverboard-charger-not-working-checks-before-buying-a-new-one`
+
+This is a safe, expected duplicate block. No Shopify create, publication, or
+queue mutation occurred. Do not delete or modify the existing draft, or
+reconcile its queue ownership, without an explicit operator decision.
 
 ## Next approved path
 
 Continue Phase 4 without enabling either schedule:
 
-1. Run another supervised dry-run through the already-attached disabled fixed
-   trigger. Confirm a terminal `final_result.json` with zero Shopify creates,
-   publishing, and queue changes, and verify that the bounded writer retry
-   either produces a clean content-quality receipt or still fails closed.
-2. Run the separately approved controlled hidden-draft test only after the
-   dry-run content-quality result is clean.
-3. Transfer scheduler ownership only after that test. Keep exactly one
-   production scheduler enabled.
-4. Add the read-only watchdog after scheduler ownership is proven.
+1. Decide how to reconcile the existing Job 28 sample hidden draft: preserve
+   it and assign ownership, archive/delete it, or choose a fresh unique job.
+   Shopify deletion and queue mutation require explicit operator approval.
+2. After duplicate state is resolved, run one fresh unique supervised dry-run
+   and publisher preflight with zero Shopify creates, publishing, and queue
+   changes.
+3. Run the separately approved controlled hidden-draft test only after that
+   preflight passes.
+4. Transfer scheduler ownership only after the controlled test. Keep exactly
+   one production scheduler enabled.
+5. Add the read-only watchdog after scheduler ownership is proven.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
 controlled transaction, or begin additional clients before HBStore scheduler
