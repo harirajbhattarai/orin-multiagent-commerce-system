@@ -81,6 +81,17 @@ The reviewed code deployed on the VPS is:
   `queue_touched=false`.
 - PRs 38-43 passed application and database CI before merge. The VPS trigger
   sidecar is healthy at the reviewed deployed revision shown above.
+- Job 30 was selected as a fresh manual-only commissioning topic while the
+  existing Job 28 sample draft was preserved. A live read-only Shopify
+  inventory refresh returned 44 articles with no exact or near title/handle
+  conflict for Job 30.
+- MiniMax M3 generated the Job 30 article under the bounded writer policy.
+  Topic identity and the full post-write review passed. A separate Phase 2E
+  run against the exact preserved article refreshed live Shopify inventory,
+  passed compliance and publisher checks, and returned
+  `READY_TO_CREATE_SELECTED_JOB_DRAFT`.
+- The Job 30 commissioning run and publisher preflight made zero Shopify
+  creates, published nothing, and left the queue byte-for-byte unchanged.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -193,20 +204,41 @@ This is a safe, expected duplicate block. No Shopify create, publication, or
 queue mutation occurred. Do not delete or modify the existing draft, or
 reconcile its queue ownership, without an explicit operator decision.
 
+The fresh Job 30 supervised dry-run and live read-only publisher preflight are
+preserved at:
+
+`/docker/orin/evidence/hb_20260727T124044Z_eee612b6`
+
+The generated article is:
+
+`writer_output_job30_1785156047_0dbb9ed1.html`
+
+The publisher decision is recorded in both
+`orin_phase2e_publisher_preview.json` and `orin_status_phase2e.md`. Live
+inventory contained 44 articles and returned no exact handle, exact title,
+near-handle, or near-title conflict. The resulting proposed hidden draft has:
+
+- Title: `Hoverboard Bundle Buying Guide`
+- Handle: `hoverboard-bundle-buying-guide`
+- Published state: `false`
+- Decision: `READY_TO_CREATE_SELECTED_JOB_DRAFT`
+- Shopify touched: `false`
+- Queue touched: `false`
+
 ## Next approved path
 
 Continue Phase 4 without enabling either schedule:
 
-1. Decide how to reconcile the existing Job 28 sample hidden draft: preserve
-   it and assign ownership, archive/delete it, or choose a fresh unique job.
-   Shopify deletion and queue mutation require explicit operator approval.
-2. After duplicate state is resolved, run one fresh unique supervised dry-run
-   and publisher preflight with zero Shopify creates, publishing, and queue
-   changes.
-3. Run the separately approved controlled hidden-draft test only after that
-   preflight passes.
-4. Transfer scheduler ownership only after the controlled test. Keep exactly
-   one production scheduler enabled.
+1. Keep the existing Job 28 sample draft unchanged. Its ownership can be
+   reconciled separately after the Job 30 commissioning path is complete.
+2. Run one separately approved controlled Job 30 hidden-draft transaction.
+   Open Shopify writes only for that transaction, retain both schedules
+   disabled, and require exactly one unpublished article plus durable
+   reconciliation evidence.
+3. Close Shopify writes immediately after the transaction and prove an
+   identical request replay creates no second article.
+4. Transfer scheduler ownership only after the controlled transaction and
+   replay pass. Keep exactly one production scheduler enabled.
 5. Add the read-only watchdog after scheduler ownership is proven.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
