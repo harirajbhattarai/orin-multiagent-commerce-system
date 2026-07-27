@@ -15,7 +15,7 @@ ORIN_TOOLS = (
 sys.path.insert(0, str(ORIN_TOOLS))
 
 from content_quality_gate import evaluate_article_quality  # noqa: E402
-from model_writer import ModelWriterResult  # noqa: E402
+from model_writer import ModelWriterError, ModelWriterResult  # noqa: E402
 from writer_agent import WriterAgent  # noqa: E402
 
 
@@ -402,6 +402,91 @@ Meta Description: Read this practical UK guide to hoverboard charger not working
         )
         self.assertTrue(stats["model_attempts"][1]["quality_passed"])
         self.assertEqual(stats["model_response_id"], "retry-response")
+
+    def test_model_writer_spends_same_single_retry_budget_on_output_contract(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-26")
+        job_context = {
+            "job_number": "99",
+            "job_label": "Job 99",
+            "topic": "Hoverboard Charger Not Working: Safe Checks",
+            "target_keyword": TARGET_KEYWORD,
+            "target_date": "2026-07-26",
+            "expected_draft_date": "2026-07-26",
+            "queue_status": "planned",
+            "file_path": "",
+            "shopify_handle": None,
+        }
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        corrected = ModelWriterResult(
+            body_html=_valid_article(),
+            provider="minimax",
+            model="MiniMax-M3",
+            response_id="contract-retry-response",
+            finish_reason="stop",
+            usage={},
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "article.html"
+            with patch.dict(os.environ, {"ORIN_MODEL_WRITER_ENABLED": "1"}):
+                with patch(
+                    "writer_agent.generate_article",
+                    side_effect=[
+                        ModelWriterError(
+                            "model response contains text outside the article sentinels"
+                        ),
+                        corrected,
+                    ],
+                ) as generate:
+                    stats = writer.write_selected_job_draft(
+                        job_ctx=job_context,
+                        writer_plan=plan,
+                        output_path_override=str(output_path),
+                    )
+
+        self.assertEqual(generate.call_count, 2)
+        self.assertEqual(generate.call_args_list[0].kwargs["attempt"], 1)
+        self.assertEqual(generate.call_args_list[1].kwargs["attempt"], 2)
+        self.assertEqual(
+            generate.call_args_list[1].kwargs["quality_retry"][
+                "failed_requirements"
+            ][0]["code"],
+            "MW_OUTPUT_CONTRACT",
+        )
+        self.assertEqual(
+            [attempt["attempt"] for attempt in stats["model_attempts"]],
+            [1, 2],
+        )
+        self.assertTrue(stats["model_attempts"][1]["quality_passed"])
+
+    def test_non_output_model_error_does_not_retry(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-26")
+        job_context = {
+            "job_number": "99",
+            "topic": "Hoverboard Charger Not Working: Safe Checks",
+            "target_keyword": TARGET_KEYWORD,
+        }
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "article.html"
+            with patch.dict(os.environ, {"ORIN_MODEL_WRITER_ENABLED": "1"}):
+                with patch(
+                    "writer_agent.generate_article",
+                    side_effect=ModelWriterError(
+                        "model provider returned HTTP 429"
+                    ),
+                ) as generate:
+                    with self.assertRaisesRegex(ModelWriterError, "HTTP 429"):
+                        writer.write_selected_job_draft(
+                            job_ctx=job_context,
+                            writer_plan=plan,
+                            output_path_override=str(output_path),
+                        )
+
+        self.assertEqual(generate.call_count, 1)
 
 
 if __name__ == "__main__":

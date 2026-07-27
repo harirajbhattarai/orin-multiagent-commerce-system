@@ -9,7 +9,7 @@ _AGENTS_DIR = Path(__file__).parent
 sys.path.insert(0, str(_AGENTS_DIR))
 
 from content_quality_gate import CONTRACT_VERSION, DEFAULT_CONTRACT, evaluate_article_quality
-from model_writer import generate_article, model_writer_enabled
+from model_writer import ModelWriterError, generate_article, model_writer_enabled
 from topic_identity_gate import get_blocked_terms_for_cluster
 
 # Sentinels
@@ -36,6 +36,34 @@ def _model_quality_retry_feedback(receipt):
                 "expected": blocker["expected"],
             }
             for blocker in receipt["blockers"]
+        ],
+    }
+
+
+_RETRYABLE_MODEL_OUTPUT_ERRORS = {
+    "model response contains forbidden Markdown fences",
+    "model response must contain exactly one article sentinel pair",
+    "model response contains text outside the article sentinels",
+    "model returned an empty article",
+    "model provider did not return a complete response",
+}
+
+
+def _model_output_retry_feedback(error):
+    """Return a bounded correction brief for a deterministic output miss."""
+    detail = str(error)
+    if detail not in _RETRYABLE_MODEL_OUTPUT_ERRORS:
+        raise error
+    return {
+        "failed_requirements": [
+            {
+                "code": "MW_OUTPUT_CONTRACT",
+                "actual": detail,
+                "expected": (
+                    "exactly one complete HTML article inside the required "
+                    "sentinel pair with no other text"
+                ),
+            }
         ],
     }
 
@@ -1038,11 +1066,30 @@ Job: {job_number}
         model_response_id = None
         model_attempts = []
         if model_writer_enabled():
-            model_result = generate_article(
-                job_context=job_ctx,
-                writer_plan=writer_plan,
-                attempt=1,
-            )
+            retry_budget_used = False
+            try:
+                model_result = generate_article(
+                    job_context=job_ctx,
+                    writer_plan=writer_plan,
+                    attempt=1,
+                )
+            except ModelWriterError as error:
+                retry_feedback = _model_output_retry_feedback(error)
+                retry_budget_used = True
+                model_attempts.append(
+                    {
+                        "attempt": 1,
+                        "response_id": None,
+                        "quality_passed": False,
+                        "blocker_codes": ["MW_OUTPUT_CONTRACT"],
+                    }
+                )
+                model_result = generate_article(
+                    job_context=job_ctx,
+                    writer_plan=writer_plan,
+                    quality_retry=retry_feedback,
+                    attempt=2,
+                )
             full_html = model_result.body_html
             writer_source = "model"
             writer_model = model_result.model
@@ -1055,7 +1102,7 @@ Job: {job_number}
             )
             model_attempts.append(
                 {
-                    "attempt": 1,
+                    "attempt": 2 if retry_budget_used else 1,
                     "response_id": model_result.response_id,
                     "quality_passed": initial_quality["passed"],
                     "blocker_codes": [
@@ -1063,7 +1110,7 @@ Job: {job_number}
                     ],
                 }
             )
-            if not initial_quality["passed"]:
+            if not initial_quality["passed"] and not retry_budget_used:
                 retry_result = generate_article(
                     job_context=job_ctx,
                     writer_plan=writer_plan,
