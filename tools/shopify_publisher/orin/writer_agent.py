@@ -379,11 +379,11 @@ class WriterAgent:
     def _generate_h2_outline(self, topic, target_keyword, cluster):
         """
         Generate H2 outline from topic and cluster.
-        Hoverboard Store uses: Intro → Quick Answer → Content H2s → Checklist → FAQ → CTA.
+        Hoverboard Store uses: Intro → dedicated Quick Answer block →
+        Content H2s → Checklist → FAQ → CTA.
         """
         base_outline = [
             {"id": "introduction", "h2": "Introduction", "label": "Introduction"},
-            {"id": "quick-answer", "h2": "Quick Answer", "label": "Quick Answer"},
         ]
 
         cluster_outlines = {

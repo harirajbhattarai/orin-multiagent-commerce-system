@@ -162,6 +162,27 @@ class ContentQualityGateTests(unittest.TestCase):
                 ]
                 self.assertGreaterEqual(len(substantive), 4)
 
+    def test_quick_answer_is_a_structural_block_not_an_h2_plan_item(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-27")
+        job_context = {
+            "job_number": "30",
+            "topic": "Hoverboard Bundle Buying Guide: Board, Kart and Safety Gear",
+            "target_keyword": "hoverboard bundle buying guide",
+            "cluster": "Hoverkart",
+        }
+
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        h2_ids = {item["id"] for item in plan["h2_outline"]}
+        toc_hrefs = {item["href"] for item in plan["toc_plan"]}
+
+        self.assertNotIn("quick-answer", h2_ids)
+        self.assertNotIn("#quick-answer", toc_hrefs)
+        self.assertIn(
+            "div.hs-quick-answer with summary paragraph",
+            plan["html_structure_requirements"],
+        )
+
     def test_writer_supporting_copy_does_not_force_keyword_repetition(self):
         repository_root = Path(__file__).resolve().parents[1]
         writer = WriterAgent(str(repository_root), "2026-07-26")
