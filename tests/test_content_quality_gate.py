@@ -460,6 +460,51 @@ Meta Description: Read this practical UK guide to hoverboard charger not working
         )
         self.assertTrue(stats["model_attempts"][1]["quality_passed"])
 
+    def test_html_policy_error_uses_the_bounded_output_retry(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-26")
+        job_context = {
+            "job_number": "99",
+            "topic": "Hoverboard Charger Not Working: Safe Checks",
+            "target_keyword": TARGET_KEYWORD,
+        }
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        corrected = ModelWriterResult(
+            body_html=_valid_article(),
+            provider="minimax",
+            model="MiniMax-M3",
+            response_id="policy-retry-response",
+            finish_reason="stop",
+            usage={},
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "article.html"
+            with patch.dict(os.environ, {"ORIN_MODEL_WRITER_ENABLED": "1"}):
+                with patch(
+                    "writer_agent.generate_article",
+                    side_effect=[
+                        ModelWriterError(
+                            "model article contains unsupported attribute: id"
+                        ),
+                        corrected,
+                    ],
+                ) as generate:
+                    stats = writer.write_selected_job_draft(
+                        job_ctx=job_context,
+                        writer_plan=plan,
+                        output_path_override=str(output_path),
+                    )
+
+        self.assertEqual(generate.call_count, 2)
+        self.assertEqual(
+            generate.call_args_list[1].kwargs["quality_retry"][
+                "failed_requirements"
+            ][0]["code"],
+            "MW_OUTPUT_CONTRACT",
+        )
+        self.assertEqual(stats["model_response_id"], "policy-retry-response")
+
     def test_non_output_model_error_does_not_retry(self):
         repository_root = Path(__file__).resolve().parents[1]
         writer = WriterAgent(str(repository_root), "2026-07-26")

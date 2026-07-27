@@ -40,10 +40,11 @@ def _model_quality_retry_feedback(receipt):
     }
 
 
+_RETRYABLE_MODEL_OUTPUT_PREFIXES = (
+    "model response ",
+    "model article ",
+)
 _RETRYABLE_MODEL_OUTPUT_ERRORS = {
-    "model response contains forbidden Markdown fences",
-    "model response must contain exactly one article sentinel pair",
-    "model response contains text outside the article sentinels",
     "model returned an empty article",
     "model provider did not return a complete response",
 }
@@ -52,7 +53,10 @@ _RETRYABLE_MODEL_OUTPUT_ERRORS = {
 def _model_output_retry_feedback(error):
     """Return a bounded correction brief for a deterministic output miss."""
     detail = str(error)
-    if detail not in _RETRYABLE_MODEL_OUTPUT_ERRORS:
+    if (
+        detail not in _RETRYABLE_MODEL_OUTPUT_ERRORS
+        and not detail.startswith(_RETRYABLE_MODEL_OUTPUT_PREFIXES)
+    ):
         raise error
     return {
         "failed_requirements": [
