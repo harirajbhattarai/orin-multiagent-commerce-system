@@ -10,7 +10,11 @@ sys.path.insert(0, str(_AGENTS_DIR))
 
 from content_quality_gate import CONTRACT_VERSION, DEFAULT_CONTRACT, evaluate_article_quality
 from model_writer import ModelWriterError, generate_article, model_writer_enabled
-from topic_identity_gate import get_blocked_terms_for_cluster
+from topic_identity_gate import (
+    TOPIC_IDENTITY_BLOCK,
+    get_blocked_terms_for_cluster,
+    run_topic_identity_gate,
+)
 
 # Sentinels
 BLOCK_JOB_CONTEXT_MISMATCH = "BLOCK_JOB_CONTEXT_MISMATCH"
@@ -37,6 +41,141 @@ def _model_quality_retry_feedback(receipt):
             }
             for blocker in receipt["blockers"]
         ],
+    }
+
+
+def _model_topic_identity_retry_feedback(receipt, writer_plan):
+    """Return safe, deterministic corrections for topic-identity failures.
+
+    The generated article and gate detail strings are deliberately excluded.
+    Only approved plan inputs and fixed failure codes are returned to the
+    model.
+    """
+    requirements = []
+    blockers = set(receipt.get("blockers", []))
+
+    if "H1_MISSING_OR_MISMATCH" in blockers:
+        requirements.append(
+            {
+                "code": "TI_H1_MISSING_OR_MISMATCH",
+                "actual": "failed",
+                "expected": (
+                    "include exactly one H1 whose text exactly matches "
+                    f"{writer_plan.get('title', '')!r}"
+                ),
+            }
+        )
+
+    if "H2_PLAN_MISMATCH" in blockers:
+        required_h2s = [
+            item.get("h2", "").strip()
+            for item in writer_plan.get("h2_outline", [])
+            if item.get("h2", "").strip()
+        ]
+        requirements.append(
+            {
+                "code": "TI_H2_PLAN_MISMATCH",
+                "actual": "one or more approved H2 headings are missing",
+                "expected": {
+                    "required_h2_headings": required_h2s,
+                    "matching": "include each heading as an H2",
+                },
+            }
+        )
+
+    if "TOPIC_IDENTITY_CONTAMINATED" in blockers:
+        requirements.append(
+            {
+                "code": "TI_TOPIC_IDENTITY_CONTAMINATED",
+                "actual": "one or more blocked cross-topic terms are present",
+                "expected": {
+                    "blocked_terms_must_be_absent": sorted(
+                        get_blocked_terms_for_cluster(
+                            writer_plan.get("cluster", "")
+                        )
+                    )
+                },
+            }
+        )
+
+    for blocker in sorted(
+        blockers
+        - {
+            "H1_MISSING_OR_MISMATCH",
+            "H2_PLAN_MISMATCH",
+            "TOPIC_IDENTITY_CONTAMINATED",
+        }
+    ):
+        requirements.append(
+            {
+                "code": f"TI_{blocker}",
+                "actual": "failed",
+                "expected": "satisfy the approved topic-identity contract",
+            }
+        )
+
+    return {"failed_requirements": requirements}
+
+
+def _model_validation_retry_feedback(quality_receipt, topic_receipt, writer_plan):
+    """Combine quality and topic failures into the single bounded retry."""
+    failed_requirements = []
+    if not quality_receipt["passed"]:
+        failed_requirements.extend(
+            _model_quality_retry_feedback(quality_receipt)["failed_requirements"]
+        )
+    if topic_receipt["decision"] == TOPIC_IDENTITY_BLOCK:
+        failed_requirements.extend(
+            _model_topic_identity_retry_feedback(
+                topic_receipt, writer_plan
+            )["failed_requirements"]
+        )
+    return {"failed_requirements": failed_requirements}
+
+
+def _model_validation_receipts(
+    body_html,
+    *,
+    job_number,
+    title,
+    target_keyword,
+    cluster,
+    h2_outline,
+    site_url,
+):
+    """Evaluate both fail-closed writer contracts for one model response."""
+    quality_receipt = evaluate_article_quality(
+        body_html,
+        target_keyword=target_keyword,
+        site_url=site_url,
+    )
+    topic_receipt = run_topic_identity_gate(
+        job_id=job_number,
+        expected_topic=title,
+        target_keyword=target_keyword,
+        cluster=cluster,
+        approved_h2_plan=h2_outline,
+        output_html=body_html,
+    )
+    return quality_receipt, topic_receipt
+
+
+def _model_attempt_receipt(attempt, model_result, quality_receipt, topic_receipt):
+    """Build durable evidence for one model response validation."""
+    quality_codes = [
+        blocker["code"] for blocker in quality_receipt["blockers"]
+    ]
+    topic_codes = [
+        f"TI_{blocker}" for blocker in topic_receipt["blockers"]
+    ]
+    return {
+        "attempt": attempt,
+        "response_id": model_result.response_id,
+        "quality_passed": quality_receipt["passed"],
+        "topic_identity_passed": (
+            topic_receipt["decision"] != TOPIC_IDENTITY_BLOCK
+        ),
+        "blocker_codes": quality_codes + topic_codes,
     }
 
 
@@ -1099,46 +1238,58 @@ Job: {job_number}
             writer_model = model_result.model
             writer_provider = model_result.provider
             model_response_id = model_result.response_id
-            initial_quality = evaluate_article_quality(
+            initial_quality, initial_topic = _model_validation_receipts(
                 full_html,
+                job_number=job_number,
+                title=title,
                 target_keyword=target_keyword,
+                cluster=cluster,
+                h2_outline=h2_outline,
                 site_url=writer_plan.get("site_url", self.site_url),
             )
             model_attempts.append(
-                {
-                    "attempt": 2 if retry_budget_used else 1,
-                    "response_id": model_result.response_id,
-                    "quality_passed": initial_quality["passed"],
-                    "blocker_codes": [
-                        blocker["code"] for blocker in initial_quality["blockers"]
-                    ],
-                }
+                _model_attempt_receipt(
+                    2 if retry_budget_used else 1,
+                    model_result,
+                    initial_quality,
+                    initial_topic,
+                )
             )
-            if not initial_quality["passed"] and not retry_budget_used:
+            validation_failed = (
+                not initial_quality["passed"]
+                or initial_topic["decision"] == TOPIC_IDENTITY_BLOCK
+            )
+            if validation_failed and not retry_budget_used:
                 retry_result = generate_article(
                     job_context=job_ctx,
                     writer_plan=writer_plan,
-                    quality_retry=_model_quality_retry_feedback(initial_quality),
+                    quality_retry=_model_validation_retry_feedback(
+                        initial_quality,
+                        initial_topic,
+                        writer_plan,
+                    ),
                     attempt=2,
                 )
                 full_html = retry_result.body_html
                 writer_model = retry_result.model
                 writer_provider = retry_result.provider
                 model_response_id = retry_result.response_id
-                retry_quality = evaluate_article_quality(
+                retry_quality, retry_topic = _model_validation_receipts(
                     full_html,
+                    job_number=job_number,
+                    title=title,
                     target_keyword=target_keyword,
+                    cluster=cluster,
+                    h2_outline=h2_outline,
                     site_url=writer_plan.get("site_url", self.site_url),
                 )
                 model_attempts.append(
-                    {
-                        "attempt": 2,
-                        "response_id": retry_result.response_id,
-                        "quality_passed": retry_quality["passed"],
-                        "blocker_codes": [
-                            blocker["code"] for blocker in retry_quality["blockers"]
-                        ],
-                    }
+                    _model_attempt_receipt(
+                        2,
+                        retry_result,
+                        retry_quality,
+                        retry_topic,
+                    )
                 )
 
         # ── Write to output path ──────────────────────────────────────────

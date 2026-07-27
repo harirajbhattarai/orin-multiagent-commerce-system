@@ -403,6 +403,124 @@ Meta Description: Read this practical UK guide to hoverboard charger not working
         self.assertTrue(stats["model_attempts"][1]["quality_passed"])
         self.assertEqual(stats["model_response_id"], "retry-response")
 
+    def test_model_writer_uses_bounded_retry_for_missing_approved_h2(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-26")
+        job_context = {
+            "job_number": "99",
+            "job_label": "Job 99",
+            "topic": "Hoverboard Charger Not Working: Safe Checks",
+            "target_keyword": TARGET_KEYWORD,
+            "target_date": "2026-07-26",
+            "expected_draft_date": "2026-07-26",
+            "queue_status": "planned",
+            "file_path": "",
+            "shopify_handle": None,
+        }
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        plan["h2_outline"] = [
+            {"id": f"check-{index}", "h2": f"Detailed Check {index}"}
+            for index in range(1, 7)
+        ]
+        missing_h2 = _valid_article().replace(
+            "<h2>Detailed Check 1</h2>",
+            "<h2>Unapproved Replacement</h2>",
+            1,
+        )
+        first = ModelWriterResult(
+            body_html=missing_h2,
+            provider="minimax",
+            model="MiniMax-M3",
+            response_id="missing-h2-response",
+            finish_reason="stop",
+            usage={},
+        )
+        second = ModelWriterResult(
+            body_html=_valid_article(),
+            provider="minimax",
+            model="MiniMax-M3",
+            response_id="corrected-h2-response",
+            finish_reason="stop",
+            usage={},
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "article.html"
+            with patch.dict(os.environ, {"ORIN_MODEL_WRITER_ENABLED": "1"}):
+                with patch(
+                    "writer_agent.generate_article",
+                    side_effect=[first, second],
+                ) as generate:
+                    stats = writer.write_selected_job_draft(
+                        job_ctx=job_context,
+                        writer_plan=plan,
+                        output_path_override=str(output_path),
+                    )
+
+        self.assertEqual(generate.call_count, 2)
+        retry_requirements = generate.call_args_list[1].kwargs[
+            "quality_retry"
+        ]["failed_requirements"]
+        topic_requirement = next(
+            item
+            for item in retry_requirements
+            if item["code"] == "TI_H2_PLAN_MISMATCH"
+        )
+        self.assertIn(
+            "Detailed Check 1",
+            topic_requirement["expected"]["required_h2_headings"],
+        )
+        self.assertFalse(stats["model_attempts"][0]["topic_identity_passed"])
+        self.assertTrue(stats["model_attempts"][1]["topic_identity_passed"])
+        self.assertEqual(stats["model_response_id"], "corrected-h2-response")
+
+    def test_topic_retry_never_exceeds_two_model_calls(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-26")
+        job_context = {
+            "job_number": "99",
+            "topic": "Hoverboard Charger Not Working: Safe Checks",
+            "target_keyword": TARGET_KEYWORD,
+        }
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        plan["h2_outline"] = [
+            {"id": f"check-{index}", "h2": f"Detailed Check {index}"}
+            for index in range(1, 7)
+        ]
+        missing_h2 = _valid_article().replace(
+            "<h2>Detailed Check 1</h2>",
+            "<h2>Unapproved Replacement</h2>",
+            1,
+        )
+        failed = ModelWriterResult(
+            body_html=missing_h2,
+            provider="minimax",
+            model="MiniMax-M3",
+            response_id="still-missing-h2",
+            finish_reason="stop",
+            usage={},
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "article.html"
+            with patch.dict(os.environ, {"ORIN_MODEL_WRITER_ENABLED": "1"}):
+                with patch(
+                    "writer_agent.generate_article",
+                    side_effect=[failed, failed],
+                ) as generate:
+                    stats = writer.write_selected_job_draft(
+                        job_ctx=job_context,
+                        writer_plan=plan,
+                        output_path_override=str(output_path),
+                    )
+
+        self.assertEqual(generate.call_count, 2)
+        self.assertFalse(stats["model_attempts"][1]["topic_identity_passed"])
+        self.assertIn(
+            "TI_H2_PLAN_MISMATCH",
+            stats["model_attempts"][1]["blocker_codes"],
+        )
+
     def test_model_writer_spends_same_single_retry_budget_on_output_contract(self):
         repository_root = Path(__file__).resolve().parents[1]
         writer = WriterAgent(str(repository_root), "2026-07-26")
