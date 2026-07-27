@@ -100,6 +100,18 @@ class ModelWriterTests(unittest.TestCase):
             "Do not use any word or phrase listed in blocked_topic_terms",
             payload["messages"][1]["content"],
         )
+        self.assertIn(
+            "Do not repeat any word or phrase from claims_to_avoid",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            '"safer than"',
+            payload["messages"][1]["content"],
+        )
+        self.assertNotIn(
+            "safety guarantees",
+            payload["messages"][0]["content"].lower(),
+        )
         self.assertEqual(MINIMAX_ENDPOINT, "https://api.minimax.io/v1/chat/completions")
 
     def test_extracts_exact_sentinel_artifact(self):

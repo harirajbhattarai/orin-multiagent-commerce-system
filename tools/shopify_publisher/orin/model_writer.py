@@ -72,7 +72,8 @@ Write a genuinely useful, original long-form blog article for a real reader.
 Use UK English. Be practical, specific, calm, and non-repetitive.
 
 Never invent prices, stock, delivery, warranties, returns, certifications,
-reviews, product specifications, legal permissions, or safety guarantees.
+reviews, product specifications, legal permissions, or absolute safety
+assurances.
 Do not claim hoverboards are legal on UK public roads or pavements. Prefer
 private-land, manufacturer-guidance, and qualified-support wording.
 
@@ -155,6 +156,14 @@ Required output contract:
   including the CTA H2.
 - Do not use any word or phrase listed in blocked_topic_terms anywhere in
   visible text, headings, link anchors, metadata, or URLs.
+- Do not repeat any word or phrase from claims_to_avoid in visible text,
+  headings, link anchors, metadata, or URLs, even as a negation, disclaimer,
+  quotation, comparison, or statement about what the article does not claim.
+- The downstream compliance reviewer treats these literal strings as
+  prohibited in every context: "road legal", "guarantee", "guarantees",
+  "guaranteed", "safer than", "universal compatibility", and
+  "fits all hoverboards". Do not emit them or close grammatical variants.
+  Rephrase with neutral, model-specific guidance without making comparisons.
 - Use at least ten useful paragraphs and five approved internal links.
 - Use the exact target keyword naturally 4-8 times, including the H1/opening,
   and never more than 12 times. Use natural synonyms elsewhere instead of
