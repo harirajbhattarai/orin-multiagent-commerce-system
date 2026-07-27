@@ -15,7 +15,7 @@ disabled, has no delivery, and has no agent or tool execution path.
 
 The reviewed code deployed on the VPS is:
 
-`31c0357276e5cb815d83eb73264100e460fb43b6`
+`08e0c2435a120229291ad91aab83928c9ece4718`
 
 ## Verified results
 
@@ -92,14 +92,38 @@ The reviewed code deployed on the VPS is:
   `READY_TO_CREATE_SELECTED_JOB_DRAFT`.
 - The Job 30 commissioning run and publisher preflight made zero Shopify
   creates, published nothing, and left the queue byte-for-byte unchanged.
+- PR 46 brought topic identity into the writer's existing single bounded
+  correction attempt. It does not increase the two-call ceiling, send previous
+  article text to the model, or retry provider, network, or credential errors.
+- The first controlled Job 30 transaction after PR 46 corrected the missing
+  `Introduction` H2 but failed closed before Shopify because `Quick Answer`
+  was represented both as a dedicated structural block and as an approved H2.
+  Evidence records zero creates, `shopify_write_state=not_attempted`, no
+  publication, and no queue change.
+- PR 47 removed that deterministic plan conflict. `Quick Answer` remains a
+  mandatory `div.hs-quick-answer` quality requirement, but it is no longer an
+  H2 or broken TOC anchor.
+- The fresh Job 30 transaction at PR 47's reviewed revision created exactly
+  one hidden Shopify draft and passed post-create verification. The stored
+  article independently passes the content-quality contract with 1,740 visible
+  words, 10 H2s, 23 paragraphs, 4 FAQ items, 18 internal links, 7 substantive
+  sections, 4 exact target-keyword occurrences, and no blockers.
+- A live read-only Shopify verification found 45 total blog articles, exactly
+  one matching Job 30 handle, exactly one matching idempotency marker, and
+  `publishedAt = null`.
+- An identical Job 30 replay ran from the immutable worker image with
+  `--network none`, no Shopify or MiniMax credentials, and the gates closed.
+  It returned the original terminal result and created no new run directory.
+  Supabase still records one completed job, one run, one attempt receipt, and
+  one reconciled ownership row for the request.
 
 The latest controlled Shopify test created exactly one article:
 
-- Job: 29
-- Title: `Birthday Hoverboard Gift Guide for Kids UK`
-- Handle: `birthday-hoverboard-gift-guide-for-kids-uk`
+- Job: 30
+- Title: `Hoverboard Bundle Buying Guide: Board, Kart and Safety Gear`
+- Handle: `hoverboard-bundle-buying-guide-board-kart-and-safety-gear`
 - Model: `MiniMax-M3`
-- Shopify article ID: `1007195390300`
+- Shopify article ID: `1007206334812`
 - Published state: hidden draft (`publishedAt = null`)
 - Queue file changed: no
 - Durable database reconciliation: complete
@@ -225,21 +249,41 @@ near-handle, or near-title conflict. The resulting proposed hidden draft has:
 - Shopify touched: `false`
 - Queue touched: `false`
 
+The first controlled Job 30 transaction after bounded topic correction was
+blocked at the remaining `Quick Answer` plan conflict. It reached no Shopify
+transaction and is preserved at:
+
+`/docker/orin/evidence/hb_20260727T151449Z_1ff3da79`
+
+The successful Job 30 hidden-draft transaction and its complete private
+evidence are preserved at:
+
+`/docker/orin/evidence/hb_20260727T152443Z_61184304`
+
+The generated article is:
+
+`writer_output_job30_1785165886_b45bf89a.html`
+
+The terminal result is `DRAFT_CREATED_VERIFICATION_PASSED` for Shopify article
+`1007206334812`. The request ID is
+`dd8428fb-22d5-47d3-b6f2-01e929dce004`; its exact terminal replay was proven
+offline without creating a new run directory.
+
 ## Next approved path
 
 Continue Phase 4 without enabling either schedule:
 
 1. Keep the existing Job 28 sample draft unchanged. Its ownership can be
-   reconciled separately after the Job 30 commissioning path is complete.
-2. Run one separately approved controlled Job 30 hidden-draft transaction.
-   Open Shopify writes only for that transaction, retain both schedules
-   disabled, and require exactly one unpublished article plus durable
-   reconciliation evidence.
-3. Close Shopify writes immediately after the transaction and prove an
-   identical request replay creates no second article.
-4. Transfer scheduler ownership only after the controlled transaction and
-   replay pass. Keep exactly one production scheduler enabled.
-5. Add the read-only watchdog after scheduler ownership is proven.
+   reconciled separately from scheduler transfer.
+2. Create the dedicated scheduler's first near-term automatic test while
+   Shopify writes remain disabled and dry-run remains the allowed mode.
+3. Verify the trigger acknowledgment, one claimed job, one terminal run, the
+   reviewed code version, zero Shopify creates, and durable scheduler health.
+4. Disable the legacy schedule permanently before enabling the dedicated
+   `orin-hbstore-prod` schedule. Keep exactly one production scheduler enabled.
+5. Start production ownership in dry-run and observe several successful
+   scheduled receipts before separately approving hidden-draft writes.
+6. Add the read-only watchdog after scheduler ownership is proven.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
 controlled transaction, or begin additional clients before HBStore scheduler
