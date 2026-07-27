@@ -221,3 +221,44 @@ def work_once(
         run_id=completion.run_id,
         replayed=completion.replayed,
     )
+
+
+def work_forever(
+    repository: Repository,
+    *,
+    worker_id: str,
+    execute: Callable[[ClaimedJob], dict[str, Any]],
+    stop_event: threading.Event,
+    poll_interval_seconds: float = 15,
+    error_backoff_seconds: float = 60,
+    lease_seconds: int = 1200,
+    heartbeat_interval_seconds: float = 60,
+    on_outcome: Callable[[WorkOutcome], None] | None = None,
+    on_error: Callable[[Exception], None] | None = None,
+) -> None:
+    """Run the fixed worker claim path until a local stop signal is received."""
+    if poll_interval_seconds <= 0:
+        raise ValueError("poll interval must be positive")
+    if error_backoff_seconds <= 0:
+        raise ValueError("error backoff must be positive")
+    if heartbeat_interval_seconds <= 0 or heartbeat_interval_seconds >= lease_seconds:
+        raise ValueError("heartbeat interval must be positive and shorter than the lease")
+
+    while not stop_event.is_set():
+        delay = poll_interval_seconds
+        try:
+            outcome = work_once(
+                repository,
+                worker_id=worker_id,
+                execute=execute,
+                lease_seconds=lease_seconds,
+                heartbeat_interval_seconds=heartbeat_interval_seconds,
+            )
+        except Exception as exc:
+            delay = error_backoff_seconds
+            if on_error is not None:
+                on_error(exc)
+        else:
+            if on_outcome is not None:
+                on_outcome(outcome)
+        stop_event.wait(delay)

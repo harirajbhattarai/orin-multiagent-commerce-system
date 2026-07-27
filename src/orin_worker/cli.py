@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import socket
 import sys
+import threading
 import uuid
 from datetime import date
 from pathlib import Path
@@ -16,18 +18,14 @@ from orin_control.secrets import read_private_secret
 from orin_runner.runner import configured_repo_root, run_client
 from orin_worker.models import ClaimedJob
 from orin_worker.repository import PostgresWorkerRepository
-from orin_worker.service import work_once
+from orin_worker.service import WorkOutcome, work_forever, work_once
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="orin-worker")
     subparsers = parser.add_subparsers(dest="command", required=True)
     once = subparsers.add_parser("once", help="claim and execute at most one gated due job")
-    once.add_argument("--workspace-root", type=Path)
-    once.add_argument("--artifact-root", type=Path)
-    once.add_argument("--worker-id")
-    once.add_argument("--lease-seconds", type=int, default=1200)
-    once.add_argument("--heartbeat-seconds", type=float, default=60)
+    _add_execution_arguments(once)
     once.add_argument(
         "--as-of-date",
         type=_as_of_date,
@@ -38,7 +36,22 @@ def build_parser() -> argparse.ArgumentParser:
         type=_job_number,
         help="manual test-only queue job pin; scheduled workers must omit it",
     )
+    serve = subparsers.add_parser(
+        "serve",
+        help="continuously claim gated jobs using fixed production arguments",
+    )
+    _add_execution_arguments(serve)
+    serve.add_argument("--poll-seconds", type=float, default=15)
+    serve.add_argument("--error-backoff-seconds", type=float, default=60)
     return parser
+
+
+def _add_execution_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--workspace-root", type=Path)
+    parser.add_argument("--artifact-root", type=Path)
+    parser.add_argument("--worker-id")
+    parser.add_argument("--lease-seconds", type=int, default=1200)
+    parser.add_argument("--heartbeat-seconds", type=float, default=60)
 
 
 def _as_of_date(value: str) -> str:
@@ -102,19 +115,87 @@ def main(argv: list[str] | None = None) -> int:
             workspace_root=workspace_root,
             artifact_root=artifact_root,
             repo_root=repo_root,
-            as_of_date=args.as_of_date,
-            job_number=args.job_number,
+            as_of_date=getattr(args, "as_of_date", None),
+            job_number=getattr(args, "job_number", None),
             durable_db_mode=True,
         )
 
     try:
-        outcome = work_once(
+        if args.command == "once":
+            outcome = work_once(
+                repository,
+                worker_id=worker_id,
+                execute=execute,
+                lease_seconds=args.lease_seconds,
+                heartbeat_interval_seconds=args.heartbeat_seconds,
+            )
+            print(json.dumps(outcome.to_dict(), sort_keys=True))
+            return 0
+
+        if args.poll_seconds <= 0 or args.error_backoff_seconds <= 0:
+            raise ValueError("worker timing values must be positive")
+        stop_event = threading.Event()
+
+        def stop_worker(_signum: int, _frame: object) -> None:
+            stop_event.set()
+
+        signal.signal(signal.SIGTERM, stop_worker)
+        signal.signal(signal.SIGINT, stop_worker)
+
+        def emit_outcome(outcome: WorkOutcome) -> None:
+            print(
+                json.dumps(
+                    {"event": "work_outcome", **outcome.to_dict()},
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+
+        def emit_error(exc: Exception) -> None:
+            print(
+                json.dumps(
+                    {
+                        "event": "worker_error",
+                        "status": "failed",
+                        "error_code": "ORIN_WORKER_FAILED",
+                        "detail": type(exc).__name__,
+                    },
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+
+        print(
+            json.dumps(
+                {
+                    "event": "worker_started",
+                    "worker_id": worker_id,
+                    "poll_seconds": args.poll_seconds,
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+        work_forever(
             repository,
             worker_id=worker_id,
             execute=execute,
+            stop_event=stop_event,
+            poll_interval_seconds=args.poll_seconds,
+            error_backoff_seconds=args.error_backoff_seconds,
             lease_seconds=args.lease_seconds,
             heartbeat_interval_seconds=args.heartbeat_seconds,
+            on_outcome=emit_outcome,
+            on_error=emit_error,
         )
+        print(
+            json.dumps(
+                {"event": "worker_stopped", "worker_id": worker_id},
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+        return 0
     except Exception as exc:
         print(
             json.dumps(
@@ -129,9 +210,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     finally:
         repository.close()
-
-    print(json.dumps(outcome.to_dict(), sort_keys=True))
-    return 0
 
 
 if __name__ == "__main__":

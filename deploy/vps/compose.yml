@@ -165,6 +165,71 @@ services:
         max-size: 10m
         max-file: "3"
 
+  worker-daemon:
+    profiles: ["automatic-worker"]
+    image: local/orin-worker:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
+    pull_policy: never
+    build:
+      context: ${ORIN_PROJECT_ROOT:?set ORIN_PROJECT_ROOT}
+      dockerfile: Dockerfile.worker
+      args:
+        VERSION: ${ORIN_DEPLOY_SHA}
+        VCS_REF: ${ORIN_DEPLOY_SHA}
+    init: true
+    user: "${ORIN_RUNTIME_UID:-1000}:${ORIN_RUNTIME_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.00
+    restart: unless-stopped
+    stop_grace_period: 300s
+    environment:
+      ORIN_WORKER_DATABASE_URL_FILE: /run/secrets/worker_database_url
+      ORIN_WORKER_DATABASE_ROLE: orin_worker
+      ORIN_REPO_ROOT: /app
+      ORIN_WORKSPACE_ROOT: /runtime
+      HOVERBOARD_STORE_SHOPIFY_STORE_DOMAIN: 5a1679-88.myshopify.com
+      HOVERBOARD_STORE_SHOPIFY_API_VERSION: "2026-07"
+      HOVERBOARD_STORE_SHOPIFY_BLOG_ID: "113430790492"
+      HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE: /run/secrets/hoverboard_shopify_access_token
+      ORIN_MODEL_WRITER_ENABLED: "${ORIN_MODEL_WRITER_ENABLED:-0}"
+      ORIN_WRITER_API_KEY_FILE: /run/secrets/writer_api_key
+      ORIN_WRITER_TIMEOUT_SECONDS: "240"
+    secrets:
+      - worker_database_url
+      - hoverboard_shopify_access_token
+      - writer_api_key
+    volumes:
+      - type: bind
+        source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}
+        target: /runtime
+        read_only: true
+      - type: bind
+        source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}
+        target: /evidence
+    command:
+      - serve
+      - --workspace-root
+      - /runtime
+      - --artifact-root
+      - /evidence
+      - --worker-id
+      - orin-hbstore-prod
+      - --poll-seconds
+      - "15"
+      - --error-backoff-seconds
+      - "60"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
 secrets:
   scheduler_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/scheduler_database_url

@@ -9,11 +9,12 @@ The current verified production state and next approved step are recorded in
 
 ## Invariants
 
-- Both services require explicit Compose profiles; a normal `compose up` starts
-  nothing.
+- Every service requires an explicit Compose profile; a normal `compose up`
+  starts nothing.
 - The API binds to `127.0.0.1` only and has no Traefik labels.
-- The worker has no port, polling loop, scheduler, or restart policy.
-- Neither service mounts the Docker socket or OpenClaw configuration.
+- The manual worker is one-shot with no restart policy. The automatic worker
+  repeats only the same fixed atomic claim path and has no port or scheduler.
+- No service mounts the Docker socket or OpenClaw configuration.
 - The worker mounts operational workspace data read-only and a separate private
   evidence directory read-write.
 - The scheduler bridge is a fixed-input Unix-socket sidecar with no port,
@@ -102,6 +103,29 @@ the controlled source update.
 
 11. Stop and remove the new Compose project. Do not enable request intake,
     automation, Shopify writes, or any scheduler during this test.
+
+    Before scheduler transfer, start the automatic worker with every database
+    gate closed and verify repeated `no_job_due` receipts:
+
+    ```bash
+    docker compose --env-file /docker/orin/deployment.env \
+      -f deploy/vps/compose.yml --profile automatic-worker \
+      up -d worker-daemon
+
+    docker compose --env-file /docker/orin/deployment.env \
+      -f deploy/vps/compose.yml --profile automatic-worker \
+      logs --tail 20 worker-daemon
+    ```
+
+    The daemon command is fixed to `serve`, client concurrency remains one in
+    PostgreSQL, and neither `--as-of-date` nor `--job-number` is accepted.
+    Stop it after commissioning unless the dedicated scheduler is being tested:
+
+    ```bash
+    docker compose --env-file /docker/orin/deployment.env \
+      -f deploy/vps/compose.yml --profile automatic-worker \
+      stop worker-daemon
+    ```
 
 12. Before the controlled hidden-draft test, install the Hoverboard Store
     Shopify token at the path below and run:

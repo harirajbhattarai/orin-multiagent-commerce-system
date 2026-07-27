@@ -50,7 +50,6 @@ def request(socket_path: Path, payload: bytes) -> dict:
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
         connection.connect(str(socket_path))
         connection.sendall(payload)
-        connection.shutdown(socket.SHUT_WR)
         return json.loads(connection.makefile("rb").readline(8193))
 
 
