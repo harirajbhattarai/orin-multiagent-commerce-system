@@ -78,10 +78,11 @@ def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():
     trigger = COMPOSE.split("  scheduler-trigger:", 1)[1].split(
         "\n  control-api:", 1
     )[0]
-    assert 'user: "10002:10002"' in trigger
+    assert 'user: "10002:${ORIN_RUNTIME_GID:-1000}"' in trigger
     assert "ports:" not in trigger
     assert "target: /run/orin" in trigger
     assert "ORIN_SCHEDULER_SOCKET_PATH: /run/orin/orin-hbstore-trigger.sock" in trigger
+    assert 'ORIN_SCHEDULER_ALLOWED_PEER_UID: "${ORIN_RUNTIME_UID:-1000}"' in trigger
     assert "scheduler_database_url" in trigger
     assert "worker_database_url" not in trigger
     assert "hoverboard_shopify_access_token" not in trigger
