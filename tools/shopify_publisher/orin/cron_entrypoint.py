@@ -50,10 +50,18 @@ from shopify_draft_transaction import run_safe_draft_transaction
 from queue_state_manager import commit_transaction_result, TRANSACTION_APPROVED_DRAFT_CREATED, \
     TRANSACTION_BLOCKED_VERIFICATION_FAILED
 from content_quality_gate import evaluate_article_quality
+from model_writer import ModelWriterError
 from writer_agent import WriterAgent
 from topic_identity_gate import run_topic_identity_gate, TOPIC_IDENTITY_BLOCK
 
 JSON_OUTPUT_PATH = Path("/tmp/orin_phase3b_cron_entrypoint_preview.json")
+
+
+def writer_execution_error_detail(error):
+    """Return a non-secret reason for a failed writer execution."""
+    if isinstance(error, ModelWriterError):
+        return str(error)
+    return type(error).__name__
 
 # Old unsafe scripts — BLOCKED (pipeline must never call these)
 BLOCKED_SCRIPT_PATTERNS = [
@@ -548,10 +556,11 @@ def run_pipeline():
         )
         log(f"  Writer execution: {exec_output_path}")
     except Exception as e:
-        log(f"  ❌ Writer execution blocked: {type(e).__name__}")
+        error_detail = writer_execution_error_detail(e)
+        log(f"  ❌ Writer execution blocked: {type(e).__name__}: {error_detail}")
         return pipeline_blocked(
             "Writer execution blocked: no current-run article was produced. "
-            f"Error type: {type(e).__name__}."
+            f"Error type: {type(e).__name__}. Reason: {error_detail}."
         )
 
     # Write the execution preview JSON so downstream phases can load it

@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from model_writer import ModelWriterError
 
 
 ENTRYPOINT = Path(__file__).resolve().parent / "cron_entrypoint.py"
@@ -12,6 +13,7 @@ MODULE = runpy.run_path(str(ENTRYPOINT), run_name="orin_reporting_test")
 build_report = MODULE["build_report"]
 writer_output_path = MODULE["writer_output_path"]
 select_job_for_run = MODULE["select_job_for_run"]
+writer_execution_error_detail = MODULE["writer_execution_error_detail"]
 
 
 def load_entrypoint_with_args(*args):
@@ -50,6 +52,16 @@ def test_durable_writer_output_requires_an_absolute_artifact_directory(monkeypat
 
     with pytest.raises(RuntimeError, match="absolute ORIN_RUN_ARTIFACT_DIR"):
         writer_output_path(None, "28", "job28_test")
+
+
+def test_model_writer_error_reason_is_preserved_but_other_errors_are_redacted():
+    assert (
+        writer_execution_error_detail(
+            ModelWriterError("model provider returned HTTP 429")
+        )
+        == "model provider returned HTTP 429"
+    )
+    assert writer_execution_error_detail(OSError("sensitive local path")) == "OSError"
 
 
 def test_explicit_dry_run_takes_precedence_in_cli_parsing():
