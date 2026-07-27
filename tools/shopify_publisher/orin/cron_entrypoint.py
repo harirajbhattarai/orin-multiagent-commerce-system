@@ -872,6 +872,7 @@ def run_pipeline():
         "BLOCK_HTML_VALIDATION_GATE", "BLOCK_COMPLIANCE",
         "BLOCK_QUEUE_STATUS_MISMATCH", "BLOCK_DRAFT_NOT_FOUND",
         "BLOCK_SLUG_MISMATCH", "BLOCK_HTML_QUALITY",
+        "BLOCK_INVENTORY_UNAVAILABLE",
     ])
     if publisher_decision in NEW_DRAFT_DECISIONS:
         publisher_route = "NEW_DRAFT_CREATION_ROUTE"
