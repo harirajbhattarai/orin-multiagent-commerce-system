@@ -53,14 +53,18 @@ The only accepted request is:
 
 `TRIGGER ORIN-HBSTORE V1`
 
-Any other bytes are rejected without calling PostgreSQL. Database errors are
-redacted to a stable blocked response.
+The directory is mode `0710` and the socket is mode `0620`, owned by the
+dedicated sidecar UID and the OpenClaw runtime group. Before reading the fixed
+request, the server authenticates the connecting process with Unix peer
+credentials and requires the configured OpenClaw runtime UID (`1000` on the
+current VPS). Other UIDs and any other request bytes are rejected without
+calling PostgreSQL. Database errors are redacted to a stable blocked response.
 
 ## Deployment state
 
 The Compose service is profile-gated as `scheduler-trigger`, has no port, runs
-as UID/GID `10002:10002`, uses a read-only root filesystem, drops all
-capabilities, and mounts only:
+as UID `10002` with the OpenClaw runtime GID solely for socket traversal, uses
+a read-only root filesystem, drops all capabilities, and mounts only:
 
 - its file-backed scheduler database URL;
 - the private Unix-socket directory.

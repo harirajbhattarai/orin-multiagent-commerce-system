@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import stat
 import subprocess
@@ -65,11 +66,15 @@ def test_socket_accepts_only_the_fixed_parameter_free_request():
         capability = FakeCapability()
         server = build_server(
             socket_path=socket_path,
-            socket_mode=0o600,
+            socket_directory_mode=0o710,
+            socket_mode=0o620,
+            allowed_peer_uid=os.getuid(),
+            peer_uid_resolver=lambda _: os.getuid(),
             capability=capability,
         )
         try:
-            assert stat.S_IMODE(socket_path.stat().st_mode) == 0o600
+            assert stat.S_IMODE(socket_path.parent.stat().st_mode) == 0o710
+            assert stat.S_IMODE(socket_path.stat().st_mode) == 0o620
 
             invalid_thread = serve_once(server)
             invalid = request(socket_path, b"TRIGGER other-client hidden-draft\n")
@@ -98,7 +103,10 @@ def test_database_errors_are_redacted_and_fail_closed():
         socket_path = Path(directory) / "trigger.sock"
         server = build_server(
             socket_path=socket_path,
-            socket_mode=0o600,
+            socket_directory_mode=0o710,
+            socket_mode=0o620,
+            allowed_peer_uid=os.getuid(),
+            peer_uid_resolver=lambda _: os.getuid(),
             capability=FakeCapability(fail=True),
         )
         try:
@@ -114,6 +122,33 @@ def test_database_errors_are_redacted_and_fail_closed():
             "error_code": "ORIN_SCHEDULER_TRIGGER_BLOCKED",
         }
         assert "sensitive" not in json.dumps(response)
+
+
+def test_socket_rejects_a_peer_outside_the_approved_runtime_uid():
+    with tempfile.TemporaryDirectory(prefix="orin-trigger-", dir="/tmp") as directory:
+        socket_path = Path(directory) / "trigger.sock"
+        capability = FakeCapability()
+        server = build_server(
+            socket_path=socket_path,
+            socket_directory_mode=0o710,
+            socket_mode=0o620,
+            allowed_peer_uid=os.getuid() + 1,
+            peer_uid_resolver=lambda _: os.getuid(),
+            capability=capability,
+        )
+        try:
+            thread = serve_once(server)
+            response = request(socket_path, REQUEST_LINE)
+            thread.join(timeout=2)
+        finally:
+            server.server_close()
+
+        assert response == {
+            "schema": "orin.scheduler-trigger/v1",
+            "status": "blocked",
+            "error_code": "ORIN_TRIGGER_UNAUTHORIZED_PEER",
+        }
+        assert capability.calls == 0
 
 
 def test_settings_reject_ambiguous_database_sources(tmp_path):

@@ -12,7 +12,7 @@ services:
         VERSION: ${ORIN_DEPLOY_SHA}
         VCS_REF: ${ORIN_DEPLOY_SHA}
     init: true
-    user: "10002:10002"
+    user: "10002:${ORIN_RUNTIME_GID:-1000}"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=32m
@@ -28,6 +28,7 @@ services:
       ORIN_SCHEDULER_DATABASE_URL_FILE: /run/secrets/scheduler_database_url
       ORIN_SCHEDULER_DATABASE_ROLE: orin_scheduler
       ORIN_SCHEDULER_SOCKET_PATH: /run/orin/orin-hbstore-trigger.sock
+      ORIN_SCHEDULER_ALLOWED_PEER_UID: "${ORIN_RUNTIME_UID:-1000}"
     secrets:
       - scheduler_database_url
     volumes:
