@@ -1,8 +1,12 @@
 # ORIN worker
 
-The Phase 3B worker is a one-shot, database-backed adapter around the existing
-deterministic runner. It is not a scheduler. Each invocation claims at most one
-due job, renews that lease while the runner is active, and stores every exact
+The ORIN worker is a database-backed adapter around the existing deterministic
+runner. The Phase 3B `once` command remains available for supervised work.
+Phase 4 adds a fixed-argument `serve` command that repeats the same atomic claim
+path for automatic execution. It is a queue consumer, not a scheduler: it
+cannot create requests or choose their client, mode, date, or queue job.
+
+Each claim renews its lease while the runner is active and stores every exact
 `final_result.json` attempt in PostgreSQL. Terminal results also enter the
 authoritative `runs` ledger.
 
@@ -26,6 +30,8 @@ authoritative `runs` ledger.
   automatic reconciliation attempts creates a critical incident.
 - Expired leases are reclaimable. An expired lease at maximum attempts is
   failed and creates a critical incident instead of running indefinitely.
+- The automatic command accepts no `--as-of-date` or `--job-number` override.
+  It receives no payload from OpenClaw and exposes no port or Docker socket.
 
 The local runner request index provides the second idempotency layer. If a
 worker dies after a terminal pipeline execution but before database completion,
@@ -49,12 +55,34 @@ connection or Supabase service-role key.
 
 The default lease is 1,200 seconds and the heartbeat interval is 60 seconds.
 The worker exits successfully with `status: no_job_due` when no job is
-eligible. It does not poll or schedule itself.
+eligible.
 
 For a supervised controlled-write test, `once` accepts an explicit
 `--as-of-date YYYY-MM-DD`. The normal Compose command and all schedulers omit
 this flag. Database-backed runs keep the operational workspace read-only and
 write generated HTML into the private per-run evidence directory.
+
+## Automatic command
+
+```bash
+python -m orin_worker serve \
+  --workspace-root /runtime \
+  --artifact-root /evidence \
+  --worker-id orin-hbstore-prod \
+  --poll-seconds 15 \
+  --error-backoff-seconds 60
+```
+
+`serve` waits between atomic claims and backs off after database or runner
+errors. SIGTERM and SIGINT stop new claims; an active lease-bound execution is
+allowed to finish before the process exits. The VPS uses a 300-second stop
+grace period.
+
+The Compose service is behind the explicit `automatic-worker` profile and is
+disabled until Phase 4 commissioning. Its restart policy is
+`unless-stopped`, but database maintenance, request-intake, automation, mode,
+and concurrency gates remain authoritative. Starting the container cannot
+create a job or bypass a closed gate.
 
 The disabled-by-default VPS sequence and private Shopify token handoff are
 documented in `deploy/vps/README.md`.

@@ -22,7 +22,6 @@ def main() -> int:
         connection.settimeout(15)
         connection.connect(SOCKET_PATH)
         connection.sendall(REQUEST_LINE)
-        connection.shutdown(socket.SHUT_WR)
         response_bytes = connection.makefile("rb").readline(MAX_RESPONSE_BYTES + 1)
 
     if not response_bytes or len(response_bytes) > MAX_RESPONSE_BYTES:

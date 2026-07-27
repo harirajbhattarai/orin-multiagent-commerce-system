@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -10,7 +11,12 @@ import pytest
 from orin_worker.models import ClaimedJob, CompletionRecord
 from orin_worker.cli import build_parser, database_url_from_environment
 from orin_worker.repository import PostgresWorkerRepository
-from orin_worker.service import LeaseLostError, ResultContractError, work_once
+from orin_worker.service import (
+    LeaseLostError,
+    ResultContractError,
+    work_forever,
+    work_once,
+)
 
 
 JOB_ID = UUID("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
@@ -156,6 +162,50 @@ def test_manual_worker_accepts_only_a_positive_job_number():
         build_parser().parse_args(["once", "--job-number", "0"])
     with pytest.raises(SystemExit):
         build_parser().parse_args(["once", "--job-number", "job29"])
+
+
+def test_automatic_worker_has_fixed_execution_scope():
+    parsed = build_parser().parse_args(
+        [
+            "serve",
+            "--worker-id",
+            "orin-hbstore-prod",
+            "--poll-seconds",
+            "15",
+        ]
+    )
+
+    assert parsed.command == "serve"
+    assert parsed.worker_id == "orin-hbstore-prod"
+    assert parsed.poll_seconds == 15
+    assert not hasattr(parsed, "as_of_date")
+    assert not hasattr(parsed, "job_number")
+
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["serve", "--job-number", "30"])
+
+
+def test_automatic_worker_stops_after_a_no_job_receipt():
+    repository = FakeRepository(None)
+    stop_event = threading.Event()
+    outcomes = []
+
+    def record_outcome(outcome):
+        outcomes.append(outcome)
+        stop_event.set()
+
+    work_forever(
+        repository,
+        worker_id="orin-hbstore-prod",
+        execute=lambda _: final_result(),
+        stop_event=stop_event,
+        poll_interval_seconds=0.01,
+        error_backoff_seconds=0.01,
+        on_outcome=record_outcome,
+    )
+
+    assert [outcome.status for outcome in outcomes] == ["no_job_due"]
+    assert repository.claims == [("orin-hbstore-prod", 1200)]
 
 
 def test_claimed_job_is_completed_with_the_exact_runner_result():

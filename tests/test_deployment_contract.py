@@ -7,12 +7,13 @@ COMPOSE = Path("deploy/vps/compose.yml").read_text(encoding="utf-8")
 def test_deployment_is_manual_and_not_publicly_routed():
     assert 'profiles: ["manual-api"]' in COMPOSE
     assert 'profiles: ["manual-worker"]' in COMPOSE
+    assert 'profiles: ["automatic-worker"]' in COMPOSE
     assert 'profiles: ["scheduler-trigger"]' in COMPOSE
     assert '"127.0.0.1:${ORIN_API_PORT:-58080}:8000"' in COMPOSE
     assert "traefik." not in COMPOSE.lower()
     assert "50083" not in COMPOSE
     assert "network_mode: host" not in COMPOSE
-    assert COMPOSE.count("pull_policy: never") == 3
+    assert COMPOSE.count("pull_policy: never") == 4
     assert ":latest" not in COMPOSE
 
 
@@ -20,10 +21,11 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert "/var/run/docker.sock" not in COMPOSE
     assert "/data/.openclaw" not in COMPOSE
     assert "privileged:" not in COMPOSE
-    assert COMPOSE.count("read_only: true") >= 3
-    assert COMPOSE.count('cap_drop: ["ALL"]') == 3
-    assert COMPOSE.count("no-new-privileges:true") == 3
+    assert COMPOSE.count("read_only: true") >= 4
+    assert COMPOSE.count('cap_drop: ["ALL"]') == 4
+    assert COMPOSE.count("no-new-privileges:true") == 4
     assert COMPOSE.count('restart: "no"') == 3
+    assert COMPOSE.count("restart: unless-stopped") == 1
 
 
 def test_database_credentials_are_file_backed_and_role_separated():
@@ -66,12 +68,29 @@ def test_model_writer_is_pinned_opt_in_and_file_backed():
 
 
 def test_worker_has_no_port_and_uses_read_only_runtime_plus_private_evidence():
-    worker = COMPOSE.split("  worker:", 1)[1].split("\nsecrets:", 1)[0]
+    worker = COMPOSE.split("  worker:", 1)[1].split(
+        "\n  worker-daemon:", 1
+    )[0]
     assert "ports:" not in worker
     assert "ORIN_REPO_ROOT: /app" in worker
     assert "target: /runtime\n        read_only: true" in worker
     assert "target: /evidence" in worker
     assert "--artifact-root" in worker
+
+
+def test_automatic_worker_is_fixed_scope_and_not_publicly_routed():
+    worker = COMPOSE.split("  worker-daemon:", 1)[1].split(
+        "\nsecrets:", 1
+    )[0]
+    assert "ports:" not in worker
+    assert "serve" in worker
+    assert "--worker-id" in worker
+    assert "orin-hbstore-prod" in worker
+    assert "--as-of-date" not in worker
+    assert "--job-number" not in worker
+    assert "restart: unless-stopped" in worker
+    assert "stop_grace_period: 300s" in worker
+    assert "/var/run/docker.sock" not in worker
 
 
 def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():
