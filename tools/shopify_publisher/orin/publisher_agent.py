@@ -293,6 +293,61 @@ def check_shopify_inventory_local(inventory_path, handle, title):
 
     return handle_match, title_matches, None
 
+
+def refresh_shopify_inventory():
+    """
+    Refresh Shopify inventory, falling back to the checked-in snapshot.
+
+    Dry-run execution deliberately removes Shopify credentials. Configuration
+    loading therefore raises before ``fetch_blog_articles_paginated`` can
+    return its normal error tuple. Treat that as an unavailable live source,
+    never expose the exception message, and use the local snapshot for the
+    read-only simulation. If neither source is available, callers must block.
+    """
+    live_error = None
+    try:
+        inventory, live_error = fetch_blog_articles_paginated(
+            limit=250,
+            max_pages=20,
+        )
+    except Exception as exc:
+        inventory = []
+        live_error = f"LIVE_FETCH_EXCEPTION:{type(exc).__name__}"
+
+    if live_error is None:
+        return {
+            "inventory": inventory,
+            "live_fetch_success": True,
+            "fallback_used": False,
+            "inventory_available": True,
+            "source": "live",
+            "error": None,
+        }
+
+    try:
+        with open(INVENTORY_PATH, "r", encoding="utf-8") as inventory_file:
+            fallback_inventory = json.load(inventory_file)
+        if not isinstance(fallback_inventory, list):
+            raise ValueError("inventory snapshot must be a list")
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return {
+            "inventory": [],
+            "live_fetch_success": False,
+            "fallback_used": False,
+            "inventory_available": False,
+            "source": "unavailable",
+            "error": live_error,
+        }
+
+    return {
+        "inventory": fallback_inventory,
+        "live_fetch_success": False,
+        "fallback_used": True,
+        "inventory_available": True,
+        "source": "local_snapshot",
+        "error": live_error,
+    }
+
 # ─── QUALITY CHECKS ────────────────────────────────────────────────────────────
 
 def compliance_check(html_content):
@@ -608,21 +663,22 @@ def run_dryrun(job_id, draft_path):
     # ── Step 6: LIVE inventory refresh ─────────────────────────────────────
     print(f"STEP 6 — Live Shopify Inventory Refresh")   # noqa: F405
     log("Refreshing live inventory from Shopify API...")
-    inventory, inv_error = fetch_blog_articles_paginated(limit=250, max_pages=20)
+    inventory_refresh = refresh_shopify_inventory()
+    inventory = inventory_refresh["inventory"]
+    inv_error = inventory_refresh["error"]
+    inventory_available = inventory_refresh["inventory_available"]
     if inv_error:
-        print(f"  ⚠️  Live fetch failed: {inv_error}")
-        print(f"  ⚠️  Falling back to local inventory file")
-        try:
-            with open(INVENTORY_PATH, "r") as f:
-                inventory = json.load(f)
-            print(f"  Using local inventory: {len(inventory)} articles")
-        except Exception:
-            inventory = []
-            print(f"  ❌ No inventory available")
+        print(f"  ⚠️  Live fetch unavailable: {inv_error}")
+    if inventory_refresh["fallback_used"]:
+        print(f"  ⚠️  Using local inventory snapshot")
+    if not inventory_available:
+        print(f"  ❌ No inventory source available")
     results["checks"]["live_inventory_refresh"] = {
         "attempted": True,
-        "live_fetch_success": inv_error is None,
-        "fallback_used": inv_error is not None,
+        "live_fetch_success": inventory_refresh["live_fetch_success"],
+        "fallback_used": inventory_refresh["fallback_used"],
+        "inventory_available": inventory_available,
+        "source": inventory_refresh["source"],
         "article_count": len(inventory),
     }
     print(f"  Inventory articles: {len(inventory)}")   # noqa: F405
@@ -790,6 +846,7 @@ def run_dryrun(job_id, draft_path):
         "BLOCK_DRAFT_NOT_FOUND",
         "BLOCK_SLUG_MISMATCH",
         "BLOCK_HTML_QUALITY",
+        "BLOCK_INVENTORY_UNAVAILABLE",
     ])
     PASSING_DECISIONS = frozenset([
         "READY_TO_CREATE_SELECTED_JOB_DRAFT",
@@ -833,6 +890,11 @@ def run_dryrun(job_id, draft_path):
         print(f"  ❌ {decision}")   # noqa: F405
     elif not status_ok:
         decision = "BLOCK_QUEUE_STATUS_MISMATCH"
+        results["decision"] = decision
+        results["passed"] = False
+        print(f"  ❌ {decision}")   # noqa: F405
+    elif not inventory_available:
+        decision = "BLOCK_INVENTORY_UNAVAILABLE"
         results["decision"] = decision
         results["passed"] = False
         print(f"  ❌ {decision}")   # noqa: F405
