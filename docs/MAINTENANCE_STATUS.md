@@ -10,12 +10,14 @@ transferred. ORIN remains in maintenance.
 
 The isolated `orin-hbstore-prod` agent and its five boundary files are
 versioned, deployed, and verified. Its dedicated schedule is wired only to one
-fixed no-argument Python client over a private Unix socket. The job remains
-disabled, has no delivery, and has no agent or tool execution path.
+fixed no-argument Python client over a private Unix socket. A one-shot
+commissioning run is armed for 2026-07-29 00:02 Europe/London while all
+database gates remain closed. It has no delivery and no agent or tool execution
+path.
 
 The reviewed code deployed on the VPS is:
 
-`08e0c2435a120229291ad91aab83928c9ece4718`
+`35d3d2ae3a02eabd01cb5580a196bbe7b9b531da`
 
 ## Verified results
 
@@ -24,7 +26,9 @@ The reviewed code deployed on the VPS is:
 - The control API and worker use separate file-backed database credentials.
 - The Shopify credential is file-backed and isolated from OpenClaw.
 - A normal Compose start has no unprofiled service.
-- The worker has no port, polling loop, restart policy, or scheduler.
+- The manual worker remains one-shot. The automatic worker is the same
+  immutable image running only the fixed atomic claim loop; it has no port,
+  scheduler, Docker socket, OpenClaw payload, date override, or job override.
 - Read-only identity, API health, no-job, deterministic dry-run, controlled
   hidden-draft, retry/idempotency, and partial-failure reconciliation checks
   passed.
@@ -140,6 +144,20 @@ The reviewed code deployed on the VPS is:
 - This test proves automatic request creation, not automatic end-to-end worker
   execution. The worker was invoked manually after the trigger receipt.
   Production scheduler ownership therefore remains unproven.
+- PR 49 fixed credential-free Publisher preflight. A network-disabled
+  standalone verification used the local 35-article inventory snapshot,
+  returned `READY_TO_CREATE_SELECTED_JOB_DRAFT`, and recorded
+  `shopify_touched=false` and `queue_touched=false`.
+- PR 50 added the narrow automatic worker invocation boundary using the
+  existing worker image and PostgreSQL claim contract. Application and
+  database CI passed before merge.
+- The automatic worker is deployed with a read-only root filesystem, non-root
+  UID/GID `1000:1000`, no public port, and `unless-stopped` recovery. With all
+  database gates closed it repeatedly returns `no_job_due`; its observed
+  restart count is zero.
+- The scheduler-trigger sidecar and automatic worker images, deployment
+  configuration, VPS checkout, and fixed OpenClaw client are aligned to the
+  reviewed revision above.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -182,13 +200,15 @@ possible during the drill.
 - Database scheduler state: `disabled`
 - Database scheduler owner: none
 - Legacy OpenClaw job: disabled
-- Dedicated `orin-hbstore-prod` commissioning job: disabled
+- Dedicated `orin-hbstore-prod` commissioning job: enabled for one one-shot
+  run at 2026-07-29 00:02 Europe/London
 - Dedicated job payload: fixed `python3` argv to the HBStore socket client
 - Dedicated job agent/tools: none
 - Dedicated job delivery: none
-- Production trigger attached: yes, disabled
-- OpenClaw next wake: none
-- ORIN containers: scheduler trigger sidecar only; no API or worker container
+- Production trigger attached: yes, one-shot commissioning only
+- OpenClaw next wake: 2026-07-29 00:02 Europe/London
+- ORIN containers: healthy scheduler-trigger sidecar and automatic worker;
+  control API is stopped
 - ORIN loopback API port: closed
 
 ## Durable evidence
@@ -315,14 +335,14 @@ SHA-256:
 
 ## Next approved path
 
-Continue Phase 4 without enabling either schedule:
+Continue Phase 4 without enabling Shopify writes:
 
-1. Merge, deploy, and verify the credential-free Publisher inventory fallback.
-   Keep the existing Job 28 sample draft unchanged.
-2. Add one narrow automatic worker-invocation boundary. It must run the
-   immutable worker with fixed arguments, concurrency one, no arbitrary shell
-   input, and no Shopify-write permission while the allowed mode is dry-run.
-3. Repeat the automatic dry-run on a fresh London calendar date. Require one
+1. Keep all database gates closed until the scheduled commissioning window and
+   keep the existing Job 28 sample draft unchanged.
+2. At 23:55 Europe/London, verify the immutable automatic worker, trigger
+   sidecar, exact one-shot schedule, and closed safety state before opening only
+   the dry-run commissioning gates.
+3. Observe the 2026-07-29 automatic dry-run. Require one
    accepted trigger receipt, one automatically claimed job, one terminal
    completed run, the reviewed code version, zero Shopify creates, unchanged
    queue state, and durable evidence.
