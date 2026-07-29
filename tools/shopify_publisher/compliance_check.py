@@ -25,7 +25,6 @@ BLOCKED_PHRASES = [
     "city commuting",
     "street use",
     "allowed on cycle lanes",
-    "use on public roads",
     "ride anywhere",
     "suitable for commuting",
     "legal to ride on pavements",
@@ -111,8 +110,8 @@ def normalise(text):
 def extract_faq_blocks(html):
     faq_pattern = re.compile(
         r'<div class="hs-faq-item">.*?'
-        r'<div class="hs-faq-q">([^<]+)</div>.*?'
-        r'<div class="hs-faq-a">([^<]+)</div>.*?'
+        r'<div class="hs-faq-q">(.*?)</div>.*?'
+        r'<div class="hs-faq-a">(.*?)</div>.*?'
         r'</div>',
         re.DOTALL | re.IGNORECASE,
     )
