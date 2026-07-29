@@ -18,7 +18,7 @@ schedule. It has no delivery and no agent or tool execution path.
 
 The reviewed code deployed on the VPS is:
 
-`35d3d2ae3a02eabd01cb5580a196bbe7b9b531da`
+`013c12f95e1ec355b24288b39a76cddd70ce8cc6`
 
 ## Verified results
 
@@ -176,6 +176,21 @@ The reviewed code deployed on the VPS is:
 - All database gates were closed immediately after terminalization. The
   dedicated job and legacy job are disabled, the dedicated job is restored to
   `0 11 * * *` Europe/London exact, and OpenClaw reports no next wake.
+- PR 52 added targeted HTML-policy correction guidance and preserves each
+  invalid model response as private failure evidence before the bounded retry.
+  Focused tests and the complete 135-test application suite passed before
+  merge.
+- The reviewed PR 52 merge commit was deployed on 2026-07-29 after repairing
+  mixed ownership left by earlier root Git operations in the canonical VPS
+  checkout. The checkout is clean and the non-secret deployment configuration,
+  automatic-worker image, and scheduler-trigger image all identify the exact
+  reviewed revision shown above.
+- Post-deployment verification found the automatic worker and trigger sidecar
+  running read-only as their expected non-root users with zero restarts. The
+  trigger sidecar is healthy and the worker repeatedly reports `no_job_due`.
+  The database has zero active jobs; maintenance, intake, automation, Shopify
+  writes, and scheduler ownership remain closed. Both OpenClaw jobs are
+  disabled and `nextWakeAtMs` is null.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -377,19 +392,18 @@ SHA-256:
 
 Continue Phase 4 without enabling Shopify writes:
 
-1. Keep all database gates closed and both OpenClaw jobs disabled while the
-   model-output retry correction and invalid-response evidence are reviewed.
-2. Deploy only the reviewed correction after application and database CI pass.
-3. Use a fresh London-date scheduler identity for another automatic dry-run.
+1. Keep all database gates closed and both OpenClaw jobs disabled until the
+   next supervised commissioning window.
+2. Use a fresh London-date scheduler identity for another automatic dry-run.
    Require one accepted trigger receipt, one automatically claimed job, one
    terminal completed run, the reviewed code version, zero Shopify creates,
    unchanged queue state, and durable evidence.
-4. Keep the legacy schedule permanently disabled. Transfer production
+3. Keep the legacy schedule permanently disabled. Transfer production
    ownership only after the dedicated trigger and automatic worker path pass
    together; keep exactly one production scheduler enabled.
-5. Observe several successful scheduled dry-run receipts before separately
+4. Observe several successful scheduled dry-run receipts before separately
    approving hidden-draft writes.
-6. Add the read-only watchdog after scheduler ownership is proven.
+5. Add the read-only watchdog after scheduler ownership is proven.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
 controlled transaction, or begin additional clients before HBStore scheduler
