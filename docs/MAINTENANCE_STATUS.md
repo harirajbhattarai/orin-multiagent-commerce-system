@@ -5,16 +5,17 @@ Last updated: 2026-07-29
 ## Current phase
 
 Phase 3 manual verification is complete. Phase 4 has now proven the automatic
-fixed trigger and automatic worker handoff together, but the resulting dry-run
-exhausted its bounded model-output correction and failed closed before review
-or Publisher. Production scheduler ownership has not transferred. ORIN remains
-in maintenance.
+fixed trigger and automatic worker handoff together. The first resulting
+dry-run exhausted its bounded model-output correction and failed closed, while
+a fresh post-fix controlled request was automatically claimed and completed
+successfully. A fresh-date fixed-trigger proof remains pending. Production
+scheduler ownership has not transferred. ORIN remains in maintenance.
 
 The isolated `orin-hbstore-prod` agent and its five boundary files are
 versioned, deployed, and verified. Its dedicated schedule is wired only to one
 fixed no-argument Python client over a private Unix socket. The commissioning
-job is disabled and restored to its normal `0 11 * * *` Europe/London exact
-schedule. It has no delivery and no agent or tool execution path.
+job is armed one-shot for `00:02` Europe/London on 2026-07-30. It has no
+delivery and no agent or tool execution path.
 
 The reviewed code deployed on the VPS is:
 
@@ -191,6 +192,20 @@ The reviewed code deployed on the VPS is:
   The database has zero active jobs; maintenance, intake, automation, Shopify
   writes, and scheduler ownership remain closed. Both OpenClaw jobs are
   disabled and `nextWakeAtMs` is null.
+- A fresh controlled dry-run at the deployed PR 52 revision was inserted with
+  a unique commissioning request while the future OpenClaw trigger was
+  temporarily disabled. The continuously running worker claimed it
+  automatically and completed attempt 1 in 58 seconds with
+  `READY_TO_CREATE_SELECTED_JOB_DRAFT`.
+- The controlled result used code version
+  `013c12f95e1ec355b24288b39a76cddd70ce8cc6`, made zero Shopify creates,
+  published nothing, left the queue unchanged, required no reconciliation,
+  and recorded `shopify_write_state=not_attempted`. MiniMax produced a valid
+  article on its first response, so the bounded correction branch was not
+  needed during this run.
+- All database gates were closed immediately after terminalization. The July
+  30 fixed-trigger one-shot was restored for `00:02` Europe/London, the legacy
+  job remains disabled, and Shopify writes remain disabled.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -233,13 +248,13 @@ possible during the drill.
 - Database scheduler state: `disabled`
 - Database scheduler owner: none
 - Legacy OpenClaw job: disabled
-- Dedicated `orin-hbstore-prod` commissioning job: disabled at normal
-  `0 11 * * *` Europe/London exact schedule
+- Dedicated `orin-hbstore-prod` commissioning job: enabled one-shot for
+  `00:02` Europe/London on 2026-07-30
 - Dedicated job payload: fixed `python3` argv to the HBStore socket client
 - Dedicated job agent/tools: none
 - Dedicated job delivery: none
 - Production trigger attached: no
-- OpenClaw next wake: none
+- OpenClaw next wake: the dedicated commissioning one-shot only
 - ORIN containers: healthy scheduler-trigger sidecar and automatic worker;
   control API is stopped
 - ORIN loopback API port: closed
@@ -387,6 +402,31 @@ SHA-256:
   `c2f28845788252baeab48f8bb6f561391683574e488c65de937b9fd7952056a0`
 - `stdout.log`:
   `3412054f708c81faeb65b80db3693fb4b1a1ea9a4e8a118d99a9e02ac04fdd2e`
+
+The post-deployment controlled model dry-run evidence is preserved at:
+
+`/docker/orin/evidence/hb_20260729T103110Z_30e1dbf6`
+
+The database request is
+`22b43c67-2531-45b8-89f7-0236c9420fc7`; the terminal run is
+`hb_20260729T103110Z_30e1dbf6`. The evidence directory is private mode `0700`.
+Canonical JSON, logs, and model request/response evidence are private mode
+`0600`.
+
+SHA-256:
+
+- `final_result.json`:
+  `db1d027653762c1de1b6b0fe1c1475605d45c4ef6d6ffc4b7566c7e28edc6ef0`
+- `pipeline_preview.json`:
+  `f40c8f96758a0952f50367d0f33f2eb34490b1136bba5237156384041f29b35d`
+- `stdout.log`:
+  `8094a5a026c895d12aa3ab552b112bc45494de34653064400107ddf3c6d65045`
+- `stderr.log`:
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+
+The local operator copy is:
+
+`/Users/harirajbhattarai/Documents/COMPUTER_USE/ORIN_EVIDENCE/hb_20260729T103110Z_30e1dbf6`
 
 ## Next approved path
 
