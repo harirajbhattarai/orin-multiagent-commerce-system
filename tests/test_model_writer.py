@@ -141,6 +141,64 @@ class ModelWriterTests(unittest.TestCase):
                 with self.assertRaises(ModelWriterError):
                     extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}")
 
+    def test_failed_html_policy_response_is_preserved_privately(self):
+        def fake_transport(payload, api_key, timeout):
+            return {
+                "id": "invalid-policy-response",
+                "model": MINIMAX_MODEL,
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": (
+                                f"{ARTICLE_START}"
+                                '<div id="not-allowed">Content</div>'
+                                f"{ARTICLE_END}"
+                            )
+                        },
+                    }
+                ],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            key_path = root / "writer_api_key"
+            key_path.write_text("secret-test-key\n", encoding="utf-8")
+            key_path.chmod(0o400)
+            evidence_dir = root / "evidence"
+            evidence_dir.mkdir(mode=0o700)
+            with patch.dict(
+                os.environ,
+                {
+                    "ORIN_WRITER_API_KEY_FILE": str(key_path),
+                    "ORIN_RUN_ARTIFACT_DIR": str(evidence_dir),
+                },
+                clear=False,
+            ):
+                with self.assertRaisesRegex(
+                    ModelWriterError,
+                    "unsupported attribute: id on div",
+                ):
+                    generate_article(
+                        job_context=JOB_CONTEXT,
+                        writer_plan=WRITER_PLAN,
+                        transport=fake_transport,
+                    )
+
+            request_path = evidence_dir / "model_writer_attempt_1_request.json"
+            failure_path = evidence_dir / "model_writer_attempt_1_failure.json"
+            failure = json.loads(failure_path.read_text(encoding="utf-8"))
+
+            self.assertTrue(request_path.is_file())
+            self.assertEqual(
+                failure["validation_error"],
+                "model article contains unsupported attribute: id on div",
+            )
+            self.assertIn('<div id="not-allowed">', failure["raw_content"])
+            self.assertEqual(request_path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(failure_path.stat().st_mode & 0o777, 0o600)
+
     def test_rejects_markdown_or_text_outside_sentinels(self):
         with self.assertRaises(ModelWriterError):
             extract_article_html(f"```html\n{ARTICLE}\n```")

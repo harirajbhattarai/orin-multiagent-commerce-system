@@ -1,19 +1,20 @@
 # ORIN maintenance status
 
-Last updated: 2026-07-28
+Last updated: 2026-07-29
 
 ## Current phase
 
-Phase 3 manual verification is complete. The first Phase 4 automatic trigger
-commissioning run is complete, but production scheduler ownership has not
-transferred. ORIN remains in maintenance.
+Phase 3 manual verification is complete. Phase 4 has now proven the automatic
+fixed trigger and automatic worker handoff together, but the resulting dry-run
+exhausted its bounded model-output correction and failed closed before review
+or Publisher. Production scheduler ownership has not transferred. ORIN remains
+in maintenance.
 
 The isolated `orin-hbstore-prod` agent and its five boundary files are
 versioned, deployed, and verified. Its dedicated schedule is wired only to one
-fixed no-argument Python client over a private Unix socket. A one-shot
-commissioning run is armed for 2026-07-29 00:02 Europe/London while all
-database gates remain closed. It has no delivery and no agent or tool execution
-path.
+fixed no-argument Python client over a private Unix socket. The commissioning
+job is disabled and restored to its normal `0 11 * * *` Europe/London exact
+schedule. It has no delivery and no agent or tool execution path.
 
 The reviewed code deployed on the VPS is:
 
@@ -158,6 +159,23 @@ The reviewed code deployed on the VPS is:
 - The scheduler-trigger sidecar and automatic worker images, deployment
   configuration, VPS checkout, and fixed OpenClaw client are aligned to the
   reviewed revision above.
+- The 2026-07-29 near-term commissioning retry passed the complete scheduler
+  boundary: OpenClaw automatically returned `accepted`, `replayed=false`,
+  `requested_mode=dry-run`, and an empty payload for the unique source key
+  `scheduler:orin-hbstore-prod:2026-07-29`.
+- The continuously running immutable worker automatically claimed that request
+  without an as-of-date or job-number override and terminalized exactly one
+  database job, run, and attempt at code version
+  `35d3d2ae3a02eabd01cb5580a196bbe7b9b531da`.
+- The pipeline failed closed after MiniMax M3 used an `id` attribute on a
+  non-H2 element in both the initial response and the one bounded correction
+  attempt. The terminal result recorded zero Shopify creates,
+  `shopify_published=false`, `queue_changed=false`,
+  `shopify_write_state=not_attempted`, and
+  `reconciliation_status=not_required`.
+- All database gates were closed immediately after terminalization. The
+  dedicated job and legacy job are disabled, the dedicated job is restored to
+  `0 11 * * *` Europe/London exact, and OpenClaw reports no next wake.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -200,13 +218,13 @@ possible during the drill.
 - Database scheduler state: `disabled`
 - Database scheduler owner: none
 - Legacy OpenClaw job: disabled
-- Dedicated `orin-hbstore-prod` commissioning job: enabled for one one-shot
-  run at 2026-07-29 00:02 Europe/London
+- Dedicated `orin-hbstore-prod` commissioning job: disabled at normal
+  `0 11 * * *` Europe/London exact schedule
 - Dedicated job payload: fixed `python3` argv to the HBStore socket client
 - Dedicated job agent/tools: none
 - Dedicated job delivery: none
-- Production trigger attached: yes, one-shot commissioning only
-- OpenClaw next wake: 2026-07-29 00:02 Europe/London
+- Production trigger attached: no
+- OpenClaw next wake: none
 - ORIN containers: healthy scheduler-trigger sidecar and automatic worker;
   control API is stopped
 - ORIN loopback API port: closed
@@ -333,19 +351,39 @@ SHA-256:
 - `stdout.log`:
   `2104b5c6eb42b6abb34aecd034253fedbd7d05a5432afa75958be41899a45bac`
 
+The first complete automatic trigger-plus-worker commissioning evidence is
+preserved at:
+
+`/docker/orin/evidence/hb_20260729T074012Z_9a2687db`
+
+The database request is
+`5c1062f3-d7ae-54c8-8f50-260f06cf8e78`; the terminal run is
+`hb_20260729T074012Z_9a2687db`. The scheduler request was accepted once with
+`replayed=false`, then automatically claimed and terminalized as blocked after
+the model output contract exhausted its single correction attempt. The
+evidence directory is private mode `0700`; its canonical JSON and logs are
+private mode `0600`.
+
+SHA-256:
+
+- `final_result.json`:
+  `13da81f9ab1d4ff275cf67b315afa7f293b439b3937a51b037dadeae792d6e3b`
+- `pipeline_preview.json`:
+  `c2f28845788252baeab48f8bb6f561391683574e488c65de937b9fd7952056a0`
+- `stdout.log`:
+  `3412054f708c81faeb65b80db3693fb4b1a1ea9a4e8a118d99a9e02ac04fdd2e`
+
 ## Next approved path
 
 Continue Phase 4 without enabling Shopify writes:
 
-1. Keep all database gates closed until the scheduled commissioning window and
-   keep the existing Job 28 sample draft unchanged.
-2. At 23:55 Europe/London, verify the immutable automatic worker, trigger
-   sidecar, exact one-shot schedule, and closed safety state before opening only
-   the dry-run commissioning gates.
-3. Observe the 2026-07-29 automatic dry-run. Require one
-   accepted trigger receipt, one automatically claimed job, one terminal
-   completed run, the reviewed code version, zero Shopify creates, unchanged
-   queue state, and durable evidence.
+1. Keep all database gates closed and both OpenClaw jobs disabled while the
+   model-output retry correction and invalid-response evidence are reviewed.
+2. Deploy only the reviewed correction after application and database CI pass.
+3. Use a fresh London-date scheduler identity for another automatic dry-run.
+   Require one accepted trigger receipt, one automatically claimed job, one
+   terminal completed run, the reviewed code version, zero Shopify creates,
+   unchanged queue state, and durable evidence.
 4. Keep the legacy schedule permanently disabled. Transfer production
    ownership only after the dedicated trigger and automatic worker path pass
    together; keep exactly one production scheduler enabled.

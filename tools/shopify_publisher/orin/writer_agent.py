@@ -197,15 +197,22 @@ def _model_output_retry_feedback(error):
         and not detail.startswith(_RETRYABLE_MODEL_OUTPUT_PREFIXES)
     ):
         raise error
+    expected = (
+        "exactly one complete HTML article inside the required sentinel pair "
+        "with no other text"
+    )
+    if detail.startswith("model article contains unsupported attribute:"):
+        expected = (
+            "use only class on allowed tags, href on a tags, and a lowercase "
+            "anchor-safe id on h2 tags; remove id from every non-h2 element "
+            "and remove every other attribute"
+        )
     return {
         "failed_requirements": [
             {
                 "code": "MW_OUTPUT_CONTRACT",
                 "actual": detail,
-                "expected": (
-                    "exactly one complete HTML article inside the required "
-                    "sentinel pair with no other text"
-                ),
+                "expected": expected,
             }
         ],
     }
