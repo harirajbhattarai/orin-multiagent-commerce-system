@@ -1,21 +1,25 @@
 # ORIN maintenance status
 
-Last updated: 2026-07-29
+Last updated: 2026-07-30
 
 ## Current phase
 
-Phase 3 manual verification is complete. Phase 4 has now proven the automatic
-fixed trigger and automatic worker handoff together. The first resulting
-dry-run exhausted its bounded model-output correction and failed closed, while
-a fresh post-fix controlled request was automatically claimed and completed
-successfully. A fresh-date fixed-trigger proof remains pending. Production
-scheduler ownership has not transferred. ORIN remains in maintenance.
+Phase 3 manual verification is complete. Phase 4 has proven the automatic
+fixed trigger and automatic worker handoff together on a fresh London-date
+source key. The 2026-07-30 supervised run was accepted once, automatically
+claimed, and terminalized without a manual cron or worker invocation. It
+failed closed at the post-write compliance review because the checker treated
+safe-negative public-road guidance as an unconditional blocked phrase.
+Production scheduler ownership has not transferred. ORIN remains in
+maintenance while that false positive is corrected, reviewed, deployed, and
+retested.
 
 The isolated `orin-hbstore-prod` agent and its five boundary files are
 versioned, deployed, and verified. Its dedicated schedule is wired only to one
-fixed no-argument Python client over a private Unix socket. The commissioning
-job is armed one-shot for `00:02` Europe/London on 2026-07-30. It has no
-delivery and no agent or tool execution path.
+fixed no-argument Python client over a private Unix socket. Both the dedicated
+and legacy schedules are disabled. The dedicated schedule has been restored
+to `0 11 * * *` Europe/London with exact timing, no delivery, and no agent or
+tool execution path.
 
 The reviewed code deployed on the VPS is:
 
@@ -428,22 +432,62 @@ The local operator copy is:
 
 `/Users/harirajbhattarai/Documents/COMPUTER_USE/ORIN_EVIDENCE/hb_20260729T103110Z_30e1dbf6`
 
+The fresh-date automatic trigger-plus-worker commissioning evidence is
+preserved at:
+
+`/docker/orin/evidence/hb_20260729T234013Z_8711e396`
+
+The local operator copy is:
+
+`/Users/harirajbhattarai/Documents/COMPUTER_USE/ORIN_EVIDENCE/hb_20260729T234013Z_8711e396`
+
+At `00:40` Europe/London on 2026-07-30, the dedicated fixed trigger created
+exactly one request for
+`scheduler:orin-hbstore-prod:2026-07-30`. The receipt was `accepted` with
+`replayed=false`, `requested_mode=dry-run`, and `payload={}`. The automatic
+worker claimed it without date or job overrides and recorded exactly one job,
+one run, and one attempt at code version
+`013c12f95e1ec355b24288b39a76cddd70ce8cc6`.
+
+The generated 2,094-visible-word Job 28 article passed topic identity, HTML,
+and the deterministic content-quality contract. It was then terminalized as
+`blocked` with `ORIN_PIPELINE_BLOCKED` because the compliance checker treated
+the safe-negative sentence `not approved for use on public roads` as an
+unconditional failure. Shopify creates were zero, `shopify_published=false`,
+the queue was unchanged, reconciliation was not required, and the Shopify
+transaction was never entered. All commissioning gates were closed
+immediately afterwards. Both schedules are disabled and OpenClaw reports
+`nextWakeAtMs=null`.
+
+SHA-256:
+
+- `final_result.json`:
+  `eb32595898aae7f70490dd7f62c33e7ed11678f493b33d5d7d58463be7b79b4d`
+- `pipeline_preview.json`:
+  `45a5963245de8976d95acb3637be64e9f9e4a60db2e14f6390d92523557f3123`
+- `stdout.log`:
+  `e50b2bf9ac26077f274e2c266df22c05348d77eafc53c892210d39006175e232`
+- `stderr.log`:
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+- `writer_output_job28_1785368415_45488aa6.html`:
+  `d763c7928ce5b6e01a7980510417b9b3f3da1911a66f5d93da3de3f94198c71e`
+
 ## Next approved path
 
 Continue Phase 4 without enabling Shopify writes:
 
-1. Keep all database gates closed and both OpenClaw jobs disabled until the
-   next supervised commissioning window.
-2. Use a fresh London-date scheduler identity for another automatic dry-run.
-   Require one accepted trigger receipt, one automatically claimed job, one
-   terminal completed run, the reviewed code version, zero Shopify creates,
-   unchanged queue state, and durable evidence.
-3. Keep the legacy schedule permanently disabled. Transfer production
-   ownership only after the dedicated trigger and automatic worker path pass
-   together; keep exactly one production scheduler enabled.
-4. Observe several successful scheduled dry-run receipts before separately
+1. Keep all database gates closed and both OpenClaw jobs disabled while the
+   safe-negative public-road compliance fix is reviewed.
+2. Merge and deploy the narrow checker fix at one immutable revision, then
+   repeat one supervised automatic dry-run with a fresh source key.
+3. Require one accepted trigger receipt, one automatically claimed job, one
+   terminal completed run, zero Shopify creates, unchanged queue state, and
+   durable evidence before transferring production scheduler ownership.
+4. Keep the legacy schedule permanently disabled. When ownership transfers,
+   keep exactly one production scheduler enabled.
+5. Observe several successful scheduled dry-run receipts before separately
    approving hidden-draft writes.
-5. Add the read-only watchdog after scheduler ownership is proven.
+6. Add the read-only watchdog after scheduler ownership is proven.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
 controlled transaction, or begin additional clients before HBStore scheduler
