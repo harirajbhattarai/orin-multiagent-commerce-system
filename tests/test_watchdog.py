@@ -174,3 +174,44 @@ def test_source_key_uses_london_date_across_utc_boundary():
 def test_naive_time_is_rejected():
     with pytest.raises(ValueError, match="timezone-aware"):
         evaluate(healthy_snapshot(), now=datetime(2026, 7, 30, 12))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("shopify_create_count", 1),
+        ("shopify_published", True),
+        ("queue_changed", True),
+        ("reconciliation_status", "needs_review"),
+        ("code_version", None),
+        ("code_version", "not-a-git-sha"),
+    ],
+)
+def test_completed_dry_run_with_unsafe_receipt_emits_invariant_alert(
+    field: str,
+    value: object,
+):
+    result = evaluate(
+        replace(healthy_snapshot(), **{field: value}),
+        now=AFTER_DEADLINE,
+    )
+
+    assert result.status == "alert"
+    assert result.code == "ORIN_SCHEDULED_RUN_INVARIANT_VIOLATION"
+
+
+def test_hidden_draft_allows_at_most_one_unpublished_create():
+    hidden_draft = replace(
+        healthy_snapshot(),
+        allowed_mode="hidden-draft",
+        shopify_writes_enabled=True,
+        shopify_create_count=1,
+        reconciliation_status="reconciled",
+    )
+
+    assert evaluate(hidden_draft, now=AFTER_DEADLINE).status == "healthy"
+    unsafe = evaluate(
+        replace(hidden_draft, shopify_create_count=2),
+        now=AFTER_DEADLINE,
+    )
+    assert unsafe.code == "ORIN_SCHEDULED_RUN_INVARIANT_VIOLATION"
