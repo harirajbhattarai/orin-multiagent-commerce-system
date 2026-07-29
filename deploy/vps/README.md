@@ -212,6 +212,10 @@ the approved automatic worker and scheduler-trigger sidecar to remain running.
 It requires a sealed successful Phase 4 automatic proof and refuses to make
 any service or schedule change itself.
 
+Set `ORIN_WATCHDOG_DEPLOY_SHA` to the separately reviewed watchdog commit.
+Do not change `ORIN_DEPLOY_SHA` or replace the proven worker and
+scheduler-trigger images merely to commission the watchdog.
+
 ## Credential handoff — user action required
 
 Create independent random passwords for `orin_api` and `orin_worker` without

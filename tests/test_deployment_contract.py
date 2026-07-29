@@ -119,6 +119,8 @@ def test_watchdog_is_socket_only_read_only_and_credential_isolated():
         "\n  scheduler-trigger:", 1
     )[0]
     assert 'user: "10003:${ORIN_RUNTIME_GID:-1000}"' in watchdog
+    assert "local/orin-watchdog:${ORIN_WATCHDOG_DEPLOY_SHA" in watchdog
+    assert "local/orin-watchdog:${ORIN_DEPLOY_SHA" not in watchdog
     assert "ports:" not in watchdog
     assert "restart: unless-stopped" in watchdog
     assert "watchdog_database_url" in watchdog
@@ -131,3 +133,9 @@ def test_watchdog_is_socket_only_read_only_and_credential_isolated():
     assert "hoverboard_shopify_access_token" not in watchdog
     assert "writer_api_key" not in watchdog
     assert "/var/run/docker.sock" not in watchdog
+
+
+def test_non_watchdog_services_remain_pinned_to_runtime_revision():
+    non_watchdog = COMPOSE.split("\n  scheduler-trigger:", 1)[1]
+    assert "ORIN_WATCHDOG_DEPLOY_SHA" not in non_watchdog
+    assert non_watchdog.count("${ORIN_DEPLOY_SHA") >= 4
