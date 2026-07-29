@@ -130,5 +130,9 @@ create policy runs_watchdog_select_hbstore
 on public.runs for select to orin_watchdog
 using (client_id = 'hoverboard_store');
 
+-- Let the migration owner impersonate the NOLOGIN role for pgTAP verification.
+-- This grants no additional capability to orin_watchdog itself.
+grant orin_watchdog to postgres with set true;
+
 comment on role orin_watchdog is
   'NOLOGIN read-only HBStore scheduler observation role; activate only after Phase 4 proof';
