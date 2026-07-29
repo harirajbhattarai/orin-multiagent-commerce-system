@@ -3,14 +3,14 @@ name: orin-control
 services:
   watchdog:
     profiles: ["watchdog"]
-    image: local/orin-watchdog:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
+    image: local/orin-watchdog:${ORIN_WATCHDOG_DEPLOY_SHA:?set ORIN_WATCHDOG_DEPLOY_SHA}
     pull_policy: never
     build:
       context: ${ORIN_PROJECT_ROOT:?set ORIN_PROJECT_ROOT}
       dockerfile: Dockerfile.watchdog
       args:
-        VERSION: ${ORIN_DEPLOY_SHA}
-        VCS_REF: ${ORIN_DEPLOY_SHA}
+        VERSION: ${ORIN_WATCHDOG_DEPLOY_SHA}
+        VCS_REF: ${ORIN_WATCHDOG_DEPLOY_SHA}
     init: true
     user: "10003:${ORIN_RUNTIME_GID:-1000}"
     read_only: true

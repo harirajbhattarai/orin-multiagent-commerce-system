@@ -95,6 +95,7 @@ jobs:
             "${deployment_tmp}/secrets/worker_database_url" \
             "${deployment_tmp}/secrets/hoverboard_shopify_access_token"
           ORIN_DEPLOY_SHA="${GITHUB_SHA}" \
+          ORIN_WATCHDOG_DEPLOY_SHA="${GITHUB_SHA}" \
           ORIN_PROJECT_ROOT="${GITHUB_WORKSPACE}" \
           ORIN_RUNTIME_ROOT="${deployment_tmp}/runtime" \
           ORIN_EVIDENCE_ROOT="${deployment_tmp}/evidence" \
@@ -105,6 +106,7 @@ jobs:
           ORIN_API_PORT=58080 \
             docker compose -f deploy/vps/compose.yml --profile "*" config --quiet
           test -z "$(ORIN_DEPLOY_SHA="${GITHUB_SHA}" \
+            ORIN_WATCHDOG_DEPLOY_SHA="${GITHUB_SHA}" \
             ORIN_PROJECT_ROOT="${GITHUB_WORKSPACE}" \
             ORIN_RUNTIME_ROOT="${deployment_tmp}/runtime" \
             ORIN_EVIDENCE_ROOT="${deployment_tmp}/evidence" \

@@ -15,7 +15,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 required=(
-  ORIN_DEPLOY_SHA
+  ORIN_WATCHDOG_DEPLOY_SHA
   ORIN_PROJECT_ROOT
   ORIN_SECRETS_DIR
   ORIN_TRIGGER_SOCKET_DIR
@@ -29,8 +29,8 @@ for name in "${required[@]}"; do
   fi
 done
 
-if [[ ! "${ORIN_DEPLOY_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
-  echo "ORIN_DEPLOY_SHA must be a full Git commit" >&2
+if [[ ! "${ORIN_WATCHDOG_DEPLOY_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "ORIN_WATCHDOG_DEPLOY_SHA must be a full Git commit" >&2
   exit 1
 fi
 if [[ ! "${ORIN_RUNTIME_UID}" =~ ^[0-9]+$ \
@@ -53,8 +53,8 @@ if [[ -n "$(git -c safe.directory="${ORIN_PROJECT_ROOT}" -C "${ORIN_PROJECT_ROOT
   exit 1
 fi
 actual_sha="$(git -c safe.directory="${ORIN_PROJECT_ROOT}" -C "${ORIN_PROJECT_ROOT}" rev-parse HEAD)"
-if [[ "${actual_sha}" != "${ORIN_DEPLOY_SHA}" ]]; then
-  echo "checkout mismatch: expected ${ORIN_DEPLOY_SHA}, received ${actual_sha}" >&2
+if [[ "${actual_sha}" != "${ORIN_WATCHDOG_DEPLOY_SHA}" ]]; then
+  echo "checkout mismatch: expected ${ORIN_WATCHDOG_DEPLOY_SHA}, received ${actual_sha}" >&2
   exit 1
 fi
 
@@ -149,7 +149,7 @@ if enabled:
     raise SystemExit("an OpenClaw watchdog schedule is already enabled")
 PY
 
-image="local/orin-watchdog:${ORIN_DEPLOY_SHA}"
+image="local/orin-watchdog:${ORIN_WATCHDOG_DEPLOY_SHA}"
 if [[ "${require_image}" == true ]]; then
   if ! docker image inspect "${image}" >/dev/null 2>&1; then
     echo "immutable watchdog image is missing" >&2
@@ -159,7 +159,7 @@ if [[ "${require_image}" == true ]]; then
     docker image inspect "${image}" \
       --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}'
   )"
-  if [[ "${image_revision}" != "${ORIN_DEPLOY_SHA}" ]]; then
+  if [[ "${image_revision}" != "${ORIN_WATCHDOG_DEPLOY_SHA}" ]]; then
     echo "watchdog image revision does not match deployment revision" >&2
     exit 1
   fi

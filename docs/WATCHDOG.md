@@ -73,7 +73,9 @@ failures.
 The `watchdog` Compose profile is disabled by default, has no port or writable
 volume, runs as UID `10003`, uses a read-only root filesystem, and mounts only
 its private database URL plus the Unix-socket directory. It is not activated
-by merging this code.
+by merging this code. Its immutable image is pinned separately with
+`ORIN_WATCHDOG_DEPLOY_SHA`; advancing the watchdog must not replace the proven
+worker or scheduler-trigger images pinned by `ORIN_DEPLOY_SHA`.
 
 After Phase 4 is proven:
 

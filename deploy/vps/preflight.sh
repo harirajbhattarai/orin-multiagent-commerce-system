@@ -36,6 +36,7 @@ done
 
 required=(
   ORIN_DEPLOY_SHA
+  ORIN_WATCHDOG_DEPLOY_SHA
   ORIN_PROJECT_ROOT
   ORIN_RUNTIME_ROOT
   ORIN_EVIDENCE_ROOT
@@ -58,6 +59,10 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 if [[ ! "${ORIN_DEPLOY_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
   echo "ORIN_DEPLOY_SHA must be a full Git commit" >&2
+  exit 1
+fi
+if [[ ! "${ORIN_WATCHDOG_DEPLOY_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "ORIN_WATCHDOG_DEPLOY_SHA must be a full Git commit" >&2
   exit 1
 fi
 if [[ ! "${ORIN_API_PORT}" =~ ^[0-9]+$ ]]; then
