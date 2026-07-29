@@ -100,32 +100,39 @@ values ('watchdog_isolation', 'healthy', 'unapproved-owner');
 
 set local role orin_watchdog;
 
+select count(*) as visible_client_count
+from public.clients
+\gset watchdog_
+
+select count(*) as isolated_client_count
+from public.clients
+where client_id = 'watchdog_isolation'
+\gset watchdog_
+
+select count(*) as hbstore_scheduler_count
+from public.scheduler_health
+where client_id = 'hoverboard_store'
+\gset watchdog_
+
+reset role;
+
 select is(
-  (select count(*) from public.clients),
+  :'watchdog_visible_client_count'::bigint,
   1::bigint,
   'RLS exposes only Hoverboard Store to orin_watchdog'
 );
 
 select is(
-  (
-    select count(*)
-    from public.clients
-    where client_id = 'watchdog_isolation'
-  ),
+  :'watchdog_isolated_client_count'::bigint,
   0::bigint,
   'RLS hides all other clients from orin_watchdog'
 );
 
 select is(
-  (
-    select count(*)
-    from public.scheduler_health
-    where client_id = 'hoverboard_store'
-  ),
+  :'watchdog_hbstore_scheduler_count'::bigint,
   1::bigint,
   'orin_watchdog can observe the fixed HBStore scheduler row'
 );
 
-reset role;
 select * from finish();
 rollback;
