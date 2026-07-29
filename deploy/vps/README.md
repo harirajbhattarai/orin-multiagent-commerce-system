@@ -181,6 +181,24 @@ docker compose --env-file /docker/orin/deployment.env \
 The first fixed-client call must be tested with database gates closed and must
 return a blocked response. Open gates only for a separately supervised dry-run.
 
+## Read-only watchdog preparation
+
+The disabled Phase 5 watchdog contract is documented in
+[`docs/WATCHDOG.md`](../../docs/WATCHDOG.md). Do not migrate its role, install
+its credential, build its image, or attach an alert schedule until Phase 4
+scheduler ownership is proven.
+
+Its eventual preflight is:
+
+```bash
+deploy/vps/preflight.sh --require-watchdog-secret
+```
+
+The Compose profile is `watchdog`. It is one-shot, read-only, fixed to
+Hoverboard Store, and must receive a unique `orin_watchdog` session-pooler URL
+owned by UID/GID `10003:10003` at
+`/docker/orin/secrets/watchdog_database_url`.
+
 ## Credential handoff — user action required
 
 Create independent random passwords for `orin_api` and `orin_worker` without

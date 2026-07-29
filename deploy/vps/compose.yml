@@ -1,6 +1,40 @@
 name: orin-control
 
 services:
+  watchdog:
+    profiles: ["watchdog"]
+    image: local/orin-watchdog:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
+    pull_policy: never
+    build:
+      context: ${ORIN_PROJECT_ROOT:?set ORIN_PROJECT_ROOT}
+      dockerfile: Dockerfile.watchdog
+      args:
+        VERSION: ${ORIN_DEPLOY_SHA}
+        VCS_REF: ${ORIN_DEPLOY_SHA}
+    init: true
+    user: "10003:10003"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 0.25
+    restart: "no"
+    stop_grace_period: 10s
+    environment:
+      ORIN_WATCHDOG_DATABASE_URL_FILE: /run/secrets/watchdog_database_url
+      ORIN_WATCHDOG_DATABASE_ROLE: orin_watchdog
+    secrets:
+      - watchdog_database_url
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   scheduler-trigger:
     profiles: ["scheduler-trigger"]
     image: local/orin-scheduler-trigger:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
@@ -231,6 +265,8 @@ services:
         max-file: "3"
 
 secrets:
+  watchdog_database_url:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/watchdog_database_url
   scheduler_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/scheduler_database_url
   control_database_url:
