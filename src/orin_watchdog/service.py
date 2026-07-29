@@ -78,4 +78,27 @@ def evaluate(snapshot: WatchdogSnapshot, *, now: datetime) -> WatchdogResult:
     if snapshot.run_id is None or snapshot.finished_at is None:
         return result("alert", "ORIN_SCHEDULED_RUN_EVIDENCE_MISSING")
 
+    if (
+        snapshot.shopify_published is not False
+        or snapshot.queue_changed is not False
+        or snapshot.shopify_create_count is None
+        or snapshot.shopify_create_count < 0
+        or (
+            snapshot.allowed_mode == "dry-run"
+            and snapshot.shopify_create_count != 0
+        )
+        or (
+            snapshot.allowed_mode == "hidden-draft"
+            and snapshot.shopify_create_count > 1
+        )
+        or snapshot.reconciliation_status not in {"not_required", "reconciled"}
+        or snapshot.code_version is None
+        or len(snapshot.code_version) != 40
+        or any(
+            character not in "0123456789abcdef"
+            for character in snapshot.code_version
+        )
+    ):
+        return result("alert", "ORIN_SCHEDULED_RUN_INVARIANT_VIOLATION")
+
     return result("healthy", "ORIN_SCHEDULED_RUN_OBSERVED")

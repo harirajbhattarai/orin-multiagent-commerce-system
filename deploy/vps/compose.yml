@@ -12,7 +12,7 @@ services:
         VERSION: ${ORIN_DEPLOY_SHA}
         VCS_REF: ${ORIN_DEPLOY_SHA}
     init: true
-    user: "10003:10003"
+    user: "10003:${ORIN_RUNTIME_GID:-1000}"
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=32m
@@ -22,13 +22,33 @@ services:
     pids_limit: 64
     mem_limit: 256m
     cpus: 0.25
-    restart: "no"
+    restart: unless-stopped
     stop_grace_period: 10s
     environment:
       ORIN_WATCHDOG_DATABASE_URL_FILE: /run/secrets/watchdog_database_url
       ORIN_WATCHDOG_DATABASE_ROLE: orin_watchdog
+      ORIN_WATCHDOG_SOCKET_PATH: /run/orin/orin-hbstore-watchdog.sock
+      ORIN_WATCHDOG_ALLOWED_PEER_UID: "${ORIN_RUNTIME_UID:-1000}"
     secrets:
       - watchdog_database_url
+    volumes:
+      - type: bind
+        source: ${ORIN_TRIGGER_SOCKET_DIR:?set ORIN_TRIGGER_SOCKET_DIR}
+        target: /run/orin
+    entrypoint:
+      - python
+      - -m
+      - orin_watchdog.server
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -m
+        - orin_watchdog.healthcheck
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     logging:
       driver: json-file
       options:

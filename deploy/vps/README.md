@@ -188,16 +188,29 @@ The disabled Phase 5 watchdog contract is documented in
 its credential, build its image, or attach an alert schedule until Phase 4
 scheduler ownership is proven.
 
-Its eventual preflight is:
+Its credential installer and eventual preflight are:
 
 ```bash
-deploy/vps/preflight.sh --require-watchdog-secret
+deploy/vps/install_watchdog_db_secret.sh
+deploy/vps/watchdog_preflight.sh
+deploy/vps/watchdog_preflight.sh --require-image
 ```
 
-The Compose profile is `watchdog`. It is one-shot, read-only, fixed to
-Hoverboard Store, and must receive a unique `orin_watchdog` session-pooler URL
-owned by UID/GID `10003:10003` at
+The Compose profile is `watchdog`. It is a fixed-request, read-only Unix-socket
+server for Hoverboard Store and must receive a unique `orin_watchdog`
+session-pooler URL owned by UID/GID `10003:10003` at
 `/docker/orin/secrets/watchdog_database_url`.
+
+The OpenClaw-side client is
+`deploy/openclaw/orin-watchdog/bin/orin_watchdog_check.py`. It accepts no
+arguments and receives no database credential. Keep its schedule and delivery
+disabled until the Phase 5 commissioning sequence in `docs/WATCHDOG.md`
+passes.
+
+Unlike the maintenance deployment preflight, `watchdog_preflight.sh` permits
+the approved automatic worker and scheduler-trigger sidecar to remain running.
+It requires a sealed successful Phase 4 automatic proof and refuses to make
+any service or schedule change itself.
 
 ## Credential handoff — user action required
 

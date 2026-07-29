@@ -65,5 +65,13 @@ class WatchdogRepository:
             ).one()
         return WatchdogSnapshot(**dict(row._mapping))
 
+    def ping(self) -> None:
+        with self.engine.connect() as connection:
+            current_role = connection.execute(text("select current_user")).scalar_one()
+            if current_role != self.expected_role:
+                raise RuntimeError(
+                    f"database role mismatch: required={self.expected_role}, received={current_role}"
+                )
+
     def close(self) -> None:
         self.engine.dispose()

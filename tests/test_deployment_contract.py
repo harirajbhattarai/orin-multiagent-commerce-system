@@ -25,8 +25,8 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert COMPOSE.count("read_only: true") >= 5
     assert COMPOSE.count('cap_drop: ["ALL"]') == 5
     assert COMPOSE.count("no-new-privileges:true") == 5
-    assert COMPOSE.count('restart: "no"') == 4
-    assert COMPOSE.count("restart: unless-stopped") == 1
+    assert COMPOSE.count('restart: "no"') == 3
+    assert COMPOSE.count("restart: unless-stopped") == 2
 
 
 def test_database_credentials_are_file_backed_and_role_separated():
@@ -114,16 +114,20 @@ def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():
     assert "writer_api_key" not in trigger
 
 
-def test_watchdog_is_one_shot_read_only_and_credential_isolated():
+def test_watchdog_is_socket_only_read_only_and_credential_isolated():
     watchdog = COMPOSE.split("  watchdog:", 1)[1].split(
         "\n  scheduler-trigger:", 1
     )[0]
-    assert 'user: "10003:10003"' in watchdog
+    assert 'user: "10003:${ORIN_RUNTIME_GID:-1000}"' in watchdog
     assert "ports:" not in watchdog
-    assert "restart: \"no\"" in watchdog
+    assert "restart: unless-stopped" in watchdog
     assert "watchdog_database_url" in watchdog
+    assert "orin-hbstore-watchdog.sock" in watchdog
+    assert "ORIN_WATCHDOG_ALLOWED_PEER_UID" in watchdog
+    assert "target: /run/orin" in watchdog
     assert "scheduler_database_url" not in watchdog
     assert "worker_database_url" not in watchdog
     assert "control_database_url" not in watchdog
     assert "hoverboard_shopify_access_token" not in watchdog
     assert "writer_api_key" not in watchdog
+    assert "/var/run/docker.sock" not in watchdog
