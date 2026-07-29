@@ -67,6 +67,16 @@ jobs:
           docker run --rm --entrypoint python orin-scheduler-trigger:ci \
             -c "from orin_scheduler_trigger.server import build_server; print('scheduler-trigger-import-ok')"
           test "$(docker image inspect orin-scheduler-trigger:ci --format '{{.Config.User}}')" = "10002:10002"
+      - name: Build and smoke-test watchdog image
+        run: |
+          docker build \
+            --file Dockerfile.watchdog \
+            --build-arg "VERSION=ci" \
+            --build-arg "VCS_REF=${GITHUB_SHA}" \
+            --tag orin-watchdog:ci \
+            .
+          docker run --rm orin-watchdog:ci --help
+          test "$(docker image inspect orin-watchdog:ci --format '{{.Config.User}}')" = "10003:10003"
       - name: Validate disabled VPS deployment contract
         run: |
           bash -n deploy/vps/preflight.sh
@@ -77,6 +87,7 @@ jobs:
             "${deployment_tmp}/secrets" \
             "${deployment_tmp}/trigger-socket"
           touch \
+            "${deployment_tmp}/secrets/watchdog_database_url" \
             "${deployment_tmp}/secrets/scheduler_database_url" \
             "${deployment_tmp}/secrets/control_database_url" \
             "${deployment_tmp}/secrets/worker_database_url" \

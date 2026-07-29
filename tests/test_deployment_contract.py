@@ -9,11 +9,12 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert 'profiles: ["manual-worker"]' in COMPOSE
     assert 'profiles: ["automatic-worker"]' in COMPOSE
     assert 'profiles: ["scheduler-trigger"]' in COMPOSE
+    assert 'profiles: ["watchdog"]' in COMPOSE
     assert '"127.0.0.1:${ORIN_API_PORT:-58080}:8000"' in COMPOSE
     assert "traefik." not in COMPOSE.lower()
     assert "50083" not in COMPOSE
     assert "network_mode: host" not in COMPOSE
-    assert COMPOSE.count("pull_policy: never") == 4
+    assert COMPOSE.count("pull_policy: never") == 5
     assert ":latest" not in COMPOSE
 
 
@@ -21,10 +22,10 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert "/var/run/docker.sock" not in COMPOSE
     assert "/data/.openclaw" not in COMPOSE
     assert "privileged:" not in COMPOSE
-    assert COMPOSE.count("read_only: true") >= 4
-    assert COMPOSE.count('cap_drop: ["ALL"]') == 4
-    assert COMPOSE.count("no-new-privileges:true") == 4
-    assert COMPOSE.count('restart: "no"') == 3
+    assert COMPOSE.count("read_only: true") >= 5
+    assert COMPOSE.count('cap_drop: ["ALL"]') == 5
+    assert COMPOSE.count("no-new-privileges:true") == 5
+    assert COMPOSE.count('restart: "no"') == 4
     assert COMPOSE.count("restart: unless-stopped") == 1
 
 
@@ -35,9 +36,14 @@ def test_database_credentials_are_file_backed_and_role_separated():
         "ORIN_SCHEDULER_DATABASE_URL_FILE: /run/secrets/scheduler_database_url"
         in COMPOSE
     )
+    assert (
+        "ORIN_WATCHDOG_DATABASE_URL_FILE: /run/secrets/watchdog_database_url"
+        in COMPOSE
+    )
     assert "ORIN_DATABASE_URL:" not in COMPOSE
     assert "ORIN_WORKER_DATABASE_URL:" not in COMPOSE
     assert "ORIN_SCHEDULER_DATABASE_URL:" not in COMPOSE
+    assert "ORIN_WATCHDOG_DATABASE_URL:" not in COMPOSE
     assert "service_role" not in COMPOSE
     assert "postgresql://" not in COMPOSE
 
@@ -106,3 +112,18 @@ def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():
     assert "worker_database_url" not in trigger
     assert "hoverboard_shopify_access_token" not in trigger
     assert "writer_api_key" not in trigger
+
+
+def test_watchdog_is_one_shot_read_only_and_credential_isolated():
+    watchdog = COMPOSE.split("  watchdog:", 1)[1].split(
+        "\n  scheduler-trigger:", 1
+    )[0]
+    assert 'user: "10003:10003"' in watchdog
+    assert "ports:" not in watchdog
+    assert "restart: \"no\"" in watchdog
+    assert "watchdog_database_url" in watchdog
+    assert "scheduler_database_url" not in watchdog
+    assert "worker_database_url" not in watchdog
+    assert "control_database_url" not in watchdog
+    assert "hoverboard_shopify_access_token" not in watchdog
+    assert "writer_api_key" not in watchdog
