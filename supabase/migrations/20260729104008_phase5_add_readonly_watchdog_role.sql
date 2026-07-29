@@ -20,11 +20,28 @@ $$;
 alter role orin_watchdog
   nologin
   noinherit
-  nosuperuser
   nocreaterole
-  nocreatedb
-  noreplication
-  nobypassrls;
+  nocreatedb;
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_roles
+    where rolname = 'orin_watchdog'
+      and (
+        rolsuper
+        or rolcreaterole
+        or rolcreatedb
+        or rolreplication
+        or rolbypassrls
+      )
+  ) then
+    raise exception 'orin_watchdog has prohibited privileged attributes'
+      using errcode = '42501';
+  end if;
+end;
+$$;
 
 revoke all on schema public from orin_watchdog;
 revoke all on schema orin_private from orin_watchdog;
