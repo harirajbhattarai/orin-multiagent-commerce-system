@@ -260,7 +260,9 @@ class _ArticleHTMLPolicy(HTMLParser):
                 if scheme and scheme != "https":
                     raise ModelWriterError("model article link must use HTTPS or a relative URL")
                 continue
-            raise ModelWriterError(f"model article contains unsupported attribute: {name}")
+            raise ModelWriterError(
+                f"model article contains unsupported attribute: {name} on {tag}"
+            )
         if tag != "br":
             self._stack.append(tag)
 
@@ -403,9 +405,9 @@ def generate_article(
         raise ModelWriterError("model provider returned an unexpected model")
     if response.get("input_sensitive") or response.get("output_sensitive"):
         raise ModelWriterError("model provider flagged the request or response")
-    body_html = extract_article_html(content)
 
     evidence_dir_value = os.environ.get("ORIN_RUN_ARTIFACT_DIR", "")
+    evidence_dir = None
     if evidence_dir_value:
         evidence_dir = Path(evidence_dir_value)
         if not evidence_dir.is_absolute():
@@ -418,6 +420,37 @@ def generate_article(
             "endpoint": MINIMAX_ENDPOINT,
             "payload": payload,
         }
+        if attempt == 1:
+            _write_private_json(
+                evidence_dir / "model_writer_request.json",
+                request_evidence,
+            )
+        _write_private_json(
+            evidence_dir / f"model_writer_attempt_{attempt}_request.json",
+            request_evidence,
+        )
+
+    try:
+        body_html = extract_article_html(content)
+    except ModelWriterError as error:
+        if evidence_dir is not None:
+            _write_private_json(
+                evidence_dir / f"model_writer_attempt_{attempt}_failure.json",
+                {
+                    "schema": MODEL_WRITER_VERSION,
+                    "attempt": attempt,
+                    "provider": "minimax",
+                    "model": response_model,
+                    "response_id": response.get("id"),
+                    "finish_reason": choice.get("finish_reason"),
+                    "usage": response.get("usage", {}),
+                    "validation_error": str(error),
+                    "raw_content": content,
+                },
+            )
+        raise
+
+    if evidence_dir is not None:
         response_evidence = {
             "schema": MODEL_WRITER_VERSION,
             "attempt": attempt,
@@ -431,12 +464,7 @@ def generate_article(
         # Preserve the historical paths for first-attempt consumers, while
         # retaining every response whenever the bounded retry is used.
         if attempt == 1:
-            _write_private_json(evidence_dir / "model_writer_request.json", request_evidence)
             _write_private_json(evidence_dir / "model_writer_response.json", response_evidence)
-        _write_private_json(
-            evidence_dir / f"model_writer_attempt_{attempt}_request.json",
-            request_evidence,
-        )
         _write_private_json(
             evidence_dir / f"model_writer_attempt_{attempt}_response.json",
             response_evidence,

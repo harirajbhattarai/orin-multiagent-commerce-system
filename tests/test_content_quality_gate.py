@@ -642,6 +642,12 @@ Meta Description: Read this practical UK guide to hoverboard charger not working
             ][0]["code"],
             "MW_OUTPUT_CONTRACT",
         )
+        self.assertIn(
+            "id on h2 tags",
+            generate.call_args_list[1].kwargs["quality_retry"][
+                "failed_requirements"
+            ][0]["expected"],
+        )
         self.assertEqual(stats["model_response_id"], "policy-retry-response")
 
     def test_non_output_model_error_does_not_retry(self):
