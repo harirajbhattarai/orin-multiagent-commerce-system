@@ -6,13 +6,16 @@ Last updated: 2026-07-30
 
 Phase 3 manual verification is complete. Phase 4 has proven the automatic
 fixed trigger and automatic worker handoff together on a fresh London-date
-source key. The 2026-07-30 supervised run was accepted once, automatically
+source key. The 2026-07-30 automatic run was accepted once, automatically
 claimed, and terminalized without a manual cron or worker invocation. It
 failed closed at the post-write compliance review because the checker treated
 safe-negative public-road guidance as an unconditional blocked phrase.
-Production scheduler ownership has not transferred. ORIN remains in
-maintenance while that false positive is corrected, reviewed, deployed, and
-retested.
+PR 58 corrected that false positive, and its exact merge revision is deployed.
+A database-backed controlled dry-run at that revision completed with
+`READY_TO_CREATE_SELECTED_JOB_DRAFT`, zero Shopify creates, no publication,
+and no queue change. Production scheduler ownership has not transferred.
+ORIN remains in maintenance pending one fresh-date automatic
+trigger-plus-worker proof at the corrected revision.
 
 The isolated `orin-hbstore-prod` agent and its five boundary files are
 versioned, deployed, and verified. Its dedicated schedule is wired only to one
@@ -23,7 +26,7 @@ tool execution path.
 
 The reviewed code deployed on the VPS is:
 
-`013c12f95e1ec355b24288b39a76cddd70ce8cc6`
+`59a34ac5c881424826a2a90e97ba9e1e66fedd81`
 
 ## Verified results
 
@@ -210,6 +213,23 @@ The reviewed code deployed on the VPS is:
 - All database gates were closed immediately after terminalization. The July
   30 fixed-trigger one-shot was restored for `00:02` Europe/London, the legacy
   job remains disabled, and Shopify writes remain disabled.
+- PR 58 corrected the safe-negative public-road compliance false positive
+  without weakening the blocked-claim policy. Application and database CI
+  passed before squash merge at
+  `59a34ac5c881424826a2a90e97ba9e1e66fedd81`.
+- The VPS checkout, automatic worker image, scheduler-trigger image, and
+  non-secret deployment revision are aligned to that exact merge commit. The
+  worker and trigger sidecar run as their expected non-root users with zero
+  restarts; the sidecar is healthy and the worker reports `no_job_due` while
+  all gates are closed.
+- A database-backed controlled dry-run at the corrected revision terminalized
+  as `completed` with `READY_TO_CREATE_SELECTED_JOB_DRAFT`. MiniMax used its
+  bounded retry: attempt 1 was rejected and attempt 2 passed the full content,
+  topic, HTML, publisher, and compliance gates.
+- The corrected controlled run selected Job 28, made zero Shopify creates,
+  published nothing, left the queue unchanged, and required no
+  reconciliation. All database gates remain closed, both OpenClaw jobs remain
+  disabled at `0 11 * * *` Europe/London exact, and `nextWakeAtMs` is null.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -472,17 +492,48 @@ SHA-256:
 - `writer_output_job28_1785368415_45488aa6.html`:
   `d763c7928ce5b6e01a7980510417b9b3f3da1911a66f5d93da3de3f94198c71e`
 
+The post-fix database-backed controlled dry-run evidence is preserved at:
+
+`/docker/orin/evidence/hb_20260730T000603Z_c31b49a1`
+
+The local operator copy is:
+
+`/Users/harirajbhattarai/Documents/COMPUTER_USE/ORIN_EVIDENCE/hb_20260730T000603Z_c31b49a1`
+
+The database request is
+`41840073-f0e4-48a7-af96-e069f0d671b5`; the terminal run is
+`hb_20260730T000603Z_c31b49a1`. It completed at code version
+`59a34ac5c881424826a2a90e97ba9e1e66fedd81` with
+`READY_TO_CREATE_SELECTED_JOB_DRAFT`, zero Shopify creates,
+`shopify_published=false`, an unchanged queue, and
+`reconciliation_status=not_required`.
+
+SHA-256:
+
+- `final_result.json`:
+  `295a36bd346ed9baf2c62a10a1d427daabb08258a6dbd5df4422fcefd2c11dbe`
+- `pipeline_preview.json`:
+  `b032ac34feac5aed4f6b198813d2e7deca20d9566feaf215f3dc5d9ee797a2b8`
+- `stdout.log`:
+  `64fe096e0e908a05c73cc1d302377d340b8f3f22d7cd4c9b85812e9d822d1181`
+- `stderr.log`:
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+- `writer_output_job28_1785369965_500ac89b.html`:
+  `43f5ae8990001e77d74d088404274fd8fe65abc063e6558f2c31292c23e85da1`
+
 ## Next approved path
 
 Continue Phase 4 without enabling Shopify writes:
 
-1. Keep all database gates closed and both OpenClaw jobs disabled while the
-   safe-negative public-road compliance fix is reviewed.
-2. Merge and deploy the narrow checker fix at one immutable revision, then
-   repeat one supervised automatic dry-run with a fresh source key.
-3. Require one accepted trigger receipt, one automatically claimed job, one
-   terminal completed run, zero Shopify creates, unchanged queue state, and
-   durable evidence before transferring production scheduler ownership.
+1. Keep all database gates closed and both OpenClaw jobs disabled until the
+   fresh-date automatic proof begins.
+2. Run one supervised automatic dry-run at the deployed revision with source
+   key `scheduler:orin-hbstore-prod:2026-07-31`; do not invoke the cron or
+   worker manually.
+3. Require one accepted, non-replayed trigger receipt, one automatically
+   claimed job, one terminal completed run, zero Shopify creates, unchanged
+   queue state, and durable evidence before transferring production scheduler
+   ownership.
 4. Keep the legacy schedule permanently disabled. When ownership transfers,
    keep exactly one production scheduler enabled.
 5. Observe several successful scheduled dry-run receipts before separately
