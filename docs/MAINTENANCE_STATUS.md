@@ -4,18 +4,19 @@ Last updated: 2026-07-30
 
 ## Current phase
 
-Phase 3 manual verification is complete. Phase 4 has proven the automatic
-fixed trigger and automatic worker handoff together on a fresh London-date
-source key. The 2026-07-30 automatic run was accepted once, automatically
-claimed, and terminalized without a manual cron or worker invocation. It
-failed closed at the post-write compliance review because the checker treated
-safe-negative public-road guidance as an unconditional blocked phrase.
-PR 58 corrected that false positive, and its exact merge revision is deployed.
-A database-backed controlled dry-run at that revision completed with
-`READY_TO_CREATE_SELECTED_JOB_DRAFT`, zero Shopify creates, no publication,
-and no queue change. Production scheduler ownership has not transferred.
-ORIN remains in maintenance pending one fresh-date automatic
-trigger-plus-worker proof at the corrected revision.
+Phase 3 manual verification is complete. Phase 4 automatic
+trigger-plus-worker commissioning passed on the fresh London-date source key
+`scheduler:orin-hbstore-prod:2026-07-31`. The dedicated fixed command was
+accepted once with `replayed=false`, automatically claimed by the continuously
+running immutable worker without overrides, and durably terminalized as
+`completed` with `READY_TO_CREATE_SELECTED_JOB_DRAFT`. It made zero Shopify
+creates, published nothing, left the queue unchanged, and required no
+reconciliation.
+
+Production scheduler ownership has not yet transferred. ORIN remains in
+maintenance with both schedules disabled and Shopify writes disabled. The
+automatic execution architecture is now proven and is eligible for a separate
+dry-run-only scheduler ownership decision.
 
 The isolated `orin-hbstore-prod` agent and its five boundary files are
 versioned, deployed, and verified. Its dedicated schedule is wired only to one
@@ -222,14 +223,32 @@ The reviewed code deployed on the VPS is:
   worker and trigger sidecar run as their expected non-root users with zero
   restarts; the sidecar is healthy and the worker reports `no_job_due` while
   all gates are closed.
-- A database-backed controlled dry-run at the corrected revision terminalized
-  as `completed` with `READY_TO_CREATE_SELECTED_JOB_DRAFT`. MiniMax used its
-  bounded retry: attempt 1 was rejected and attempt 2 passed the full content,
-  topic, HTML, publisher, and compliance gates.
+- A filesystem-durable direct controlled dry-run at the corrected revision
+  terminalized as `completed` with
+  `READY_TO_CREATE_SELECTED_JOB_DRAFT`. MiniMax used its bounded retry:
+  attempt 1 was rejected and attempt 2 passed the full content, topic, HTML,
+  publisher, and compliance gates. This direct harness run is not represented
+  in the Supabase jobs, runs, attempts, or artifact ledgers.
 - The corrected controlled run selected Job 28, made zero Shopify creates,
   published nothing, left the queue unchanged, and required no
   reconciliation. All database gates remain closed, both OpenClaw jobs remain
   disabled at `0 11 * * *` Europe/London exact, and `nextWakeAtMs` is null.
+- The fresh 2026-07-31 automatic proof passed at the exact deployed revision.
+  OpenClaw executed only the fixed no-argument command at `00:02`
+  Europe/London. Its receipt was `accepted` with `replayed=false`,
+  `requested_mode=dry-run`, and `payload={}`.
+- The continuously running worker automatically claimed that request and
+  terminalized exactly one database job, one run, and one attempt as
+  `completed` with `READY_TO_CREATE_SELECTED_JOB_DRAFT`. The run used code
+  version `59a34ac5c881424826a2a90e97ba9e1e66fedd81`, made zero Shopify
+  creates, published nothing, left the queue unchanged, and required no
+  reconciliation.
+- All gates were closed immediately after terminalization. The client is in
+  maintenance, request intake and automation are disabled, Shopify writes are
+  disabled, allowed mode remains `dry-run`, scheduler state is disabled with
+  no owner, and there are zero active jobs or open incidents. Both OpenClaw
+  schedules are disabled at `0 11 * * *` Europe/London exact and
+  `nextWakeAtMs` is null.
 
 The latest controlled Shopify test created exactly one article:
 
@@ -492,7 +511,8 @@ SHA-256:
 - `writer_output_job28_1785368415_45488aa6.html`:
   `d763c7928ce5b6e01a7980510417b9b3f3da1911a66f5d93da3de3f94198c71e`
 
-The post-fix database-backed controlled dry-run evidence is preserved at:
+The post-fix filesystem-durable direct controlled dry-run evidence is
+preserved at:
 
 `/docker/orin/evidence/hb_20260730T000603Z_c31b49a1`
 
@@ -500,13 +520,14 @@ The local operator copy is:
 
 `/Users/harirajbhattarai/Documents/COMPUTER_USE/ORIN_EVIDENCE/hb_20260730T000603Z_c31b49a1`
 
-The database request is
+The direct runner request ID is
 `41840073-f0e4-48a7-af96-e069f0d671b5`; the terminal run is
 `hb_20260730T000603Z_c31b49a1`. It completed at code version
 `59a34ac5c881424826a2a90e97ba9e1e66fedd81` with
 `READY_TO_CREATE_SELECTED_JOB_DRAFT`, zero Shopify creates,
 `shopify_published=false`, an unchanged queue, and
-`reconciliation_status=not_required`.
+`reconciliation_status=not_required`. This direct run has no corresponding
+Supabase `content_jobs`, `runs`, `job_attempts`, or `run_artifacts` row.
 
 SHA-256:
 
@@ -521,24 +542,57 @@ SHA-256:
 - `writer_output_job28_1785369965_500ac89b.html`:
   `43f5ae8990001e77d74d088404274fd8fe65abc063e6558f2c31292c23e85da1`
 
+The successful fresh-date automatic trigger-plus-worker proof is preserved at:
+
+`/docker/orin/evidence/hb_20260730T230209Z_8658cadf`
+
+The local operator copy is:
+
+`/Users/harirajbhattarai/Documents/COMPUTER_USE/ORIN_EVIDENCE/hb_20260730T230209Z_8658cadf`
+
+At `00:02` Europe/London on 2026-07-31, the dedicated fixed command created
+exactly one request for
+`scheduler:orin-hbstore-prod:2026-07-31`. The trigger receipt was `accepted`
+with `replayed=false`, `requested_mode=dry-run`, and `payload={}`. The request
+ID is `33d0c67b-6922-5f31-817c-262678413a65`; the database job is
+`97825339-f9f1-4cb6-9962-10dbcf79fc3d`; and the terminal run is
+`hb_20260730T230209Z_8658cadf`.
+
+Supabase records exactly one job, one run, and one attempt. The run completed
+at code version `59a34ac5c881424826a2a90e97ba9e1e66fedd81` with
+`READY_TO_CREATE_SELECTED_JOB_DRAFT`, zero Shopify creates,
+`shopify_published=false`, an unchanged queue,
+`shopify_write_state=not_attempted`, and
+`reconciliation_status=not_required`.
+
+SHA-256:
+
+- `final_result.json`:
+  `78be17bf831736ab0e326e8ce9347066c1e6a0fd3cd9eb0afa233ce9437ee0bb`
+- `pipeline_preview.json`:
+  `980bfbb74ce0bd4b99fbe648521418235f599194d1f40ff68211064076999c25`
+- `stdout.log`:
+  `07aa1d979f3425b60fcb5cabe6aa41c8c3b52bafc8021bc96c6e080c6b8d8059`
+- `stderr.log`:
+  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+- `writer_output_job28_1785452532_31b3d19f.html`:
+  `b6f42df2cb9f9ae063105a9a4697300cba1b4cbfd39c66913fd919ba33729cdb`
+
 ## Next approved path
 
-Continue Phase 4 without enabling Shopify writes:
+Proceed from completed Phase 4 commissioning without enabling Shopify writes:
 
-1. Keep all database gates closed and both OpenClaw jobs disabled until the
-   fresh-date automatic proof begins.
-2. Run one supervised automatic dry-run at the deployed revision with source
-   key `scheduler:orin-hbstore-prod:2026-07-31`; do not invoke the cron or
-   worker manually.
-3. Require one accepted, non-replayed trigger receipt, one automatically
-   claimed job, one terminal completed run, zero Shopify creates, unchanged
-   queue state, and durable evidence before transferring production scheduler
-   ownership.
-4. Keep the legacy schedule permanently disabled. When ownership transfers,
-   keep exactly one production scheduler enabled.
-5. Observe several successful scheduled dry-run receipts before separately
+1. Keep all gates closed until the dry-run scheduler ownership transfer is
+   explicitly approved.
+2. Transfer scheduler ownership only to `openclaw:orin-hbstore-prod`, keep the
+   legacy schedule permanently disabled, and enable exactly one dedicated
+   schedule in `dry-run` mode.
+3. Observe several successful scheduled dry-run receipts before separately
    approving hidden-draft writes.
-6. Add the read-only watchdog after scheduler ownership is proven.
+4. Apply and commission the read-only watchdog after scheduler ownership
+   transfers.
+5. Keep Shopify writes disabled until a separate controlled production-write
+   approval.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
 controlled transaction, or begin additional clients before HBStore scheduler

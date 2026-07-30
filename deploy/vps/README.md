@@ -59,7 +59,9 @@ the controlled source update.
 4. Create `/docker/orin/secrets` as root mode `0700` and
    `/docker/orin/evidence` as `ubuntu:ubuntu` mode `0700`.
    Create `/docker/openclaw-utgd/data/.openclaw/run/orin` as UID/GID
-   `10002:10002` mode `0700` for the private scheduler socket.
+   `10002:1000` mode `0710`. The trigger creates its socket as
+   `10002:1000` mode `0620`, allowing only the OpenClaw runtime group to
+   traverse the directory and call the fixed endpoint.
 5. Copy `deployment.env.example` to `/docker/orin/deployment.env`, set its exact
    reviewed commit, and keep it mode `0600`. It contains no credential.
 6. Export that non-secret configuration and run preflight before creating any
