@@ -130,14 +130,17 @@ class ModelWriterTests(unittest.TestCase):
             article,
         )
 
-    def test_removes_safe_model_added_h1_anchor_id(self):
+    def test_removes_safe_model_added_non_h2_anchor_ids(self):
         article = (
             '<div class="hs-article"><h1 id="hoverboard-charger-not-working" '
-            'class="hs-title">Hoverboard Charger Not Working</h1></div>'
+            'class="hs-title">Hoverboard Charger Not Working</h1>'
+            '<section id="quick-checks"><h2 id="socket-checks">'
+            "Socket Checks</h2></section></div>"
         )
         expected = (
             '<div class="hs-article"><h1 class="hs-title">'
-            "Hoverboard Charger Not Working</h1></div>"
+            'Hoverboard Charger Not Working</h1><section><h2 id="socket-checks">'
+            "Socket Checks</h2></section></div>"
         )
 
         self.assertEqual(
@@ -145,12 +148,12 @@ class ModelWriterTests(unittest.TestCase):
             expected,
         )
 
-    def test_rejects_unsafe_or_misplaced_ids(self):
+    def test_rejects_unsafe_ids(self):
         unsafe_articles = [
             '<h2 id="bad anchor">Heading</h2>',
             '<h1 id="bad anchor">Heading</h1>',
+            '<section id="bad anchor">Content</section>',
             '<h2 id="x&quot; onclick=&quot;alert(1)">Heading</h2>',
-            '<div id="allowed-looking">Content</div>',
         ]
         for article in unsafe_articles:
             with self.subTest(article=article):
@@ -168,7 +171,7 @@ class ModelWriterTests(unittest.TestCase):
                         "message": {
                             "content": (
                                 f"{ARTICLE_START}"
-                                '<div id="not-allowed">Content</div>'
+                                '<div data-test="not-allowed">Content</div>'
                                 f"{ARTICLE_END}"
                             )
                         },
@@ -194,7 +197,7 @@ class ModelWriterTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(
                     ModelWriterError,
-                    "unsupported attribute: id on div",
+                    "unsupported attribute: data-test on div",
                 ):
                     generate_article(
                         job_context=JOB_CONTEXT,
@@ -209,9 +212,9 @@ class ModelWriterTests(unittest.TestCase):
             self.assertTrue(request_path.is_file())
             self.assertEqual(
                 failure["validation_error"],
-                "model article contains unsupported attribute: id on div",
+                "model article contains unsupported attribute: data-test on div",
             )
-            self.assertIn('<div id="not-allowed">', failure["raw_content"])
+            self.assertIn('<div data-test="not-allowed">', failure["raw_content"])
             self.assertEqual(request_path.stat().st_mode & 0o777, 0o600)
             self.assertEqual(failure_path.stat().st_mode & 0o777, 0o600)
 

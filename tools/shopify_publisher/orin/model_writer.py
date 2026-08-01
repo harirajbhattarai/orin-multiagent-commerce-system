@@ -229,7 +229,11 @@ _ALLOWED_TAGS = {
     "i", "li", "ol", "p", "section", "span", "strong", "ul",
 }
 _HEADING_ANCHOR_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,127}$")
-_H1_START_TAG_RE = re.compile(r"<h1\b(?P<attrs>[^>]*)>", re.IGNORECASE)
+_ALLOWED_START_TAG_RE = re.compile(
+    r"<(?P<tag>" + "|".join(sorted(_ALLOWED_TAGS, key=len, reverse=True))
+    + r")\b(?P<attrs>[^>]*)>",
+    re.IGNORECASE,
+)
 _ID_ATTRIBUTE_RE = re.compile(
     r'''\s+id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)''',
     re.IGNORECASE,
@@ -239,9 +243,10 @@ _ID_ATTRIBUTE_RE = re.compile(
 class _ArticleHTMLPolicy(HTMLParser):
     """Reject model HTML outside the small article fragment contract."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, allow_safe_non_h2_ids: bool = False) -> None:
         super().__init__(convert_charrefs=True)
         self._stack: list[str] = []
+        self._allow_safe_non_h2_ids = allow_safe_non_h2_ids
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         tag = tag.lower()
@@ -254,12 +259,11 @@ class _ArticleHTMLPolicy(HTMLParser):
                 raise ModelWriterError(f"model article contains forbidden attribute: {name}")
             if name == "class":
                 continue
-            if tag in {"h1", "h2"} and name == "id":
+            if name == "id":
                 if not _HEADING_ANCHOR_RE.fullmatch(value):
-                    raise ModelWriterError(
-                        "model article heading id is not a safe anchor"
-                    )
-                continue
+                    raise ModelWriterError("model article id is not a safe anchor")
+                if tag == "h2" or self._allow_safe_non_h2_ids:
+                    continue
             if tag == "a" and name == "href":
                 scheme = urlparse(value.strip()).scheme.lower()
                 if scheme and scheme != "https":
@@ -288,8 +292,14 @@ class _ArticleHTMLPolicy(HTMLParser):
             raise ModelWriterError("model article contains unclosed HTML tags")
 
 
-def _validate_article_html(article: str) -> None:
-    parser = _ArticleHTMLPolicy()
+def _validate_article_html(
+    article: str,
+    *,
+    allow_safe_non_h2_ids: bool = False,
+) -> None:
+    parser = _ArticleHTMLPolicy(
+        allow_safe_non_h2_ids=allow_safe_non_h2_ids,
+    )
     try:
         parser.feed(article)
         parser.close()
@@ -299,17 +309,20 @@ def _validate_article_html(article: str) -> None:
         raise ModelWriterError("model article is not safely parseable HTML") from exc
 
 
-def _canonicalize_h1_anchor(article: str) -> str:
-    """Remove a safe model-added H1 anchor while preserving allowed attributes."""
+def _canonicalize_non_h2_anchors(article: str) -> str:
+    """Remove safe stray anchors while preserving approved H2 anchors."""
 
     def replace(match: re.Match[str]) -> str:
+        tag = match.group("tag")
+        if tag.lower() == "h2":
+            return match.group(0)
         attrs = match.group("attrs")
         normalized_attrs = _ID_ATTRIBUTE_RE.sub("", attrs)
         if normalized_attrs == attrs:
             return match.group(0)
-        return f"<h1{normalized_attrs}>"
+        return f"<{tag}{normalized_attrs}>"
 
-    return _H1_START_TAG_RE.sub(replace, article)
+    return _ALLOWED_START_TAG_RE.sub(replace, article)
 
 
 def extract_article_html(content: str) -> str:
@@ -330,11 +343,11 @@ def extract_article_html(content: str) -> str:
         raise ModelWriterError("model returned an empty article")
     if len(article.encode("utf-8")) > 500_000:
         raise ModelWriterError("model article exceeds the maximum accepted size")
-    # Models occasionally add an otherwise-safe slug anchor to the H1 during
-    # a quality retry. Validate the raw fragment first, then remove that
-    # harmless contract drift so downstream exact-H1 checks remain stable.
-    _validate_article_html(article)
-    article = _canonicalize_h1_anchor(article)
+    # Models occasionally add otherwise-safe slug anchors to non-H2 elements
+    # during a quality retry. Validate the raw fragment first, then remove
+    # that harmless contract drift while preserving approved H2 anchors.
+    _validate_article_html(article, allow_safe_non_h2_ids=True)
+    article = _canonicalize_non_h2_anchors(article)
     _validate_article_html(article)
     return article
 
