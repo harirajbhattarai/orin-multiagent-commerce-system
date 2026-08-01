@@ -1,6 +1,6 @@
 # ORIN maintenance status
 
-Last updated: 2026-07-30
+Last updated: 2026-08-01
 
 ## Current phase
 
@@ -12,6 +12,23 @@ running immutable worker without overrides, and durably terminalized as
 `completed` with `READY_TO_CREATE_SELECTED_JOB_DRAFT`. It made zero Shopify
 creates, published nothing, left the queue unchanged, and required no
 reconciliation.
+
+An immediate one-shot automatic dry-run was also executed on 2026-08-01 after
+the normal 11:00 schedule was found disabled. The fixed trigger was accepted
+once with `replayed=false`, and the automatic worker claimed the request
+without overrides. At the previous runtime revision, the run safely
+terminalized as blocked because MiniMax added a contract-external H1 anchor.
+It created zero Shopify articles, published nothing, left the queue unchanged,
+and required no reconciliation.
+
+PRs 61-63 then generalized safe model-anchor canonicalization and corrected
+the worker deployment boundary. The worker still sees the overall runtime as
+read-only, with a nested writable mount limited to Hoverboard Store's
+`content_engine`; credentials, other clients, Docker, and the rest of the
+workspace remain unavailable for writes. A post-deployment direct controlled
+dry-run completed with `READY_TO_CREATE_SELECTED_JOB_DRAFT` at the new
+revision, with zero Shopify creates, no publishing, no queue change, and no
+reconciliation requirement.
 
 Production scheduler ownership has not yet transferred. ORIN remains in
 maintenance with both schedules disabled and Shopify writes disabled. The
@@ -27,9 +44,25 @@ tool execution path.
 
 The reviewed code deployed on the VPS is:
 
-`59a34ac5c881424826a2a90e97ba9e1e66fedd81`
+`45533132b85a247827e29a6320f955ad295e336b`
 
 ## Verified results
+
+- The 2026-08-01 automatic request used source key
+  `scheduler:orin-hbstore-prod:2026-08-01`, was accepted with
+  `replayed=false`, and was automatically claimed. Its fail-closed result is
+  preserved at `/docker/orin/evidence/hb_20260801T105011Z_a6368142`.
+- The corrected post-deployment dry-run is
+  `hb_20260801T112513Z_9940038c` at code version
+  `45533132b85a247827e29a6320f955ad295e336b`. It completed with decision
+  `READY_TO_CREATE_SELECTED_JOB_DRAFT`, selected Job 28, made zero Shopify
+  creates, did not publish, did not change the queue, and required no
+  reconciliation. Evidence is preserved on the VPS and in the local
+  `ORIN_EVIDENCE` directory.
+- The deployed automatic worker and scheduler-trigger images both identify
+  revision `45533132b85a247827e29a6320f955ad295e336b`; both have zero
+  restarts, the trigger is healthy, both OpenClaw schedules are disabled, and
+  `nextWakeAtMs` is null.
 
 - The dedicated API and worker images are immutable and tied to the reviewed
   Git commit.
