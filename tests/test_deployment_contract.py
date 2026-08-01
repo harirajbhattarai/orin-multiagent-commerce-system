@@ -138,6 +138,16 @@ def test_watchdog_is_socket_only_read_only_and_credential_isolated():
     assert "orin-hbstore-watchdog.sock" in watchdog
     assert "ORIN_WATCHDOG_ALLOWED_PEER_UID" in watchdog
     assert "target: /run/orin" in watchdog
+    assert (
+        "source: ${ORIN_TRIGGER_SOCKET_DIR:?set ORIN_TRIGGER_SOCKET_DIR}/watchdog"
+        in watchdog
+    )
+    assert (
+        "/data/.openclaw/run/orin/watchdog/orin-hbstore-watchdog.sock"
+        in Path(
+            "deploy/openclaw/orin-watchdog/bin/orin_watchdog_check.py"
+        ).read_text(encoding="utf-8")
+    )
     assert "scheduler_database_url" not in watchdog
     assert "worker_database_url" not in watchdog
     assert "control_database_url" not in watchdog

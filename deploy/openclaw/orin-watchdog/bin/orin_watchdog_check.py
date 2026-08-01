@@ -8,7 +8,7 @@ import socket
 import sys
 
 
-SOCKET_PATH = "/data/.openclaw/run/orin/orin-hbstore-watchdog.sock"
+SOCKET_PATH = "/data/.openclaw/run/orin/watchdog/orin-hbstore-watchdog.sock"
 REQUEST_LINE = b"CHECK ORIN-HBSTORE WATCHDOG V1\n"
 MAX_RESPONSE_BYTES = 8192
 
