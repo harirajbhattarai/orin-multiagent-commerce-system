@@ -30,17 +30,26 @@ dry-run completed with `READY_TO_CREATE_SELECTED_JOB_DRAFT` at the new
 revision, with zero Shopify creates, no publishing, no queue change, and no
 reconciliation requirement.
 
-Production scheduler ownership has not yet transferred. ORIN remains in
-maintenance with both schedules disabled and Shopify writes disabled. The
-automatic execution architecture is now proven and is eligible for a separate
-dry-run-only scheduler ownership decision.
+Production scheduler ownership transferred on 2026-08-01 to
+`openclaw:orin-hbstore-prod` in dry-run mode only. The client is active,
+request intake and automation are enabled, maximum concurrency is one, and
+Shopify writes remain disabled. The dedicated fixed-command schedule is the
+only enabled production schedule at `0 11 * * *` Europe/London; the legacy
+main-agent schedule remains disabled.
 
 The isolated `orin-hbstore-prod` agent and its five boundary files are
 versioned, deployed, and verified. Its dedicated schedule is wired only to one
-fixed no-argument Python client over a private Unix socket. Both the dedicated
-and legacy schedules are disabled. The dedicated schedule has been restored
-to `0 11 * * *` Europe/London with exact timing, no delivery, and no agent or
-tool execution path.
+fixed no-argument Python client over a private Unix socket. The dedicated
+schedule is enabled at `0 11 * * *` Europe/London with exact timing, no
+delivery, and no agent or tool execution path. Its next expected wake is
+2026-08-02 at 11:00 BST.
+
+Phase 5 watchdog commissioning is implemented but its daily schedule and alert
+delivery remain disabled. The read-only database role, unique credential,
+private socket service, fixed OpenClaw client, and automatic command path have
+all been tested. The disabled permanent watchdog schedule is `15 11 * * *`
+Europe/London. It must not be enabled until the next normal dry-run receipt is
+completed successfully.
 
 The reviewed code deployed on the VPS is:
 
@@ -61,8 +70,34 @@ The reviewed code deployed on the VPS is:
   `ORIN_EVIDENCE` directory.
 - The deployed automatic worker and scheduler-trigger images both identify
   revision `45533132b85a247827e29a6320f955ad295e336b`; both have zero
-  restarts, the trigger is healthy, both OpenClaw schedules are disabled, and
-  `nextWakeAtMs` is null.
+  restarts, and the trigger is healthy.
+- The dedicated production schedule
+  `e09fc195-17e4-44f0-8697-bf6ae4b3dec8` is enabled in exact dry-run mode for
+  11:00 Europe/London. Supabase records the client as active, intake and
+  automation enabled, Shopify writes disabled, concurrency one, scheduler
+  state healthy, and owner `openclaw:orin-hbstore-prod`. The legacy schedule
+  `c5c7e16b-5ee1-4855-ae7a-97fd25bfd67d` remains disabled.
+- The Phase 4 automatic proof is sealed root-owned mode `0400` at
+  `/docker/orin/evidence/phase4/latest_automatic_proof.json`.
+- Migration `phase5_add_readonly_watchdog_role` is applied. `orin_watchdog`
+  has no admin or RLS-bypass attributes, cannot read incidents, cannot execute
+  the scheduler trigger, and cannot insert or update content jobs. RLS exposes
+  only `hoverboard_store`.
+- PRs 65-66 isolated the watchdog socket from the scheduler-trigger directory
+  and allowed the bounded Supabase session-pooler health handshake. The
+  watchdog runs healthy with zero restarts, a read-only root filesystem, UID
+  10003, and immutable image revision
+  `38aa69c01e87d487148503f51e73a0a631a0169a`.
+- Commissioning rejected an unauthorized root peer and an authorized malformed
+  request with stable redacted codes. A synthetic missed-run snapshot returned
+  `ORIN_SCHEDULED_RUN_MISSED`; the real completed July 31 receipt returned
+  `ORIN_SCHEDULED_RUN_OBSERVED`.
+- A near-term automatic OpenClaw command check executed the fixed watchdog
+  client with no delivery. It correctly returned
+  `ORIN_SCHEDULED_RUN_FAILED` for the known blocked August 1 scheduler receipt
+  and exit code 4. The temporary one-shot was removed. The permanent watchdog
+  schedule `f030dfc8-b493-4250-ad94-bd4afe91e607` remains disabled at 11:15
+  Europe/London with no alert delivery.
 
 - The dedicated API and worker images are immutable and tied to the reviewed
   Git commit.
@@ -613,20 +648,27 @@ SHA-256:
 
 ## Next approved path
 
-Proceed from completed Phase 4 commissioning without enabling Shopify writes:
+Proceed from transferred dry-run ownership without enabling Shopify writes:
 
-1. Keep all gates closed until the dry-run scheduler ownership transfer is
-   explicitly approved.
-2. Transfer scheduler ownership only to `openclaw:orin-hbstore-prod`, keep the
-   legacy schedule permanently disabled, and enable exactly one dedicated
-   schedule in `dry-run` mode.
-3. Observe several successful scheduled dry-run receipts before separately
-   approving hidden-draft writes.
-4. Apply and commission the read-only watchdog after scheduler ownership
-   transfers.
-5. Keep Shopify writes disabled until a separate controlled production-write
-   approval.
+1. Observe the normal dedicated automatic run at 11:00 Europe/London and
+   require one completed job, run, and attempt with zero Shopify creates,
+   unchanged queue state, and no reconciliation requirement.
+2. If that receipt passes, enable only the read-only watchdog schedule for
+   11:15 Europe/London with delivery still disabled, then verify its first
+   normal automatic receipt is healthy.
+3. Keep the legacy main-agent scheduler permanently disabled and keep Shopify
+   writes disabled while several normal dry-run receipts accumulate.
+4. Approve hidden-draft writes only as a separate controlled change with one
+   unpublished create maximum, idempotency, post-create verification, and
+   reconciliation evidence.
+5. Start additional clients only after HBStore completes this observation
+   window. Reuse the tested code, but give every client separate credentials,
+   policies, queues, database identity, scheduler ownership, and evidence.
+6. Treat public SaaS access as a later product phase. It still needs tenant
+   authentication and RBAC, onboarding, credential vaulting, quotas/billing,
+   a customer API or UI, audit logs, support controls, and legal/privacy
+   readiness before external self-service users are accepted.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
-controlled transaction, or begin additional clients before HBStore scheduler
-ownership is proven.
+controlled transaction, or describe the system as public-ready while the
+customer access layer and HBStore observation window remain incomplete.
