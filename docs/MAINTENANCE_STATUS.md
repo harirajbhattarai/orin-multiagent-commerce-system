@@ -4,13 +4,14 @@ Last updated: 2026-08-01
 
 ## Current phase
 
-Phase 6 implementation is under review. The new `content_plan_items` model,
-lease-bound worker snapshot capability, private compatibility projection, and
-database finalization hook are implemented on
-`codex/phase6-database-content-plan`. The migration imports all 30 Hoverboard
-Store plan items and reconciles Jobs 28-30 to their verified hidden Shopify
-drafts, removing the stale Markdown `planned` state. Shopify writes remain
-disabled during migration and deployment verification.
+Phase 6 authoritative content-plan migration is complete for Hoverboard Store.
+Supabase now owns the 30-item plan, execution jobs bind to plan items through a
+lease-checked worker capability, and the legacy Markdown format is generated
+only as private run input. Jobs 28-30 are reconciled to their verified hidden
+Shopify drafts, removing the stale Markdown `planned` state. The reviewed
+migration is applied, the worker and trigger are deployed at the exact merged
+revision, and an immediate automatic-worker commissioning request completed
+with `no_job_due`. Shopify writes remain disabled.
 
 Phase 3 manual verification is complete. Phase 4 automatic
 trigger-plus-worker commissioning passed on the fresh London-date source key
@@ -58,11 +59,42 @@ command path have all been tested. The permanent watchdog schedule is enabled
 at `15 11 * * *` Europe/London with alert delivery disabled. It observes only
 the scheduler receipt and has no capability to trigger or modify work.
 
-The reviewed code deployed on the VPS is:
+The reviewed worker and scheduler-trigger code deployed on the VPS is:
 
-`45533132b85a247827e29a6320f955ad295e336b`
+`5c755295604648161af83fdebf92b2c176b6f8e6`
 
 ## Verified results
+
+- PR 69 added and reviewed the Phase 6 database-owned content plan. Application
+  CI passed 175 tests and database CI passed the complete migration plus 14 new
+  pgTAP assertions.
+- Remote migration `20260801145042_phase6_add_authoritative_content_plan` is
+  applied. Supabase security advisors report no findings. The only new
+  performance notices are informational unused-index notices expected before a
+  new due item and run history use those indexes.
+- `content_plan_items` contains exactly 30 Hoverboard Store rows with RLS
+  enabled. Jobs 28, 29, and 30 are `draft_created` and point to Shopify article
+  IDs `1007164260700`, `1007195390300`, and `1007206334812` respectively. No
+  item remains `planned`.
+- The Phase 6 commissioning request
+  `commissioning:phase6-content-plan:2026-08-01` was automatically claimed by
+  the continuously running worker. Run `hb_20260801T145434Z_fe901cf2`
+  completed with `no_job_due` at code version
+  `5c755295604648161af83fdebf92b2c176b6f8e6`, with zero Shopify creates, no
+  publishing, no queue mutation, no reconciliation requirement, and zero
+  active jobs afterward.
+- Its private evidence directory contains `content_plan_snapshot.json` and
+  `content_queue_projection.md` alongside the normal final result and logs.
+  Every file is mode `0600`; the snapshot is tenant-scoped, has 30 items, and
+  has no selected item.
+- The VPS checkout is clean. The automatic worker and scheduler-trigger images
+  both identify revision `5c755295604648161af83fdebf92b2c176b6f8e6`, have
+  zero restarts, and the trigger is healthy. The read-only watchdog remains
+  healthy at its independently pinned revision.
+- Production returned to its safe operating state: client active, request
+  intake and automation enabled, concurrency one, dry-run only, Shopify writes
+  disabled, scheduler owner `openclaw:orin-hbstore-prod`, dedicated 11:00
+  schedule enabled, 11:15 watchdog enabled, and the legacy schedule disabled.
 
 - The 2026-08-01 automatic request used source key
   `scheduler:orin-hbstore-prod:2026-08-01`, was accepted with
