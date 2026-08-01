@@ -130,9 +130,25 @@ class ModelWriterTests(unittest.TestCase):
             article,
         )
 
+    def test_removes_safe_model_added_h1_anchor_id(self):
+        article = (
+            '<div class="hs-article"><h1 id="hoverboard-charger-not-working" '
+            'class="hs-title">Hoverboard Charger Not Working</h1></div>'
+        )
+        expected = (
+            '<div class="hs-article"><h1 class="hs-title">'
+            "Hoverboard Charger Not Working</h1></div>"
+        )
+
+        self.assertEqual(
+            extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}"),
+            expected,
+        )
+
     def test_rejects_unsafe_or_misplaced_ids(self):
         unsafe_articles = [
             '<h2 id="bad anchor">Heading</h2>',
+            '<h1 id="bad anchor">Heading</h1>',
             '<h2 id="x&quot; onclick=&quot;alert(1)">Heading</h2>',
             '<div id="allowed-looking">Content</div>',
         ]
