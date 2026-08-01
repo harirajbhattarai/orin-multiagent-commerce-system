@@ -44,12 +44,11 @@ schedule is enabled at `0 11 * * *` Europe/London with exact timing, no
 delivery, and no agent or tool execution path. Its next expected wake is
 2026-08-02 at 11:00 BST.
 
-Phase 5 watchdog commissioning is implemented but its daily schedule and alert
-delivery remain disabled. The read-only database role, unique credential,
-private socket service, fixed OpenClaw client, and automatic command path have
-all been tested. The disabled permanent watchdog schedule is `15 11 * * *`
-Europe/London. It must not be enabled until the next normal dry-run receipt is
-completed successfully.
+Phase 5 watchdog commissioning is complete. The read-only database role,
+unique credential, private socket service, fixed OpenClaw client, and automatic
+command path have all been tested. The permanent watchdog schedule is enabled
+at `15 11 * * *` Europe/London with alert delivery disabled. It observes only
+the scheduler receipt and has no capability to trigger or modify work.
 
 The reviewed code deployed on the VPS is:
 
@@ -96,8 +95,9 @@ The reviewed code deployed on the VPS is:
   client with no delivery. It correctly returned
   `ORIN_SCHEDULED_RUN_FAILED` for the known blocked August 1 scheduler receipt
   and exit code 4. The temporary one-shot was removed. The permanent watchdog
-  schedule `f030dfc8-b493-4250-ad94-bd4afe91e607` remains disabled at 11:15
-  Europe/London with no alert delivery.
+  schedule `f030dfc8-b493-4250-ad94-bd4afe91e607` is enabled at 11:15
+  Europe/London with no alert delivery; its next execution is post-deployment
+  observation rather than a Phase 5 activation blocker.
 
 - The dedicated API and worker images are immutable and tied to the reviewed
   Git commit.
@@ -653,9 +653,9 @@ Proceed from transferred dry-run ownership without enabling Shopify writes:
 1. Observe the normal dedicated automatic run at 11:00 Europe/London and
    require one completed job, run, and attempt with zero Shopify creates,
    unchanged queue state, and no reconciliation requirement.
-2. If that receipt passes, enable only the read-only watchdog schedule for
-   11:15 Europe/London with delivery still disabled, then verify its first
-   normal automatic receipt is healthy.
+2. At 11:15 Europe/London, require the already-enabled read-only watchdog to
+   return `ORIN_SCHEDULED_RUN_OBSERVED`. Keep alert delivery disabled until
+   that normal receipt is verified.
 3. Keep the legacy main-agent scheduler permanently disabled and keep Shopify
    writes disabled while several normal dry-run receipts accumulate.
 4. Approve hidden-draft writes only as a separate controlled change with one
