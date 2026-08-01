@@ -134,6 +134,7 @@ def test_watchdog_is_socket_only_read_only_and_credential_isolated():
     assert "local/orin-watchdog:${ORIN_DEPLOY_SHA" not in watchdog
     assert "ports:" not in watchdog
     assert "restart: unless-stopped" in watchdog
+    assert "timeout: 15s" in watchdog
     assert "watchdog_database_url" in watchdog
     assert "orin-hbstore-watchdog.sock" in watchdog
     assert "ORIN_WATCHDOG_ALLOWED_PEER_UID" in watchdog

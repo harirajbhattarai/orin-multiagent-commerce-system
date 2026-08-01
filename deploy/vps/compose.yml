@@ -46,7 +46,7 @@ services:
         - -m
         - orin_watchdog.healthcheck
       interval: 30s
-      timeout: 3s
+      timeout: 15s
       retries: 3
       start_period: 5s
     logging:
