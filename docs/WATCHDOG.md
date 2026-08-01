@@ -58,8 +58,12 @@ The watchdog server accepts only:
 
 `CHECK ORIN-HBSTORE WATCHDOG V1`
 
-over `/run/orin/orin-hbstore-watchdog.sock`. The corresponding OpenClaw path is
-`/data/.openclaw/run/orin/orin-hbstore-watchdog.sock`. Unix peer credentials
+over `/run/orin/orin-hbstore-watchdog.sock`. The watchdog receives its own
+host directory at `${ORIN_TRIGGER_SOCKET_DIR}/watchdog`; the corresponding
+OpenClaw path is
+`/data/.openclaw/run/orin/watchdog/orin-hbstore-watchdog.sock`. Keeping the
+watchdog socket in a UID-10003-owned subdirectory prevents it from sharing a
+writable directory with the UID-10002 scheduler trigger. Unix peer credentials
 must match the configured OpenClaw UID. Any argument, alternate request, peer,
 or database failure is rejected with a redacted stable code.
 
@@ -83,17 +87,19 @@ After Phase 4 is proven:
 2. separately change only `orin_watchdog` to `LOGIN` and install its unique
    session-pooler URL;
 3. install the URL with `deploy/vps/install_watchdog_db_secret.sh`;
-4. seal the successful automatic scheduler receipt as root-owned mode `0400`
+4. create `${ORIN_TRIGGER_SOCKET_DIR}/watchdog` as UID 10003, runtime GID,
+   mode `0710`, without changing the scheduler-trigger socket directory;
+5. seal the successful automatic scheduler receipt as root-owned mode `0400`
    at `/docker/orin/evidence/phase4/latest_automatic_proof.json`, using schema
    `orin.phase4-proof/v1`;
-5. run `deploy/vps/watchdog_preflight.sh`;
-6. build the immutable image from the reviewed commit;
-7. run `deploy/vps/watchdog_preflight.sh --require-image`;
-8. start the profile with every watchdog schedule still disabled;
-9. verify unauthorized and malformed socket requests fail closed;
-10. simulate a harmless missed-run snapshot and require an alert plus
+6. run `deploy/vps/watchdog_preflight.sh`;
+7. build the immutable image from the reviewed commit;
+8. run `deploy/vps/watchdog_preflight.sh --require-image`;
+9. start the profile with every watchdog schedule still disabled;
+10. verify unauthorized and malformed socket requests fail closed;
+11. simulate a harmless missed-run snapshot and require an alert plus
    `ORIN_SCHEDULED_RUN_MISSED`;
-11. verify a real completed receipt returns healthy;
-12. create one disabled OpenClaw schedule for `11:15 Europe/London`;
-13. run one near-term automatic check and verify its exact receipt;
-14. only then enable read-only alert delivery after the production run.
+12. verify a real completed receipt returns healthy;
+13. create one disabled OpenClaw schedule for `11:15 Europe/London`;
+14. run one near-term automatic check and verify its exact receipt;
+15. only then enable read-only alert delivery after the production run.

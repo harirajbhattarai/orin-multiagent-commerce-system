@@ -33,7 +33,7 @@ services:
       - watchdog_database_url
     volumes:
       - type: bind
-        source: ${ORIN_TRIGGER_SOCKET_DIR:?set ORIN_TRIGGER_SOCKET_DIR}
+        source: ${ORIN_TRIGGER_SOCKET_DIR:?set ORIN_TRIGGER_SOCKET_DIR}/watchdog
         target: /run/orin
     entrypoint:
       - python

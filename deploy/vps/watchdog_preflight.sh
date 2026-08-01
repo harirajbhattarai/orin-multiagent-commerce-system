@@ -121,8 +121,15 @@ if ! grep -q "orin_watchdog" "${secret_path}"; then
   exit 1
 fi
 
-if [[ ! -d "${ORIN_TRIGGER_SOCKET_DIR}" ]]; then
-  echo "watchdog socket directory does not exist" >&2
+watchdog_socket_dir="${ORIN_TRIGGER_SOCKET_DIR}/watchdog"
+if [[ ! -d "${watchdog_socket_dir}" || -L "${watchdog_socket_dir}" ]]; then
+  echo "dedicated watchdog socket directory does not exist or is unsafe" >&2
+  exit 1
+fi
+if [[ "$(stat -c %a "${watchdog_socket_dir}")" != "710" \
+      || "$(stat -c %u "${watchdog_socket_dir}")" != "10003" \
+      || "$(stat -c %g "${watchdog_socket_dir}")" != "${ORIN_RUNTIME_GID}" ]]; then
+  echo "dedicated watchdog socket directory must be 10003:${ORIN_RUNTIME_GID} mode 0710" >&2
   exit 1
 fi
 if docker ps --quiet \
