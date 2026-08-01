@@ -73,13 +73,18 @@ def test_model_writer_is_pinned_opt_in_and_file_backed():
     assert "ORIN_WRITER_TIMEOUT_SECONDS: \"240\"" in COMPOSE
 
 
-def test_worker_has_no_port_and_uses_read_only_runtime_plus_private_evidence():
+def test_worker_has_scoped_content_write_access_and_private_evidence():
     worker = COMPOSE.split("  worker:", 1)[1].split(
         "\n  worker-daemon:", 1
     )[0]
     assert "ports:" not in worker
     assert "ORIN_REPO_ROOT: /app" in worker
     assert "target: /runtime\n        read_only: true" in worker
+    assert (
+        "source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/"
+        "hoverboard_store/content_engine"
+    ) in worker
+    assert "target: /runtime/clients/hoverboard_store/content_engine" in worker
     assert "target: /evidence" in worker
     assert "--artifact-root" in worker
 
@@ -96,6 +101,12 @@ def test_automatic_worker_is_fixed_scope_and_not_publicly_routed():
     assert "--job-number" not in worker
     assert "restart: unless-stopped" in worker
     assert "stop_grace_period: 300s" in worker
+    assert "target: /runtime\n        read_only: true" in worker
+    assert (
+        "source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/"
+        "hoverboard_store/content_engine"
+    ) in worker
+    assert "target: /runtime/clients/hoverboard_store/content_engine" in worker
     assert "/var/run/docker.sock" not in worker
 
 
