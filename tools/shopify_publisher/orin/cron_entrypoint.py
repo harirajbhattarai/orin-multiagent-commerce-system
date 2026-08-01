@@ -35,14 +35,14 @@ from datetime import datetime, date, timezone
 
 AGENTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(AGENTS_DIR))
-from workspace_paths import workspace_root
+from workspace_paths import content_queue_path, workspace_root
 
 # Default to the repository/workspace containing this script. An explicit
 # override is available for controlled deployments and tests; production code
 # must not silently import from a different live workspace.
 BASE_DIR = workspace_root()
 CLIENT_DIR = BASE_DIR / "clients" / "hoverboard_store" / "content_engine"
-QUEUE_PATH = CLIENT_DIR / "content_queue_3_months.md"
+QUEUE_PATH = content_queue_path(client_id="hoverboard_store")
 
 from business_time import get_business_today
 from job_context import build_job_context, write_job_context, read_job_context, CONTEXT_PATH as JOB_CONTEXT_PATH

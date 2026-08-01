@@ -25,13 +25,13 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 from business_time import get_business_today
-from workspace_paths import workspace_root
+from workspace_paths import content_queue_path, workspace_root
 
 BASE_DIR = workspace_root()
 CLIENT_DIR = BASE_DIR / "clients" / "hoverboard_store" / "content_engine"
 DRAFTS_DIR = CLIENT_DIR / "drafts"
 RULES_FILE = CLIENT_DIR / "orin_preflight_rules.md"
-QUEUE_FILE = CLIENT_DIR / "content_queue_3_months.md"
+QUEUE_FILE = content_queue_path(client_id="hoverboard_store")
 SHOPIFY_INV = CLIENT_DIR / "shopify_inventory.json"
 SHOPIFY_RAW = CLIENT_DIR / "shopify_inventory_raw.json"
 APPROVED_HANDLES_FILE = CLIENT_DIR / "orin_preflight_rules.md"

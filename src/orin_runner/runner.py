@@ -27,6 +27,7 @@ from orin_runner.contract import (
     FinalResult,
     SCHEMA_VERSION,
 )
+from orin_runner.content_plan import render_content_plan_markdown
 
 
 SUPPORTED_CLIENTS = {"hoverboard_store"}
@@ -389,6 +390,7 @@ def run_client(
     as_of_date: str | None = None,
     job_number: str | None = None,
     durable_db_mode: bool = False,
+    content_plan_snapshot: dict[str, Any] | None = None,
     pipeline_command: Sequence[str] | None = None,
     pipeline_preview_path: Path = PIPELINE_PREVIEW_PATH,
     pipeline_timeout_seconds: float = 900,
@@ -429,6 +431,22 @@ def run_client(
         artifact_uri = str(run_dir.resolve())
         _event(events_path, "run_started", run_id=run_id, client_id=client_id, request_id=request_id, mode=mode)
 
+        content_queue_projection: Path | None = None
+        if content_plan_snapshot is not None:
+            projection = render_content_plan_markdown(
+                content_plan_snapshot,
+                client_id=client_id,
+            )
+            content_queue_projection = run_dir / "content_queue_projection.md"
+            _write_private(content_queue_projection, projection)
+            _atomic_json(run_dir / "content_plan_snapshot.json", content_plan_snapshot)
+            _event(
+                events_path,
+                "content_plan_bound",
+                selected_item_number=content_plan_snapshot.get("selected_item_number"),
+                item_count=len(content_plan_snapshot.get("items", [])),
+            )
+
         command = list(pipeline_command or [
             sys.executable,
             str(repo_root / "tools/shopify_publisher/orin/cron_entrypoint.py"),
@@ -448,6 +466,8 @@ def run_client(
         if durable_execution:
             environment["ORIN_DURABLE_DB_MODE"] = "1"
             environment["ORIN_RUN_ARTIFACT_DIR"] = artifact_uri
+        if content_queue_projection is not None:
+            environment["ORIN_CONTENT_QUEUE_PATH"] = str(content_queue_projection.resolve())
         if mode == "hidden-draft":
             environment["ORIN_IDEMPOTENCY_KEY"] = f"{client_id}:{request_id}"
         if mode == "dry-run":

@@ -108,6 +108,10 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     def execute(job: ClaimedJob) -> dict[str, object]:
+        content_plan_snapshot = repository.get_content_plan_snapshot(
+            job_id=job.job_id,
+            worker_id=worker_id,
+        )
         return run_client(
             client_id=job.client_id,
             request_id=str(job.request_id),
@@ -118,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
             as_of_date=getattr(args, "as_of_date", None),
             job_number=getattr(args, "job_number", None),
             durable_db_mode=True,
+            content_plan_snapshot=content_plan_snapshot,
         )
 
     try:

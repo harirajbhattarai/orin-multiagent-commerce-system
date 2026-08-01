@@ -4,6 +4,14 @@ Last updated: 2026-08-01
 
 ## Current phase
 
+Phase 6 implementation is under review. The new `content_plan_items` model,
+lease-bound worker snapshot capability, private compatibility projection, and
+database finalization hook are implemented on
+`codex/phase6-database-content-plan`. The migration imports all 30 Hoverboard
+Store plan items and reconciles Jobs 28-30 to their verified hidden Shopify
+drafts, removing the stale Markdown `planned` state. Shopify writes remain
+disabled during migration and deployment verification.
+
 Phase 3 manual verification is complete. Phase 4 automatic
 trigger-plus-worker commissioning passed on the fresh London-date source key
 `scheduler:orin-hbstore-prod:2026-07-31`. The dedicated fixed command was
