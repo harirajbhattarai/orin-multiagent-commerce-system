@@ -229,6 +229,11 @@ _ALLOWED_TAGS = {
     "i", "li", "ol", "p", "section", "span", "strong", "ul",
 }
 _HEADING_ANCHOR_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,127}$")
+_H1_START_TAG_RE = re.compile(r"<h1\b(?P<attrs>[^>]*)>", re.IGNORECASE)
+_ID_ATTRIBUTE_RE = re.compile(
+    r'''\s+id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)''',
+    re.IGNORECASE,
+)
 
 
 class _ArticleHTMLPolicy(HTMLParser):
@@ -249,7 +254,7 @@ class _ArticleHTMLPolicy(HTMLParser):
                 raise ModelWriterError(f"model article contains forbidden attribute: {name}")
             if name == "class":
                 continue
-            if tag == "h2" and name == "id":
+            if tag in {"h1", "h2"} and name == "id":
                 if not _HEADING_ANCHOR_RE.fullmatch(value):
                     raise ModelWriterError(
                         "model article heading id is not a safe anchor"
@@ -294,6 +299,19 @@ def _validate_article_html(article: str) -> None:
         raise ModelWriterError("model article is not safely parseable HTML") from exc
 
 
+def _canonicalize_h1_anchor(article: str) -> str:
+    """Remove a safe model-added H1 anchor while preserving allowed attributes."""
+
+    def replace(match: re.Match[str]) -> str:
+        attrs = match.group("attrs")
+        normalized_attrs = _ID_ATTRIBUTE_RE.sub("", attrs)
+        if normalized_attrs == attrs:
+            return match.group(0)
+        return f"<h1{normalized_attrs}>"
+
+    return _H1_START_TAG_RE.sub(replace, article)
+
+
 def extract_article_html(content: str) -> str:
     if not isinstance(content, str):
         raise ModelWriterError("model response content is not text")
@@ -312,6 +330,11 @@ def extract_article_html(content: str) -> str:
         raise ModelWriterError("model returned an empty article")
     if len(article.encode("utf-8")) > 500_000:
         raise ModelWriterError("model article exceeds the maximum accepted size")
+    # Models occasionally add an otherwise-safe slug anchor to the H1 during
+    # a quality retry. Validate the raw fragment first, then remove that
+    # harmless contract drift so downstream exact-H1 checks remain stable.
+    _validate_article_html(article)
+    article = _canonicalize_h1_anchor(article)
     _validate_article_html(article)
     return article
 
