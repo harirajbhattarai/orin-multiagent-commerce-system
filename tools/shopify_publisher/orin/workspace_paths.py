@@ -19,6 +19,25 @@ def workspace_root() -> Path:
     return Path(os.environ.get("ORIN_WORKSPACE_ROOT", _SOURCE_ROOT)).expanduser().resolve()
 
 
+def content_queue_path(*, client_id: str) -> Path:
+    """Resolve a database projection in durable mode or the legacy source file."""
+    configured = os.environ.get("ORIN_CONTENT_QUEUE_PATH")
+    if configured:
+        candidate = Path(configured).expanduser()
+        if not candidate.is_absolute():
+            raise RuntimeError("ORIN_CONTENT_QUEUE_PATH must be absolute")
+        resolved = candidate.resolve()
+        if os.environ.get("ORIN_DURABLE_DB_MODE") == "1":
+            artifact_dir = os.environ.get("ORIN_RUN_ARTIFACT_DIR")
+            if not artifact_dir:
+                raise RuntimeError("durable queue projection requires ORIN_RUN_ARTIFACT_DIR")
+            artifact_root = Path(artifact_dir).expanduser().resolve()
+            if not resolved.is_relative_to(artifact_root):
+                raise RuntimeError("durable queue projection must be private run evidence")
+        return resolved
+    return workspace_root() / "clients" / client_id / "content_engine" / "content_queue_3_months.md"
+
+
 def writable_output_path(
     *,
     artifact_relative_path: str,

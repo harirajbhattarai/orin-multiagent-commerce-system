@@ -69,6 +69,25 @@ class PostgresWorkerRepository:
                 ).scalar_one()
             )
 
+    def get_content_plan_snapshot(
+        self, *, job_id: UUID, worker_id: str
+    ) -> dict[str, Any]:
+        with self.engine.begin() as connection:
+            self._assert_narrow_role(connection)
+            value = connection.execute(
+                text(
+                    """
+                    select orin_private.get_content_plan_snapshot(
+                      :job_id, :worker_id
+                    )
+                    """
+                ),
+                {"job_id": job_id, "worker_id": worker_id},
+            ).scalar_one()
+        if not isinstance(value, dict):
+            raise RuntimeError("database returned an invalid content-plan snapshot")
+        return value
+
     def complete(
         self,
         *,

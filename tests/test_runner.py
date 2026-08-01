@@ -116,6 +116,52 @@ def test_no_job_run_writes_versioned_durable_result(tmp_path):
     assert set(result) == set(contract["required"])
 
 
+def test_database_content_plan_is_private_pipeline_input(tmp_path):
+    preview_path = tmp_path / "pipeline-preview.json"
+    script_path = tmp_path / "assert_content_plan.py"
+    script_path.write_text(
+        "import json, os, pathlib\n"
+        "projection = pathlib.Path(os.environ['ORIN_CONTENT_QUEUE_PATH'])\n"
+        "artifact_root = pathlib.Path(os.environ['ORIN_RUN_ARTIFACT_DIR'])\n"
+        "assert projection.parent == artifact_root\n"
+        "assert '## Job 31' in projection.read_text()\n"
+        f"pathlib.Path({str(preview_path)!r}).write_text(json.dumps({{'blocked': False, 'planner_decision': 'no_job_due', 'selected_job': None, 'effective_mode': 'dry-run', 'shopify_touched': False, 'queue_touched': False}}))\n",
+        encoding="utf-8",
+    )
+    content_plan = {
+        "schema": "orin.content-plan-snapshot/v1",
+        "client_id": "hoverboard_store",
+        "selected_item_number": 31,
+        "items": [
+            {
+                "item_number": 31,
+                "target_date": "2026-08-01",
+                "status": "planned",
+                "topic": "Database pipeline input",
+                "target_keyword": "database pipeline input",
+                "draft_path": "clients/hoverboard_store/content_engine/drafts/db-input.html",
+            }
+        ],
+    }
+
+    result = run_client(
+        client_id="hoverboard_store",
+        request_id=str(uuid.uuid4()),
+        mode="dry-run",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        content_plan_snapshot=content_plan,
+        pipeline_command=[sys.executable, str(script_path)],
+        pipeline_preview_path=preview_path,
+    )
+
+    run_dir = Path(result["artifact_uri"])
+    assert (run_dir / "content_queue_projection.md").stat().st_mode & 0o077 == 0
+    assert json.loads((run_dir / "content_plan_snapshot.json").read_text()) == content_plan
+
+
 def test_code_version_matches_checkout_without_global_git_configuration():
     repo_root = Path.cwd().resolve()
     expected = subprocess.run(

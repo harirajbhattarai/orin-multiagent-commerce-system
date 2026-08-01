@@ -96,3 +96,15 @@ The unique active-job index is the database-level concurrency-one backstop.
 Do not place a database password or service-role key in OpenClaw, the frontend,
 GitHub, or this repository, and do not enable any scheduler. See
 `docs/WORKER.md`.
+
+## Phase 6 authoritative content plan
+
+`content_plan_items` replaces the Markdown SEO queue as operational truth. The
+automatic worker obtains a tenant-scoped snapshot only after proving ownership
+of an active database lease. The runner stores that snapshot as private evidence
+and renders a read-only Markdown compatibility projection for the existing
+content pipeline.
+
+Authenticated members may read only their tenant's plan. They cannot mutate it.
+The API and worker roles have no direct table privileges, and Shopify writes are
+not enabled by this migration. See `docs/CONTENT_PLAN.md`.
