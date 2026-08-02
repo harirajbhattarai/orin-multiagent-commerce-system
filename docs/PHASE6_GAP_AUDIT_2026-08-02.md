@@ -1,5 +1,22 @@
 # Phase 6 gap audit — 2026-08-02
 
+## Implementation update — 2026-08-02 23:45 Europe/London
+
+The audited gaps are now implemented in migration
+`20260802223938_phase6_client_product_boundary.sql` and the dashboard/VPS code:
+
+- 6B: authenticated tenant-safe dashboard projection is deployed;
+- 6C: immutable version-bound decisions are deployed and remain non-executable;
+- 6D: isolated checksummed evidence sync is built, awaiting its VPS-only key
+  and first real upload;
+- 6E: scheduler health now refreshes transactionally from scheduler-owned run
+  insertion and was backfilled to the 2026-08-02 run.
+
+The security advisor reports zero findings, the pgTAP boundary checks pass,
+and Shopify writes remain disabled. The extended Phase 6 exit condition still
+requires the first real Auth owner membership and one verified portable
+evidence round trip. See `docs/PHASE6_CLIENT_PRODUCT.md`.
+
 ## Outcome
 
 Phase 6A, the database-owned backend migration for Hoverboard Store, is

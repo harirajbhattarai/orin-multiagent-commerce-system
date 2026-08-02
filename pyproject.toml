@@ -20,6 +20,7 @@ dependencies = [
 orin-runner = "orin_runner.cli:main"
 orin-worker = "orin_worker.cli:main"
 orin-watchdog = "orin_watchdog.cli:main"
+orin-evidence-sync = "orin_evidence_sync.cli:main"
 
 [dependency-groups]
 dev = [
@@ -35,6 +36,7 @@ packages = [
   "src/orin_shopify",
   "src/orin_scheduler_trigger",
   "src/orin_watchdog",
+  "src/orin_evidence_sync",
 ]
 
 [tool.pytest.ini_options]

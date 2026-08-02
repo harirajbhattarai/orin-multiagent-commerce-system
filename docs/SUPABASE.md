@@ -108,3 +108,19 @@ content pipeline.
 Authenticated members may read only their tenant's plan. They cannot mutate it.
 The API and worker roles have no direct table privileges, and Shopify writes are
 not enabled by this migration. See `docs/CONTENT_PLAN.md`.
+
+## Phase 6 client-product boundary
+
+`client_dashboard_snapshot` is a redacted `security_invoker` projection over
+RLS-protected tenant data. Broad customer table grants are removed; authenticated
+users receive only the columns required by the projection. Raw runner JSON,
+local artifact paths, and the execution queue are not customer-readable.
+
+`content_decisions` is an immutable owner/operator ledger. Inserts are bound to
+`auth.uid()`, the current content item version, tenant membership, and a unique
+request ID. A decision cannot enqueue a job or invoke Shopify.
+
+Scheduler health is refreshed in the same database transaction that inserts a
+scheduler-owned run. The watchdog remains read-only. Portable evidence is
+uploaded separately by the isolated one-shot sync described in
+`docs/PHASE6_CLIENT_PRODUCT.md`.

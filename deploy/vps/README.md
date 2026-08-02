@@ -24,6 +24,8 @@ The current verified production state and next approved step are recorded in
   not environment values.
 - Containers are non-root, read-only, capability-free, resource-limited, and
   use `no-new-privileges`.
+- Portable evidence sync is an isolated one-shot profile. It mounts local
+  evidence read-only and never receives Shopify or database credentials.
 - Images are built from one exact reviewed Git commit and tagged with that
   commit. `latest` and moving branches are prohibited.
 
@@ -243,6 +245,34 @@ Store the existing Hoverboard Store Admin API token separately at:
 The worker receives only the token file path. The store domain, pinned API
 version, and blog ID are non-secret reviewed Compose configuration. OpenClaw
 does not receive or mount this secret.
+
+## Portable evidence sync
+
+Completed run evidence remains authoritative on the private VPS filesystem
+until it is copied to the private `orin-evidence` Supabase Storage bucket. The
+copy is immutable and idempotent: an existing object is accepted only when its
+SHA-256 digest matches, and metadata is indexed in `public.run_artifacts`.
+
+Install a server-side Supabase secret key without pasting it into chat or a
+shell command:
+
+```bash
+deploy/vps/install_evidence_service_key.sh
+deploy/vps/preflight.sh --require-secrets --require-evidence-secret
+```
+
+Then build and run only the one-shot profile:
+
+```bash
+docker compose --env-file /docker/orin/deployment.env \
+  -f deploy/vps/compose.yml --profile evidence-sync build evidence-sync
+docker compose --env-file /docker/orin/deployment.env \
+  -f deploy/vps/compose.yml --profile evidence-sync run --rm evidence-sync
+```
+
+The key is mounted only into that one-shot container. It is never included in
+the dashboard, worker daemon, OpenClaw workspace, logs, or Git. Keep the
+`orin-evidence` bucket private; client downloads remain subject to Storage RLS.
 
 ## Rollback
 

@@ -10,11 +10,12 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert 'profiles: ["automatic-worker"]' in COMPOSE
     assert 'profiles: ["scheduler-trigger"]' in COMPOSE
     assert 'profiles: ["watchdog"]' in COMPOSE
+    assert 'profiles: ["evidence-sync"]' in COMPOSE
     assert '"127.0.0.1:${ORIN_API_PORT:-58080}:8000"' in COMPOSE
     assert "traefik." not in COMPOSE.lower()
     assert "50083" not in COMPOSE
     assert "network_mode: host" not in COMPOSE
-    assert COMPOSE.count("pull_policy: never") == 5
+    assert COMPOSE.count("pull_policy: never") == 6
     assert ":latest" not in COMPOSE
 
 
@@ -22,10 +23,10 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert "/var/run/docker.sock" not in COMPOSE
     assert "/data/.openclaw" not in COMPOSE
     assert "privileged:" not in COMPOSE
-    assert COMPOSE.count("read_only: true") >= 5
-    assert COMPOSE.count('cap_drop: ["ALL"]') == 5
-    assert COMPOSE.count("no-new-privileges:true") == 5
-    assert COMPOSE.count('restart: "no"') == 3
+    assert COMPOSE.count("read_only: true") >= 6
+    assert COMPOSE.count('cap_drop: ["ALL"]') == 6
+    assert COMPOSE.count("no-new-privileges:true") == 6
+    assert COMPOSE.count('restart: "no"') == 4
     assert COMPOSE.count("restart: unless-stopped") == 2
 
 
@@ -161,3 +162,16 @@ def test_non_watchdog_services_remain_pinned_to_runtime_revision():
     non_watchdog = COMPOSE.split("\n  scheduler-trigger:", 1)[1]
     assert "ORIN_WATCHDOG_DEPLOY_SHA" not in non_watchdog
     assert non_watchdog.count("${ORIN_DEPLOY_SHA") >= 4
+
+
+def test_evidence_sync_is_one_shot_read_only_and_credential_isolated():
+    service = COMPOSE.split("  evidence-sync:", 1)[1].split("\nsecrets:", 1)[0]
+    assert 'profiles: ["evidence-sync"]' in service
+    assert 'restart: "no"' in service
+    assert "ports:" not in service
+    assert "target: /evidence\n        read_only: true" in service
+    assert "ORIN_EVIDENCE_SERVICE_KEY_FILE: /run/secrets/evidence_service_key" in service
+    assert "worker_database_url" not in service
+    assert "hoverboard_shopify_access_token" not in service
+    assert "writer_api_key" not in service
+    assert "/var/run/docker.sock" not in service

@@ -830,28 +830,53 @@ SHA-256:
 - `writer_output_job28_1785452532_31b3d19f.html`:
   `b6f42df2cb9f9ae063105a9a4697300cba1b4cbfd39c66913fd919ba33729cdb`
 
+## Phase 6 client-product implementation — 2026-08-02
+
+Migration `phase6_client_product_boundary` is applied to Supabase. It adds the
+redacted authenticated dashboard projection, immutable version-bound client
+decisions, narrow customer column grants, and transactional scheduler-health
+freshness. The production scheduler health ledger now points to the normal
+2026-08-02 run `hb_20260802T100007Z_6bb867ff` rather than stale commissioning
+evidence.
+
+Verification:
+
+- Supabase security advisor: zero findings;
+- pgTAP client-product boundary: 19 checks pass;
+- full Python suite: 181 tests pass;
+- dashboard production build and four hosting tests pass;
+- browser QA: authenticated configuration correctly fails closed to the
+  magic-link sign-in screen with no console warnings;
+- active database jobs: zero;
+- Shopify writes: disabled.
+
+The isolated `evidence-sync` one-shot profile is implemented and tested. It is
+not commissioned because its server-side Supabase key must be installed
+interactively on the VPS and must never be pasted into chat or Git. Supabase
+Auth also still has no real user/member, so the first HBStore owner identity
+must be selected before the live dashboard can be commissioned.
+
+See `docs/PHASE6_CLIENT_PRODUCT.md` for the exact two handoffs and verification
+sequence.
+
 ## Next approved path
 
 Proceed from transferred dry-run ownership without enabling Shopify writes:
 
-1. Observe the normal dedicated automatic run at 11:00 Europe/London and
-   require one completed job, run, and attempt with zero Shopify creates,
-   unchanged queue state, and no reconciliation requirement.
-2. At 11:15 Europe/London, require the already-enabled read-only watchdog to
-   return `ORIN_SCHEDULED_RUN_OBSERVED`. Keep alert delivery disabled until
-   that normal receipt is verified.
-3. Keep the legacy main-agent scheduler permanently disabled and keep Shopify
-   writes disabled while several normal dry-run receipts accumulate.
-4. Approve hidden-draft writes only as a separate controlled change with one
-   unpublished create maximum, idempotency, post-create verification, and
-   reconciliation evidence.
-5. Start additional clients only after HBStore completes this observation
-   window. Reuse the tested code, but give every client separate credentials,
-   policies, queues, database identity, scheduler ownership, and evidence.
-6. Treat public SaaS access as a later product phase. It still needs tenant
-   authentication and RBAC, onboarding, credential vaulting, quotas/billing,
-   a customer API or UI, audit logs, support controls, and legal/privacy
-   readiness before external self-service users are accepted.
+1. Create/sign in the first HBStore Supabase Auth user and add exactly one
+   `owner` membership.
+2. Prove the live dashboard reads only HBStore and records one harmless,
+   idempotent `request_changes` decision without creating a job.
+3. Install the evidence-sync server key directly on the VPS, run the isolated
+   one-shot profile, and verify one authenticated download plus SHA-256.
+4. Keep the legacy main-agent scheduler permanently disabled and keep Shopify
+   writes disabled while normal dry-run and watchdog receipts continue.
+5. Only after the private HBStore client pilot, design a separate
+   approval-to-worker bridge. It must not let a browser enable runtime gates or
+   invoke Shopify directly.
+6. Start additional clients only after HBStore completes this observation and
+   client-access window. Reuse tested code but separate credentials, policies,
+   database membership, queues, scheduler ownership, and evidence.
 
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
 controlled transaction, or describe the system as public-ready while the

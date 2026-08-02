@@ -26,7 +26,13 @@ import {
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
-import { loadDashboardData } from "./lib/dashboardClient.js";
+import {
+  loadDashboardData,
+  recordContentDecision,
+  sendMagicLink,
+  signOutDashboard,
+  subscribeToAuthChanges,
+} from "./lib/dashboardClient.js";
 
 function readPath() {
   const path = window.location.pathname;
@@ -78,7 +84,7 @@ function StoreBadge({ compact = false }) {
   );
 }
 
-function AppShell({ route, navigate, children, dataSource }) {
+function AppShell({ route, navigate, children, dataSource, onSignOut }) {
   const navItems = [
     { id: "overview", label: "Overview", icon: House, path: "/" },
     { id: "queue", label: "Content queue", icon: ListChecks, path: "/queue" },
@@ -117,7 +123,7 @@ function AppShell({ route, navigate, children, dataSource }) {
               <span>ORIN never publishes by itself.</span>
             </div>
           </div>
-          <button className="nav-item subtle" type="button">
+          <button className="nav-item subtle" type="button" onClick={onSignOut}>
             <SignOut size={18} />
             <span>Sign out</span>
           </button>
@@ -155,6 +161,69 @@ function AppShell({ route, navigate, children, dataSource }) {
         </nav>
       </div>
     </div>
+  );
+}
+
+function AuthScreen() {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState({ status: "idle", message: "" });
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!email.trim()) return;
+    setState({ status: "sending", message: "" });
+    const { error } = await sendMagicLink(email.trim());
+    if (error) {
+      setState({ status: "error", message: error.message });
+      return;
+    }
+    setState({
+      status: "sent",
+      message: "Check your inbox and open the secure sign-in link on this device.",
+    });
+  };
+
+  return (
+    <main className="auth-screen">
+      <section className="auth-card">
+        <Brand />
+        <span className="auth-kicker"><ShieldCheck size={17} weight="duotone" /> Private client workspace</span>
+        <h1>Sign in to ORIN Commerce</h1>
+        <p>Use the email connected to your client workspace. We’ll send a one-time secure link—no password needed.</p>
+        <form onSubmit={submit}>
+          <label htmlFor="signin-email">Work email</label>
+          <input
+            id="signin-email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@company.com"
+            required
+          />
+          <button className="primary-button" type="submit" disabled={state.status === "sending" || state.status === "sent"}>
+            {state.status === "sending" ? "Sending link…" : state.status === "sent" ? "Link sent" : "Send secure sign-in link"}
+          </button>
+        </form>
+        {state.message && <div className={`auth-message ${state.status}`} role="status">{state.message}</div>}
+        <div className="auth-safeguard"><ShieldCheck size={20} weight="duotone" /><span><strong>Protected by tenant isolation</strong>Your account can only read its assigned client workspace.</span></div>
+      </section>
+    </main>
+  );
+}
+
+function ErrorScreen({ message, onRetry }) {
+  return (
+    <main className="auth-screen">
+      <section className="auth-card">
+        <Brand />
+        <span className="auth-kicker attention"><WarningCircle size={17} /> Workspace unavailable</span>
+        <h1>We couldn’t open your workspace</h1>
+        <p>{message}</p>
+        <button className="primary-button" type="button" onClick={onRetry}>Try again</button>
+        <button className="secondary-button" type="button" onClick={signOutDashboard}>Sign out</button>
+      </section>
+    </main>
   );
 }
 
@@ -207,7 +276,7 @@ function Overview({ data, navigate }) {
           <div className="article-facts">
             <div><span>Target keyword</span><strong>{data.nextArticle.keyword}</strong></div>
             <div><span>Intent</span><strong>{data.nextArticle.intent}</strong></div>
-            <div><span>Quality</span><strong>{data.nextArticle.qualityScore}/100</strong></div>
+            <div><span>Quality</span><strong>{data.nextArticle.qualityScore == null ? "Pending draft" : `${data.nextArticle.qualityScore}/100`}</strong></div>
           </div>
 
           <div className="check-strip">
@@ -348,22 +417,40 @@ function Queue({ data, navigate }) {
   );
 }
 
-function Review({ data, navigate }) {
+function Review({ data, navigate, dataSource }) {
   const [decision, setDecision] = useState(null);
   const [changesOpen, setChangesOpen] = useState(false);
   const [note, setNote] = useState("");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [decisionError, setDecisionError] = useState("");
   const article = data.article;
 
-  const approve = () => {
-    setDecision("approved");
+  const saveDecision = async (kind, decisionNote = "") => {
+    setSaving(true);
+    setDecisionError("");
+    const result = await recordContentDecision({
+      clientId: data.client.id,
+      contentItemId: article.contentItemId,
+      contentItemVersion: article.version,
+      decision: kind,
+      note: decisionNote,
+    });
+    setSaving(false);
+    if (result.error) {
+      setDecisionError(result.error.message ?? "The decision could not be saved.");
+      return;
+    }
+    setDecision(kind === "approve_hidden_draft" ? "approved" : "changes");
     setChangesOpen(false);
+    if (kind === "request_changes") setNote("");
   };
+
+  const approve = () => saveDecision("approve_hidden_draft");
 
   const submitChanges = () => {
     if (!note.trim()) return;
-    setDecision("changes");
-    setChangesOpen(false);
+    saveDecision("request_changes", note.trim());
   };
 
   return (
@@ -377,8 +464,8 @@ function Review({ data, navigate }) {
         <div className={`decision-banner ${decision}`} role="status">
           {decision === "approved" ? <CheckCircle size={22} weight="fill" /> : <NotePencil size={22} weight="duotone" />}
           <div>
-            <strong>{decision === "approved" ? "Approval saved in this preview" : "Change request saved in this preview"}</strong>
-            <span>No Shopify action was performed. Production approval wiring remains intentionally disabled.</span>
+            <strong>{decision === "approved" ? "Hidden-draft approval recorded" : "Change request recorded"}</strong>
+            <span>{dataSource === "supabase" ? "Saved durably. No Shopify action was performed." : "Saved in this local preview. No Shopify action was performed."}</span>
           </div>
           <button type="button" onClick={() => setDecision(null)} aria-label="Dismiss"><X size={17} /></button>
         </div>
@@ -416,8 +503,8 @@ function Review({ data, navigate }) {
             <div className="decision-card-header"><span className="section-kicker">YOUR DECISION</span><h2>Ready for Shopify?</h2><p>Approval creates an unpublished draft only after production wiring is enabled.</p></div>
 
             <div className="review-score">
-              <span className="score-ring"><strong>{data.nextArticle.qualityScore}</strong><small>/100</small></span>
-              <div><strong>Quality checks passed</strong><span>Structure, safety language, SEO and originality.</span></div>
+              <span className="score-ring"><strong>{data.nextArticle.qualityScore ?? "—"}</strong><small>{data.nextArticle.qualityScore == null ? "brief" : "/100"}</small></span>
+              <div><strong>{data.nextArticle.qualityScore == null ? "Concept is version-bound" : "Quality checks passed"}</strong><span>{data.nextArticle.qualityScore == null ? "Draft quality checks run later in the controlled worker." : "Structure, safety language, SEO and originality."}</span></div>
             </div>
 
             <dl className="seo-details">
@@ -433,16 +520,17 @@ function Review({ data, navigate }) {
 
             {!changesOpen ? (
               <div className="decision-actions">
-                <button className="approve-button" type="button" onClick={approve}><CheckCircle size={19} weight="fill" /> Approve hidden draft</button>
-                <button className="changes-button" type="button" onClick={() => setChangesOpen(true)}><NotePencil size={18} /> Request changes</button>
+                <button className="approve-button" type="button" onClick={approve} disabled={saving}><CheckCircle size={19} weight="fill" /> {saving ? "Saving…" : "Approve hidden draft"}</button>
+                <button className="changes-button" type="button" onClick={() => setChangesOpen(true)} disabled={saving}><NotePencil size={18} /> Request changes</button>
               </div>
             ) : (
               <div className="change-form">
                 <label htmlFor="change-note">What should change?</label>
                 <textarea id="change-note" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Example: simplify the helmet section and add a link to our safety collection." autoFocus />
-                <div><button type="button" className="text-button" onClick={() => setChangesOpen(false)}>Cancel</button><button type="button" className="primary-button" onClick={submitChanges} disabled={!note.trim()}><PaperPlaneTilt size={17} /> Send request</button></div>
+                <div><button type="button" className="text-button" onClick={() => setChangesOpen(false)} disabled={saving}>Cancel</button><button type="button" className="primary-button" onClick={submitChanges} disabled={!note.trim() || saving}><PaperPlaneTilt size={17} /> {saving ? "Saving…" : "Send request"}</button></div>
               </div>
             )}
+            {decisionError && <p className="decision-error" role="alert"><WarningCircle size={15} /> {decisionError}</p>}
             <p className="no-publish-note"><WarningCircle size={15} /> This preview cannot publish to Shopify.</p>
           </div>
         </aside>
@@ -453,24 +541,33 @@ function Review({ data, navigate }) {
 
 export function App() {
   const { route, navigate } = useRoute();
-  const [state, setState] = useState({ data: null, source: "demo", error: null });
+  const [state, setState] = useState({ data: null, source: "loading", error: null, requiresAuth: false });
+
+  const reload = () => {
+    setState((current) => ({ ...current, source: "loading", error: null }));
+    loadDashboardData().then(setState);
+  };
 
   useEffect(() => {
     let active = true;
     loadDashboardData().then((result) => active && setState(result));
-    return () => { active = false; };
+    const unsubscribe = subscribeToAuthChanges(() => {
+      if (active) loadDashboardData().then((result) => active && setState(result));
+    });
+    return () => { active = false; unsubscribe(); };
   }, []);
 
+  if (state.requiresAuth) return <AuthScreen />;
+  if (state.source === "error") return <ErrorScreen message={state.error} onRetry={reload} />;
   if (!state.data) {
     return <div className="loading-screen"><Brand /><span className="loading-line" /><p>Preparing your workspace…</p></div>;
   }
 
   return (
-    <AppShell route={route} navigate={navigate} dataSource={state.source}>
-      {state.error && <div className="data-warning"><Info size={17} /><span>Showing safe preview data while the live read model is unavailable.</span></div>}
+    <AppShell route={route} navigate={navigate} dataSource={state.source} onSignOut={signOutDashboard}>
       {route === "overview" && <Overview data={state.data} navigate={navigate} />}
       {route === "queue" && <Queue data={state.data} navigate={navigate} />}
-      {route === "review" && <Review data={state.data} navigate={navigate} />}
+      {route === "review" && <Review data={state.data} navigate={navigate} dataSource={state.source} />}
     </AppShell>
   );
 }
