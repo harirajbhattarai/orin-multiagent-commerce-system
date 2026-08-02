@@ -18,11 +18,29 @@ select ok(
 );
 
 select ok(
-  has_table_privilege('authenticated', 'public.content_plan_items', 'SELECT')
+  not has_table_privilege('authenticated', 'public.content_plan_items', 'SELECT')
+  and has_column_privilege(
+    'authenticated',
+    'public.content_plan_items',
+    'content_item_id',
+    'SELECT'
+  )
+  and has_column_privilege(
+    'authenticated',
+    'public.content_plan_items',
+    'topic',
+    'SELECT'
+  )
+  and not has_column_privilege(
+    'authenticated',
+    'public.content_plan_items',
+    'notes',
+    'SELECT'
+  )
   and not has_table_privilege('authenticated', 'public.content_plan_items', 'INSERT')
   and not has_table_privilege('authenticated', 'public.content_plan_items', 'UPDATE')
   and not has_table_privilege('authenticated', 'public.content_plan_items', 'DELETE'),
-  'customers have read-only content-plan access'
+  'customers have read-only access to approved content-plan columns only'
 );
 
 select ok(
