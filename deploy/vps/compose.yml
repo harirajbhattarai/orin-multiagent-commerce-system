@@ -290,6 +290,52 @@ services:
         max-size: 10m
         max-file: "3"
 
+  evidence-sync:
+    profiles: ["evidence-sync"]
+    image: local/orin-worker:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
+    pull_policy: never
+    build:
+      context: ${ORIN_PROJECT_ROOT:?set ORIN_PROJECT_ROOT}
+      dockerfile: Dockerfile.worker
+      args:
+        VERSION: ${ORIN_DEPLOY_SHA}
+        VCS_REF: ${ORIN_DEPLOY_SHA}
+    init: true
+    user: "${ORIN_RUNTIME_UID:-1000}:${ORIN_RUNTIME_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 0.25
+    restart: "no"
+    stop_grace_period: 20s
+    environment:
+      ORIN_SUPABASE_URL: https://hgbpfkrenxfezaztwlkp.supabase.co
+      ORIN_EVIDENCE_SERVICE_KEY_FILE: /run/secrets/evidence_service_key
+    secrets:
+      - evidence_service_key
+    volumes:
+      - type: bind
+        source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}
+        target: /evidence
+        read_only: true
+    entrypoint:
+      - python
+      - -m
+      - orin_evidence_sync
+    command:
+      - --artifact-root
+      - /evidence
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
 secrets:
   watchdog_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/watchdog_database_url
@@ -303,3 +349,5 @@ secrets:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hoverboard_shopify_access_token
   writer_api_key:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/writer_api_key
+  evidence_service_key:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/evidence_service_key

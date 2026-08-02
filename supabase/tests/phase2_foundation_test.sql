@@ -124,9 +124,9 @@ select results_eq(
 );
 
 select results_eq(
-  'select client_id from public.content_jobs order by client_id',
+  'select client_id from public.client_dashboard_snapshot order by client_id',
   array['hoverboard_store']::text[],
-  'a member sees only jobs for their own client'
+  'a member sees only the redacted dashboard for their own client'
 );
 
 select ok(

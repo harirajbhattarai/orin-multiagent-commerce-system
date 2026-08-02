@@ -1,0 +1,573 @@
+import { useEffect, useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Article,
+  Bell,
+  CaretDown,
+  Check,
+  CheckCircle,
+  Clock,
+  CloudCheck,
+  Eye,
+  FileText,
+  Gauge,
+  House,
+  Info,
+  ListChecks,
+  MagnifyingGlass,
+  NotePencil,
+  PaperPlaneTilt,
+  Robot,
+  ShieldCheck,
+  SignOut,
+  Sparkle,
+  Storefront,
+  WarningCircle,
+  X,
+} from "@phosphor-icons/react";
+import {
+  loadDashboardData,
+  recordContentDecision,
+  sendMagicLink,
+  signOutDashboard,
+  subscribeToAuthChanges,
+} from "./lib/dashboardClient.js";
+
+function readPath() {
+  const path = window.location.pathname;
+  if (path.startsWith("/review/")) return "review";
+  if (path.startsWith("/queue")) return "queue";
+  return "overview";
+}
+
+function useRoute() {
+  const [route, setRoute] = useState(readPath);
+
+  useEffect(() => {
+    const onPopState = () => setRoute(readPath());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  const navigate = (path) => {
+    window.history.pushState({}, "", path);
+    setRoute(readPath());
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  return { route, navigate };
+}
+
+function Brand() {
+  return (
+    <div className="brand-lockup" aria-label="ORIN">
+      <span className="brand-mark"><Sparkle size={18} weight="fill" /></span>
+      <span className="brand-name">ORIN</span>
+      <span className="brand-product">Commerce</span>
+    </div>
+  );
+}
+
+function StoreBadge({ compact = false }) {
+  return (
+    <div className={`store-badge ${compact ? "compact" : ""}`}>
+      <span className="store-icon"><Storefront size={18} weight="duotone" /></span>
+      {!compact && (
+        <span className="store-copy">
+          <strong>Hoverboard Store</strong>
+          <small>Pilot workspace</small>
+        </span>
+      )}
+      {!compact && <CaretDown size={14} weight="bold" />}
+    </div>
+  );
+}
+
+function AppShell({ route, navigate, children, dataSource, onSignOut }) {
+  const navItems = [
+    { id: "overview", label: "Overview", icon: House, path: "/" },
+    { id: "queue", label: "Content queue", icon: ListChecks, path: "/queue" },
+  ];
+
+  return (
+    <div className="app-shell">
+      <aside className="side-nav">
+        <div className="side-nav-top">
+          <Brand />
+          <StoreBadge />
+          <nav aria-label="Primary navigation">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = route === item.id || (route === "review" && item.id === "queue");
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`nav-item ${active ? "active" : ""}`}
+                  onClick={() => navigate(item.path)}
+                >
+                  <Icon size={19} weight={active ? "fill" : "regular"} />
+                  <span>{item.label}</span>
+                  {item.id === "queue" && <span className="nav-count">3</span>}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+        <div className="side-nav-bottom">
+          <div className="safety-note">
+            <ShieldCheck size={22} weight="duotone" />
+            <div>
+              <strong>Approval required</strong>
+              <span>ORIN never publishes by itself.</span>
+            </div>
+          </div>
+          <button className="nav-item subtle" type="button" onClick={onSignOut}>
+            <SignOut size={18} />
+            <span>Sign out</span>
+          </button>
+        </div>
+      </aside>
+
+      <div className="main-frame">
+        <header className="topbar">
+          <div className="mobile-brand"><Brand /></div>
+          <div className="environment-pill">
+            <span className={`live-dot ${dataSource === "supabase" ? "connected" : ""}`} />
+            {dataSource === "supabase" ? "Live workspace" : "Safe preview"}
+          </div>
+          <div className="topbar-actions">
+            <button className="icon-button" type="button" aria-label="Search"><MagnifyingGlass size={20} /></button>
+            <button className="icon-button notification" type="button" aria-label="Notifications">
+              <Bell size={20} />
+              <span />
+            </button>
+            <StoreBadge compact />
+          </div>
+        </header>
+        <main className="page-content">{children}</main>
+        <nav className="mobile-nav" aria-label="Mobile navigation">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = route === item.id || (route === "review" && item.id === "queue");
+            return (
+              <button key={item.id} type="button" className={active ? "active" : ""} onClick={() => navigate(item.path)}>
+                <Icon size={20} weight={active ? "fill" : "regular"} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+    </div>
+  );
+}
+
+function AuthScreen() {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState({ status: "idle", message: "" });
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!email.trim()) return;
+    setState({ status: "sending", message: "" });
+    const { error } = await sendMagicLink(email.trim());
+    if (error) {
+      setState({ status: "error", message: error.message });
+      return;
+    }
+    setState({
+      status: "sent",
+      message: "Check your inbox and open the secure sign-in link on this device.",
+    });
+  };
+
+  return (
+    <main className="auth-screen">
+      <section className="auth-card">
+        <Brand />
+        <span className="auth-kicker"><ShieldCheck size={17} weight="duotone" /> Private client workspace</span>
+        <h1>Sign in to ORIN Commerce</h1>
+        <p>Use the email connected to your client workspace. We’ll send a one-time secure link—no password needed.</p>
+        <form onSubmit={submit}>
+          <label htmlFor="signin-email">Work email</label>
+          <input
+            id="signin-email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@company.com"
+            required
+          />
+          <button className="primary-button" type="submit" disabled={state.status === "sending" || state.status === "sent"}>
+            {state.status === "sending" ? "Sending link…" : state.status === "sent" ? "Link sent" : "Send secure sign-in link"}
+          </button>
+        </form>
+        {state.message && <div className={`auth-message ${state.status}`} role="status">{state.message}</div>}
+        <div className="auth-safeguard"><ShieldCheck size={20} weight="duotone" /><span><strong>Protected by tenant isolation</strong>Your account can only read its assigned client workspace.</span></div>
+      </section>
+    </main>
+  );
+}
+
+function ErrorScreen({ message, onRetry }) {
+  return (
+    <main className="auth-screen">
+      <section className="auth-card">
+        <Brand />
+        <span className="auth-kicker attention"><WarningCircle size={17} /> Workspace unavailable</span>
+        <h1>We couldn’t open your workspace</h1>
+        <p>{message}</p>
+        <button className="primary-button" type="button" onClick={onRetry}>Try again</button>
+        <button className="secondary-button" type="button" onClick={signOutDashboard}>Sign out</button>
+      </section>
+    </main>
+  );
+}
+
+function PageHeading({ eyebrow, title, description, action }) {
+  return (
+    <div className="page-heading">
+      <div>
+        {eyebrow && <span className="eyebrow">{eyebrow}</span>}
+        <h1>{title}</h1>
+        {description && <p>{description}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function StatusPill({ children, tone = "neutral" }) {
+  return <span className={`status-pill ${tone}`}>{children}</span>;
+}
+
+function MetricCard({ label, value, tone, icon: Icon }) {
+  return (
+    <article className={`metric-card ${tone}`}>
+      <span className="metric-icon"><Icon size={18} weight="duotone" /></span>
+      <div><span>{label}</span><strong>{value}</strong></div>
+    </article>
+  );
+}
+
+function Overview({ data, navigate }) {
+  return (
+    <div className="overview-page">
+      <PageHeading
+        eyebrow="Sunday, 2 August"
+        title="Good evening, Hari."
+        description="Your content system is healthy. One article is ready for your review."
+        action={<button className="secondary-button" type="button" onClick={() => navigate("/queue")}><ListChecks size={17} /> View queue</button>}
+      />
+
+      <section className="overview-grid">
+        <article className="next-article-card">
+          <div className="card-heading-row">
+            <div>
+              <span className="section-kicker">NEXT ARTICLE</span>
+              <h2>{data.nextArticle.title}</h2>
+            </div>
+            <StatusPill tone="orange">{data.nextArticle.status}</StatusPill>
+          </div>
+
+          <div className="article-facts">
+            <div><span>Target keyword</span><strong>{data.nextArticle.keyword}</strong></div>
+            <div><span>Intent</span><strong>{data.nextArticle.intent}</strong></div>
+            <div><span>Quality</span><strong>{data.nextArticle.qualityScore == null ? "Pending draft" : `${data.nextArticle.qualityScore}/100`}</strong></div>
+          </div>
+
+          <div className="check-strip">
+            {data.nextArticle.checks.map((check) => (
+              <span key={check}><CheckCircle size={17} weight="fill" />{check}</span>
+            ))}
+          </div>
+
+          <div className="card-actions">
+            <button className="primary-button" type="button" onClick={() => navigate(`/review/${data.nextArticle.id}`)}>
+              Review article <ArrowRight size={17} weight="bold" />
+            </button>
+            <span><Clock size={16} /> {data.nextArticle.readingTime}</span>
+          </div>
+        </article>
+
+        <article className="operations-card">
+          <div className="card-heading-row compact">
+            <div>
+              <span className="section-kicker">OPERATIONS</span>
+              <h2>System status</h2>
+            </div>
+            <span className="health-ring"><Check size={17} weight="bold" /></span>
+          </div>
+          <div className="operations-list">
+            <div><span><Clock size={18} /> Daily schedule</span><StatusPill tone="green">{data.operations.scheduler}</StatusPill></div>
+            <div><span><Robot size={18} /> Content worker</span><StatusPill tone="green">{data.operations.worker}</StatusPill></div>
+            <div><span><ShieldCheck size={18} /> Shopify publishing</span><StatusPill tone="blue">{data.operations.shopifyWrites}</StatusPill></div>
+          </div>
+          <div className="operations-footer">
+            <CloudCheck size={19} weight="duotone" />
+            <span><strong>Everything is protected</strong>{data.operations.lastChecked}</span>
+          </div>
+        </article>
+      </section>
+
+      <section className="metric-grid" aria-label="Content totals">
+        <MetricCard label="Planned" value={data.counts.planned} tone="slate" icon={Article} />
+        <MetricCard label="Drafting" value={data.counts.drafting} tone="blue" icon={NotePencil} />
+        <MetricCard label="Needs review" value={data.counts.review} tone="orange" icon={Eye} />
+        <MetricCard label="Approved" value={data.counts.approved} tone="green" icon={CheckCircle} />
+      </section>
+
+      <section className="recent-card">
+        <div className="section-heading">
+          <div><span className="section-kicker">RECENT CONTENT</span><h2>Latest work</h2></div>
+          <button className="text-button" type="button" onClick={() => navigate("/queue")}>See all <ArrowRight size={15} /></button>
+        </div>
+        <div className="recent-table">
+          {data.recentContent.map((item) => (
+            <button className="recent-row" type="button" key={item.id} onClick={() => item.id === 32 && navigate("/review/32")}>
+              <span className="document-icon"><FileText size={19} weight="duotone" /></span>
+              <span className="recent-title"><strong>{item.title}</strong><small>Job {item.id} · {item.owner}</small></span>
+              <StatusPill tone={item.stage === "Approved" ? "green" : "blue"}>{item.stage}</StatusPill>
+              <span className="recent-time">{item.updated}</span>
+              <ArrowRight size={16} />
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+const stages = ["Planned", "Research", "Drafting", "Review", "Approved"];
+
+function Queue({ data, navigate }) {
+  const [activeFilter, setActiveFilter] = useState("All");
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    return data.queue.filter((item) => {
+      const matchesFilter = activeFilter === "All" || item.stage === activeFilter;
+      const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase()) || item.keyword.toLowerCase().includes(query.toLowerCase());
+      return matchesFilter && matchesQuery;
+    });
+  }, [activeFilter, data.queue, query]);
+
+  return (
+    <div className="queue-page">
+      <PageHeading
+        eyebrow="CONTENT OPERATIONS"
+        title="Content flightboard"
+        description="Follow every article from approved concept to Shopify draft."
+        action={<button className="primary-button" type="button"><Sparkle size={17} weight="fill" /> Plan next article</button>}
+      />
+
+      <section className="stage-board">
+        {stages.map((stage, index) => {
+          const count = data.queue.filter((item) => item.stage === stage).length + (stage === "Approved" ? data.counts.approved : 0);
+          return (
+            <button type="button" key={stage} className={`stage-column ${activeFilter === stage ? "selected" : ""}`} onClick={() => setActiveFilter(activeFilter === stage ? "All" : stage)}>
+              <span className="stage-number">{String(index + 1).padStart(2, "0")}</span>
+              <span><strong>{stage}</strong><small>{count} article{count === 1 ? "" : "s"}</small></span>
+              {index < stages.length - 1 && <ArrowRight className="stage-arrow" size={17} />}
+            </button>
+          );
+        })}
+      </section>
+
+      <section className="queue-workspace">
+        <div className="queue-main">
+          <div className="queue-toolbar">
+            <div className="search-field"><MagnifyingGlass size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search title or keyword" /></div>
+            <div className="filter-buttons">
+              {["All", "Review", "Drafting", "Planned"].map((filter) => (
+                <button type="button" key={filter} className={activeFilter === filter ? "active" : ""} onClick={() => setActiveFilter(filter)}>{filter}</button>
+              ))}
+            </div>
+          </div>
+          <div className="queue-list">
+            <div className="queue-header"><span>Article</span><span>Stage</span><span>Priority</span><span>Due</span><span /></div>
+            {filtered.map((item) => (
+              <button type="button" className={`queue-row ${item.stage === "Review" ? "attention" : ""}`} key={item.id} onClick={() => item.stage === "Review" && navigate(`/review/${item.id}`)}>
+                <span className="queue-article"><small>JOB {item.id}</small><strong>{item.title}</strong><em>{item.keyword}</em></span>
+                <span><StatusPill tone={item.stage === "Review" ? "orange" : item.stage === "Drafting" ? "blue" : "neutral"}>{item.stage}</StatusPill></span>
+                <span className="priority-cell"><i className={item.priority === "High" ? "high" : ""} />{item.priority}</span>
+                <span className="due-cell">{item.due}</span>
+                <span>{item.stage === "Review" ? <ArrowRight size={17} /> : <span className="more-button">•••</span>}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && <div className="empty-state"><MagnifyingGlass size={26} /><strong>No matching articles</strong><span>Try a different keyword or stage.</span></div>}
+          </div>
+        </div>
+        <aside className="activity-panel">
+          <div className="section-heading"><div><span className="section-kicker">LIVE LOG</span><h2>Activity</h2></div><span className="pulse-dot" /></div>
+          <div className="activity-list">
+            {data.activity.map((item, index) => (
+              <div className="activity-item" key={`${item.time}-${item.label}`}>
+                <span className={`activity-marker ${index === 0 ? "latest" : ""}`} />
+                <div><time>{item.time}</time><p>{item.label}</p></div>
+              </div>
+            ))}
+          </div>
+          <div className="activity-safe"><ShieldCheck size={21} weight="duotone" /><span><strong>Write protection is on</strong>No article can go live without your approval.</span></div>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
+function Review({ data, navigate, dataSource }) {
+  const [decision, setDecision] = useState(null);
+  const [changesOpen, setChangesOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [decisionError, setDecisionError] = useState("");
+  const article = data.article;
+
+  const saveDecision = async (kind, decisionNote = "") => {
+    setSaving(true);
+    setDecisionError("");
+    const result = await recordContentDecision({
+      clientId: data.client.id,
+      contentItemId: article.contentItemId,
+      contentItemVersion: article.version,
+      decision: kind,
+      note: decisionNote,
+    });
+    setSaving(false);
+    if (result.error) {
+      setDecisionError(result.error.message ?? "The decision could not be saved.");
+      return;
+    }
+    setDecision(kind === "approve_hidden_draft" ? "approved" : "changes");
+    setChangesOpen(false);
+    if (kind === "request_changes") setNote("");
+  };
+
+  const approve = () => saveDecision("approve_hidden_draft");
+
+  const submitChanges = () => {
+    if (!note.trim()) return;
+    saveDecision("request_changes", note.trim());
+  };
+
+  return (
+    <div className="review-page">
+      <div className="review-topline">
+        <button className="back-button" type="button" onClick={() => navigate("/queue")}><ArrowLeft size={17} /> Content queue</button>
+        <span className="review-job">JOB {article.id} <i /> READY FOR REVIEW</span>
+      </div>
+
+      {decision && (
+        <div className={`decision-banner ${decision}`} role="status">
+          {decision === "approved" ? <CheckCircle size={22} weight="fill" /> : <NotePencil size={22} weight="duotone" />}
+          <div>
+            <strong>{decision === "approved" ? "Hidden-draft approval recorded" : "Change request recorded"}</strong>
+            <span>{dataSource === "supabase" ? "Saved durably. No Shopify action was performed." : "Saved in this local preview. No Shopify action was performed."}</span>
+          </div>
+          <button type="button" onClick={() => setDecision(null)} aria-label="Dismiss"><X size={17} /></button>
+        </div>
+      )}
+
+      <div className="review-layout">
+        <article className="article-preview">
+          <header className="article-header">
+            <span className="article-label">PARENT BUYING GUIDE</span>
+            <h1>{article.title}</h1>
+            <p>{article.dek}</p>
+            <div className="article-byline">
+              <span className="author-mark"><Robot size={17} weight="duotone" /></span>
+              <span><strong>Prepared by ORIN</strong><small>Reviewed against HBStore policy</small></span>
+              <span className="article-length"><Clock size={15} /> {data.nextArticle.readingTime}</span>
+            </div>
+          </header>
+
+          <div className="article-body">
+            {article.sections.map((section) => (
+              <section key={section.heading}>
+                <h2>{section.heading}</h2>
+                {section.paragraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+                {section.bullets && (
+                  <ul>{section.bullets.map((bullet) => <li key={bullet}><CheckCircle size={17} weight="fill" />{bullet}</li>)}</ul>
+                )}
+              </section>
+            ))}
+            <div className="article-disclaimer"><Info size={20} weight="duotone" /><p><strong>A practical reminder</strong>Always follow the scooter and protective equipment manufacturers’ instructions. Supervision and local rules still apply.</p></div>
+          </div>
+        </article>
+
+        <aside className="decision-rail">
+          <div className="decision-card">
+            <div className="decision-card-header"><span className="section-kicker">YOUR DECISION</span><h2>Ready for Shopify?</h2><p>Approval creates an unpublished draft only after production wiring is enabled.</p></div>
+
+            <div className="review-score">
+              <span className="score-ring"><strong>{data.nextArticle.qualityScore ?? "—"}</strong><small>{data.nextArticle.qualityScore == null ? "brief" : "/100"}</small></span>
+              <div><strong>{data.nextArticle.qualityScore == null ? "Concept is version-bound" : "Quality checks passed"}</strong><span>{data.nextArticle.qualityScore == null ? "Draft quality checks run later in the controlled worker." : "Structure, safety language, SEO and originality."}</span></div>
+            </div>
+
+            <dl className="seo-details">
+              <div><dt>Target keyword</dt><dd>{article.keyword}</dd></div>
+              <div><dt>Meta title</dt><dd>{article.metaTitle}</dd></div>
+              <div><dt>Meta description</dt><dd>{article.metaDescription}</dd></div>
+            </dl>
+
+            <button className="evidence-toggle" type="button" onClick={() => setEvidenceOpen(!evidenceOpen)} aria-expanded={evidenceOpen}>
+              <span><ShieldCheck size={18} /> Evidence & safeguards</span><CaretDown size={15} className={evidenceOpen ? "rotated" : ""} />
+            </button>
+            {evidenceOpen && <ul className="evidence-list">{article.evidence.map((item) => <li key={item}><Check size={14} weight="bold" />{item}</li>)}</ul>}
+
+            {!changesOpen ? (
+              <div className="decision-actions">
+                <button className="approve-button" type="button" onClick={approve} disabled={saving}><CheckCircle size={19} weight="fill" /> {saving ? "Saving…" : "Approve hidden draft"}</button>
+                <button className="changes-button" type="button" onClick={() => setChangesOpen(true)} disabled={saving}><NotePencil size={18} /> Request changes</button>
+              </div>
+            ) : (
+              <div className="change-form">
+                <label htmlFor="change-note">What should change?</label>
+                <textarea id="change-note" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Example: simplify the helmet section and add a link to our safety collection." autoFocus />
+                <div><button type="button" className="text-button" onClick={() => setChangesOpen(false)} disabled={saving}>Cancel</button><button type="button" className="primary-button" onClick={submitChanges} disabled={!note.trim() || saving}><PaperPlaneTilt size={17} /> {saving ? "Saving…" : "Send request"}</button></div>
+              </div>
+            )}
+            {decisionError && <p className="decision-error" role="alert"><WarningCircle size={15} /> {decisionError}</p>}
+            <p className="no-publish-note"><WarningCircle size={15} /> This preview cannot publish to Shopify.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+export function App() {
+  const { route, navigate } = useRoute();
+  const [state, setState] = useState({ data: null, source: "loading", error: null, requiresAuth: false });
+
+  const reload = () => {
+    setState((current) => ({ ...current, source: "loading", error: null }));
+    loadDashboardData().then(setState);
+  };
+
+  useEffect(() => {
+    let active = true;
+    loadDashboardData().then((result) => active && setState(result));
+    const unsubscribe = subscribeToAuthChanges(() => {
+      if (active) loadDashboardData().then((result) => active && setState(result));
+    });
+    return () => { active = false; unsubscribe(); };
+  }, []);
+
+  if (state.requiresAuth) return <AuthScreen />;
+  if (state.source === "error") return <ErrorScreen message={state.error} onRetry={reload} />;
+  if (!state.data) {
+    return <div className="loading-screen"><Brand /><span className="loading-line" /><p>Preparing your workspace…</p></div>;
+  }
+
+  return (
+    <AppShell route={route} navigate={navigate} dataSource={state.source} onSignOut={signOutDashboard}>
+      {route === "overview" && <Overview data={state.data} navigate={navigate} />}
+      {route === "queue" && <Queue data={state.data} navigate={navigate} />}
+      {route === "review" && <Review data={state.data} navigate={navigate} dataSource={state.source} />}
+    </AppShell>
+  );
+}
