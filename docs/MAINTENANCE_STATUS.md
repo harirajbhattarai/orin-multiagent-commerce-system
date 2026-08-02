@@ -68,11 +68,45 @@ creates, published nothing, did not change the content plan, and required no
 reconciliation. The automatic 11:15 watchdog run and an explicit execution of
 the same fixed read-only client both returned `ORIN_SCHEDULED_RUN_OBSERVED`.
 
+A supervised Job 31 proof completed on 2026-08-02 before any Shopify write was
+authorized. The automatic worker was stopped to prevent a claim race, one
+uniquely keyed dry-run request was queued, and the reviewed one-shot worker was
+run with `--as-of-date 2026-08-03 --job-number 31`. Run
+`hb_20260802T161901Z_f20b53c6` selected Job 31, passed topic identity,
+post-write review, duplicate, publisher-preflight, and HTML validation, and
+returned `READY_TO_CREATE_SELECTED_JOB_DRAFT`. It made zero Shopify creates,
+published nothing, did not change the queue, and required no reconciliation.
+Job 31 remains `planned` at version 1. The automatic worker was then restored
+and returned `no_job_due` with zero restarts.
+
 The reviewed worker and scheduler-trigger code deployed on the VPS is:
 
 `5c755295604648161af83fdebf92b2c176b6f8e6`
 
 ## Verified results
+
+- Supervised proof source key
+  `commissioning:job31-dry-run-proof:2026-08-02` exists exactly once and owns
+  one completed job, one completed run, and one terminal attempt. Requested and
+  effective modes are `dry-run`; Shopify write state is `not_attempted`,
+  creates are zero, `shopify_published=false`, `queue_changed=false`, and
+  reconciliation is `not_required`.
+- The proof used deployed code version
+  `5c755295604648161af83fdebf92b2c176b6f8e6`. Its final result names Job 31 and
+  decision `READY_TO_CREATE_SELECTED_JOB_DRAFT`; the generated HTML is private
+  run evidence and was not sent to Shopify.
+- Job 31 remains authoritative database state `planned`, version 1, with no
+  Shopify article ID or handle. There are zero active jobs and zero open
+  incidents after the proof.
+- The automatic worker was restored at the same immutable image, has zero
+  restarts, and is producing `no_job_due`. Scheduler-trigger and watchdog
+  services remain healthy; the 11:00 and 11:15 schedules remain enabled and
+  unchanged, while the legacy schedule remains disabled.
+- The non-secret proof manifest is preserved at
+  `docs/evidence/2026-08-02-job31-dry-run-proof.json`; canonical private
+  evidence remains on the VPS at
+  `/docker/orin/evidence/hb_20260802T161901Z_f20b53c6` with every file mode
+  `0600`.
 
 - The 2026-08-02 11:00 Europe/London dedicated schedule was accepted with
   `replayed=false`; the legacy main-agent schedule remained disabled.
