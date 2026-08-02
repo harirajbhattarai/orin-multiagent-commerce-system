@@ -5,9 +5,9 @@ Last updated: 2026-08-02
 ## Current phase
 
 Phase 6 authoritative content-plan migration is complete for Hoverboard Store.
-Supabase now owns the 30-item plan, execution jobs bind to plan items through a
+Supabase now owns the 60-item plan, execution jobs bind to plan items through a
 lease-checked worker capability, and the legacy Markdown format is generated
-only as private run input. Jobs 28-30 are reconciled to their verified hidden
+only as private run input. Jobs 28-31 are reconciled to their verified hidden
 Shopify drafts, removing the stale Markdown `planned` state. The reviewed
 migration is applied, the worker and trigger are deployed at the exact merged
 revision, and an immediate automatic-worker commissioning request completed
@@ -79,11 +79,53 @@ published nothing, did not change the queue, and required no reconciliation.
 Job 31 remains `planned` at version 1. The automatic worker was then restored
 and returned `no_job_due` with zero restarts.
 
+The separately approved controlled Job 31 Shopify transaction then completed
+on 2026-08-02. Automatic scheduling and the daemon were stopped first, request
+intake was closed, and one unique hidden-draft request was bound to the
+authoritative Job 31 content item. Run `hb_20260802T164938Z_27643c00` passed
+topic identity, post-write review, duplicate checking, publisher preflight,
+and HTML validation before creating exactly one Shopify article. Independent
+read-only verification found exactly one idempotency-marker match for article
+`1007283863900`, handle
+`kids-electric-scooter-buying-checklist-for-parents`, with
+`publishedAt = null`. Supabase records one completed job, run, attempt, and
+reconciliation row; Job 31 is `draft_created` at version 2. The write gate was
+closed immediately, then normal dry-run scheduling and the automatic worker
+were restored.
+
 The reviewed worker and scheduler-trigger code deployed on the VPS is:
 
 `5c755295604648161af83fdebf92b2c176b6f8e6`
 
 ## Verified results
+
+- Controlled hidden-draft source key
+  `commissioning:job31-hidden-draft:2026-08-02` exists exactly once and owns
+  one completed job, one completed run, one terminal attempt, and one
+  reconciled Shopify ownership row.
+- Run `hb_20260802T164938Z_27643c00` used deployed code version
+  `5c755295604648161af83fdebf92b2c176b6f8e6` and returned
+  `DRAFT_CREATED_VERIFICATION_PASSED`. Shopify write state is
+  `article_observed`, create count is one, `shopify_published=false`, queue
+  changed is false, and reconciliation is `reconciled`.
+- Independent Shopify verification found exactly one article with the request
+  marker. Article `1007283863900` has handle
+  `kids-electric-scooter-buying-checklist-for-parents` and
+  `publishedAt = null`. The generated article has approximately 1,944 visible
+  words and passed the complete content-quality path.
+- Supabase moved Job 31 from `planned` version 1 to `draft_created` version 2,
+  stores Shopify article ID `1007283863900`, and links the item to the exact
+  terminal run. There are zero active jobs and zero open incidents.
+- Production is restored to active dry-run operation: request intake and
+  automation enabled, maximum concurrency one, Shopify writes disabled,
+  scheduler healthy with owner `openclaw:orin-hbstore-prod`, automatic worker
+  running with zero restarts, 11:00 scheduler and 11:15 watchdog enabled, and
+  the legacy scheduler disabled.
+- The non-secret controlled-write manifest is preserved at
+  `docs/evidence/2026-08-02-job31-hidden-draft-verification.json`; canonical
+  private evidence remains on the VPS at
+  `/docker/orin/evidence/hb_20260802T164938Z_27643c00` with every file mode
+  `0600`.
 
 - Supervised proof source key
   `commissioning:job31-dry-run-proof:2026-08-02` exists exactly once and owns
