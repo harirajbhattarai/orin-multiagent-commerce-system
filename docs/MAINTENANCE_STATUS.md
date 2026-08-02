@@ -7,7 +7,7 @@ Last updated: 2026-08-02
 Phase 6 authoritative content-plan migration is complete for Hoverboard Store.
 Supabase now owns the 60-item plan, execution jobs bind to plan items through a
 lease-checked worker capability, and the legacy Markdown format is generated
-only as private run input. Jobs 28-31 are reconciled to their verified hidden
+only as private run input. Jobs 28-32 are reconciled to their verified hidden
 Shopify drafts, removing the stale Markdown `planned` state. The reviewed
 migration is applied, the worker and trigger are deployed at the exact merged
 revision, and an immediate automatic-worker commissioning request completed
@@ -50,8 +50,8 @@ The isolated `orin-hbstore-prod` agent and its five boundary files are
 versioned, deployed, and verified. Its dedicated schedule is wired only to one
 fixed no-argument Python client over a private Unix socket. The dedicated
 schedule is enabled at `0 11 * * *` Europe/London with exact timing, no
-delivery, and no agent or tool execution path. Its next expected wake is
-2026-08-02 at 11:00 BST.
+delivery, and no agent or tool execution path. Its next wake follows the normal
+daily 11:00 Europe/London schedule.
 
 Phase 5 watchdog commissioning is complete. The read-only database role,
 unique credential, private socket service, fixed OpenClaw client, and automatic
@@ -93,11 +93,51 @@ reconciliation row; Job 31 is `draft_created` at version 2. The write gate was
 closed immediately, then normal dry-run scheduling and the automatic worker
 were restored.
 
+Job 32 then proved the automatic hidden-draft path using the continuously
+running immutable worker, with no manual worker invocation and no date or job
+override. The first automatic request failed closed before Shopify because the
+generated article contained an unsupported superlative and the planned H1 did
+not contain the exact target keyword. It created zero Shopify articles. With
+all gates closed, the content-plan wording was corrected without weakening any
+runtime check, and one fresh request with `max_attempts=1` was queued. The
+daemon selected and bound Job 32 itself, then run
+`hb_20260802T200042Z_532d13f6` created and reconciled exactly one unpublished
+draft. Independent Shopify verification found one marker match for article
+`1007284420956`, handle
+`electric-scooter-handlebar-height-for-children-fit-guide`, with
+`publishedAt = null`. Normal dry-run scheduling was restored immediately.
+
 The reviewed worker and scheduler-trigger code deployed on the VPS is:
 
 `5c755295604648161af83fdebf92b2c176b6f8e6`
 
 ## Verified results
+
+- Automatic hidden-draft source key
+  `commissioning:job32-auto-hidden-draft-corrected:2026-08-02` exists exactly
+  once and owns one completed job, one completed run with attempt value one,
+  and one reconciled Shopify ownership row.
+- The fixed automatic daemon selected and bound Job 32 without `--as-of-date`
+  or `--job-number`. Run `hb_20260802T200042Z_532d13f6` used deployed revision
+  `5c755295604648161af83fdebf92b2c176b6f8e6` and returned
+  `DRAFT_CREATED_VERIFICATION_PASSED`.
+- Independent Shopify verification found exactly one request-marker match.
+  Article `1007284420956` has handle
+  `electric-scooter-handlebar-height-for-children-fit-guide` and
+  `publishedAt = null`. Supabase records create count one, unpublished state,
+  no queue change, and reconciled ownership.
+- Job 32 is `draft_created` at version 3. Its original target date is restored,
+  there are zero active jobs and zero open incidents, and every private run
+  evidence file is mode `0600`.
+- Production is restored to active dry-run operation: request intake and
+  automation enabled, maximum concurrency one, Shopify writes disabled,
+  scheduler healthy with owner `openclaw:orin-hbstore-prod`, automatic worker
+  running with zero restarts and reporting `no_job_due`, 11:00 scheduler and
+  11:15 watchdog enabled, and the legacy scheduler disabled.
+- The non-secret verification manifest is preserved at
+  `docs/evidence/2026-08-02-job32-automatic-hidden-draft-verification.json`;
+  canonical private evidence remains at
+  `/docker/orin/evidence/hb_20260802T200042Z_532d13f6`.
 
 - Controlled hidden-draft source key
   `commissioning:job31-hidden-draft:2026-08-02` exists exactly once and owns
@@ -178,10 +218,9 @@ The reviewed worker and scheduler-trigger code deployed on the VPS is:
   applied. Supabase security advisors report no findings. The only new
   performance notices are informational unused-index notices expected before a
   new due item and run history use those indexes.
-- `content_plan_items` contains exactly 30 Hoverboard Store rows with RLS
-  enabled. Jobs 28, 29, and 30 are `draft_created` and point to Shopify article
-  IDs `1007164260700`, `1007195390300`, and `1007206334812` respectively. No
-  item remains `planned`.
+- `content_plan_items` contains exactly 60 Hoverboard Store rows with RLS
+  enabled. Jobs 28-32 are `draft_created`; future approved items remain
+  `planned` until their due dates or an explicitly approved commissioning run.
 - The Phase 6 commissioning request
   `commissioning:phase6-content-plan:2026-08-01` was automatically claimed by
   the continuously running worker. Run `hb_20260801T145434Z_fe901cf2`
@@ -464,13 +503,13 @@ The reviewed worker and scheduler-trigger code deployed on the VPS is:
   schedules are disabled at `0 11 * * *` Europe/London exact and
   `nextWakeAtMs` is null.
 
-The latest controlled Shopify test created exactly one article:
+The latest automatic Shopify test created exactly one article:
 
-- Job: 30
-- Title: `Hoverboard Bundle Buying Guide: Board, Kart and Safety Gear`
-- Handle: `hoverboard-bundle-buying-guide-board-kart-and-safety-gear`
+- Job: 32
+- Title: `Electric Scooter Handlebar Height for Children: Fit Guide`
+- Handle: `electric-scooter-handlebar-height-for-children-fit-guide`
 - Model: `MiniMax-M3`
-- Shopify article ID: `1007206334812`
+- Shopify article ID: `1007284420956`
 - Published state: hidden draft (`publishedAt = null`)
 - Queue file changed: no
 - Durable database reconciliation: complete
@@ -497,23 +536,22 @@ possible during the drill.
 
 ## Current safety state
 
-- Client status: `maintenance`
-- Request intake enabled: `false`
-- Automation enabled: `false`
+- Client status: `active`
+- Request intake enabled: `true`
+- Automation enabled: `true`
 - Shopify writes enabled: `false`
 - Allowed mode: `dry-run`
-- Database scheduler state: `disabled`
-- Database scheduler owner: none
+- Database scheduler state: `healthy`
+- Database scheduler owner: `openclaw:orin-hbstore-prod`
 - Legacy OpenClaw job: disabled
-- Dedicated `orin-hbstore-prod` commissioning job: enabled one-shot for
-  `00:02` Europe/London on 2026-07-30
+- Dedicated `orin-hbstore-prod` job: enabled at `0 11 * * *` Europe/London
+- Read-only watchdog job: enabled at `15 11 * * *` Europe/London
 - Dedicated job payload: fixed `python3` argv to the HBStore socket client
 - Dedicated job agent/tools: none
 - Dedicated job delivery: none
-- Production trigger attached: no
-- OpenClaw next wake: the dedicated commissioning one-shot only
-- ORIN containers: healthy scheduler-trigger sidecar and automatic worker;
-  control API is stopped
+- Production trigger attached: yes, dry-run only
+- ORIN containers: healthy scheduler-trigger and watchdog sidecars; automatic
+  worker running with zero restarts and reporting `no_job_due`
 - ORIN loopback API port: closed
 
 ## Durable evidence
