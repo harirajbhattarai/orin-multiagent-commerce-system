@@ -1,6 +1,6 @@
 # ORIN maintenance status
 
-Last updated: 2026-08-01
+Last updated: 2026-08-02
 
 ## Current phase
 
@@ -59,11 +59,41 @@ command path have all been tested. The permanent watchdog schedule is enabled
 at `15 11 * * *` Europe/London with alert delivery disabled. It observes only
 the scheduler receipt and has no capability to trigger or modify work.
 
+The first normal post-migration production dry-run completed automatically on
+2026-08-02. Source key `scheduler:orin-hbstore-prod:2026-08-02` exists exactly
+once and owns one completed job, run, and attempt. Run
+`hb_20260802T100007Z_6bb867ff` returned `no_job_due` because Job 31 is not due
+until 2026-08-03. It used the exact deployed revision, made zero Shopify
+creates, published nothing, did not change the content plan, and required no
+reconciliation. The automatic 11:15 watchdog run and an explicit execution of
+the same fixed read-only client both returned `ORIN_SCHEDULED_RUN_OBSERVED`.
+
 The reviewed worker and scheduler-trigger code deployed on the VPS is:
 
 `5c755295604648161af83fdebf92b2c176b6f8e6`
 
 ## Verified results
+
+- The 2026-08-02 11:00 Europe/London dedicated schedule was accepted with
+  `replayed=false`; the legacy main-agent schedule remained disabled.
+- Supabase records exactly one completed job, one completed run, and one
+  terminal attempt for source key
+  `scheduler:orin-hbstore-prod:2026-08-02`. Requested and effective modes are
+  `dry-run`; Shopify creates are zero, `shopify_published=false`,
+  `queue_changed=false`, and reconciliation is `not_required`.
+- The client remains active with intake and automation enabled, concurrency
+  one, Shopify writes disabled, and scheduler owner
+  `openclaw:orin-hbstore-prod`. There are no active jobs or open incidents.
+- Worker and scheduler-trigger images remain at exact revision
+  `5c755295604648161af83fdebf92b2c176b6f8e6`, with zero restarts; the trigger
+  and read-only watchdog are healthy.
+- The 11:15 watchdog schedule remains enabled with delivery disabled. Its
+  automatic run and the explicit fixed-client verification both returned
+  `ORIN_SCHEDULED_RUN_OBSERVED`.
+- The non-secret verification manifest is preserved at
+  `docs/evidence/2026-08-02-normal-run-verification.json`; the canonical private
+  evidence remains on the VPS at
+  `/docker/orin/evidence/hb_20260802T100007Z_6bb867ff`.
 
 - PR 69 added and reviewed the Phase 6 database-owned content plan. Application
   CI passed 175 tests and database CI passed the complete migration plus 14 new

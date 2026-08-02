@@ -1,0 +1,98 @@
+{
+  "schema": "orin.normal-run-verification/v1",
+  "verified_at": "2026-08-02T10:28:26.592914+00:00",
+  "client_id": "hoverboard_store",
+  "source_job_key": "scheduler:orin-hbstore-prod:2026-08-02",
+  "infrastructure": {
+    "ssh": "ok",
+    "checkout_clean": true,
+    "checkout_revision": "5c755295604648161af83fdebf92b2c176b6f8e6",
+    "worker": {
+      "running": true,
+      "restart_count": 0,
+      "image_revision": "5c755295604648161af83fdebf92b2c176b6f8e6"
+    },
+    "scheduler_trigger": {
+      "running": true,
+      "healthy": true,
+      "restart_count": 0,
+      "image_revision": "5c755295604648161af83fdebf92b2c176b6f8e6"
+    },
+    "watchdog": {
+      "running": true,
+      "healthy": true,
+      "restart_count": 0,
+      "image_revision": "38aa69c01e87d487148503f51e73a0a631a0169a"
+    }
+  },
+  "schedules": {
+    "dedicated": {
+      "id": "e09fc195-17e4-44f0-8697-bf6ae4b3dec8",
+      "enabled": true,
+      "cron": "0 11 * * *",
+      "timezone": "Europe/London",
+      "delivery": "none",
+      "last_status": "ok",
+      "trigger_status": "accepted",
+      "replayed": false
+    },
+    "legacy": {
+      "id": "c5c7e16b-5ee1-4855-ae7a-97fd25bfd67d",
+      "enabled": false
+    },
+    "watchdog": {
+      "id": "f030dfc8-b493-4250-ad94-bd4afe91e607",
+      "enabled": true,
+      "cron": "15 11 * * *",
+      "timezone": "Europe/London",
+      "delivery": "none",
+      "automatic_result": "ORIN_SCHEDULED_RUN_OBSERVED",
+      "fixed_client_verification": "ORIN_SCHEDULED_RUN_OBSERVED"
+    }
+  },
+  "database": {
+    "job_count": 1,
+    "run_count": 1,
+    "attempt_count": 1,
+    "job_id": "d95b997b-b498-4e5b-8eba-f04c6f642977",
+    "request_id": "d3458544-db5c-5dcf-842f-121b1faecff2",
+    "run_id": "hb_20260802T100007Z_6bb867ff",
+    "job_status": "completed",
+    "run_status": "completed",
+    "attempt_status": "completed",
+    "requested_mode": "dry-run",
+    "effective_mode": "dry-run",
+    "decision": "no_job_due",
+    "code_version": "5c755295604648161af83fdebf92b2c176b6f8e6",
+    "shopify_create_count": 0,
+    "shopify_published": false,
+    "shopify_write_state": "not_attempted",
+    "queue_changed": false,
+    "reconciliation_status": "not_required",
+    "active_jobs": 0,
+    "open_incidents": 0
+  },
+  "runtime_gates": {
+    "client_status": "active",
+    "request_intake_enabled": true,
+    "automation_enabled": true,
+    "shopify_writes_enabled": false,
+    "max_concurrency": 1,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "healthy",
+    "scheduler_owner": "openclaw:orin-hbstore-prod"
+  },
+  "content_plan_counts": {
+    "planned": 30,
+    "draft_created": 26,
+    "published_live": 1,
+    "needs_human_review": 3
+  },
+  "evidence": {
+    "directory": "/docker/orin/evidence/hb_20260802T100007Z_6bb867ff",
+    "final_result_sha256": "d192537b320a3f8d1b91418d84082b683113137df1b637fb29105ab47d3ee4ec",
+    "events_sha256": "d7d86d838a9da41244cd9dde56cf62248a9c7fac406e58ea79663f7c322a6851",
+    "content_plan_snapshot_sha256": "ebcca9ea4a10fedf9191d268d01c6f452e726d31290c1e3f034dd3a780897adb",
+    "content_queue_projection_sha256": "5d006e95f81f90e737fd3545b4cc072dbd028326ac6671e4a8a267fc06219e8f"
+  }
+}
