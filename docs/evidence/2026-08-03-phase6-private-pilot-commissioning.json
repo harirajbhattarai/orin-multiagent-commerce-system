@@ -1,0 +1,127 @@
+{
+  "schema": "orin.phase6-private-pilot-commissioning/v1",
+  "verified_at": "2026-08-03T09:14:23Z",
+  "client_id": "hoverboard_store",
+  "deployment_revision": "6d4b108b0471ffe314a370ad555793ef2f12c6aa",
+  "authorization": {
+    "selected_identity": "bitleafgroup",
+    "membership_count": 1,
+    "role": "owner",
+    "owner_visible_workspaces": 1,
+    "owner_visible_client_id": "hoverboard_store",
+    "dashboard_contract": "orin.client-dashboard/v1",
+    "nonmember_visible_workspaces": 0
+  },
+  "decision_proof": {
+    "request_id": "d4f6462a-6f03-4d5c-9e3f-431fd1b2f6a0",
+    "decision": "request_changes",
+    "processing_status": "recorded",
+    "actor_bound_to_auth_uid": true,
+    "duplicate_result": "23505",
+    "durable_row_count": 1,
+    "active_jobs_after": 0,
+    "open_incidents_after": 0,
+    "shopify_writes_enabled": false,
+    "allowed_mode": "dry-run"
+  },
+  "evidence_sync": {
+    "run_id": "hb_20260802T100007Z_6bb867ff",
+    "bucket": "orin-evidence",
+    "bucket_public": false,
+    "first_run": {
+      "status": "completed",
+      "artifact_count": 7,
+      "uploaded_count": 7,
+      "registered_count": 7,
+      "replayed_count": 0
+    },
+    "exact_replay": {
+      "status": "completed",
+      "artifact_count": 7,
+      "uploaded_count": 0,
+      "registered_count": 0,
+      "replayed_count": 7
+    },
+    "artifacts": [
+      {
+        "name": "content_plan_snapshot.json",
+        "byte_count": 52159,
+        "sha256": "ebcca9ea4a10fedf9191d268d01c6f452e726d31290c1e3f034dd3a780897adb",
+        "verified": true
+      },
+      {
+        "name": "content_queue_projection.md",
+        "byte_count": 33520,
+        "sha256": "5d006e95f81f90e737fd3545b4cc072dbd028326ac6671e4a8a267fc06219e8f",
+        "verified": true
+      },
+      {
+        "name": "events.jsonl",
+        "byte_count": 537,
+        "sha256": "d7d86d838a9da41244cd9dde56cf62248a9c7fac406e58ea79663f7c322a6851",
+        "verified": true
+      },
+      {
+        "name": "final_result.json",
+        "byte_count": 977,
+        "sha256": "d192537b320a3f8d1b91418d84082b683113137df1b637fb29105ab47d3ee4ec",
+        "verified": true
+      },
+      {
+        "name": "pipeline_preview.json",
+        "byte_count": 3044,
+        "sha256": "691db4f7ebb5382e4887a72a92faa6732fb627965eee8abc1396a5bcba8e8978",
+        "verified": true
+      },
+      {
+        "name": "stderr.log",
+        "byte_count": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "verified": true
+      },
+      {
+        "name": "stdout.log",
+        "byte_count": 3978,
+        "sha256": "7ea4d6d9e43c0dd8e477aed7707e49ea8d045515586581ff556115b2aeb1b26c",
+        "verified": true
+      }
+    ]
+  },
+  "runtime": {
+    "client_status": "active",
+    "request_intake_enabled": true,
+    "automation_enabled": true,
+    "shopify_writes_enabled": false,
+    "max_concurrency": 1,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "healthy",
+    "scheduler_owner": "openclaw:orin-hbstore-prod",
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "legacy_schedule_enabled": false
+  },
+  "supabase_advisors": {
+    "security": [
+      {
+        "level": "WARN",
+        "name": "auth_leaked_password_protection",
+        "status": "pending_remediation",
+        "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+      }
+    ],
+    "performance": {
+      "level": "INFO",
+      "unused_index_count": 4,
+      "action": "retain_until_representative_traffic"
+    }
+  },
+  "phase6_checklist": {
+    "passed": [1, 2, 4, 5, 6, 7],
+    "pending": {
+      "3": "Sign the selected owner into the hosted dashboard and prove the live snapshot.",
+      "8": "Download one artifact using the authenticated owner session and verify SHA-256.",
+      "9": "Enable leaked-password protection and rerun the security advisor with no warnings."
+    },
+    "phase6_complete": false
+  }
+}

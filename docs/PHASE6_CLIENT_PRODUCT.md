@@ -3,10 +3,25 @@
 ## Status
 
 The database and application implementation is complete. Production
-commissioning remains deliberately split into two user-owned handoffs:
+commissioning is in its final authenticated-browser handoff. On 2026-08-03:
 
-1. the first Supabase Auth user and `client_members` owner row;
-2. the server-side evidence-sync key installed directly on the VPS.
+- the selected Bitleaf Supabase Auth user was assigned exactly one
+  `hoverboard_store` `owner` membership;
+- the owner RLS projection returned exactly one HBStore workspace and a
+  nonmember projection returned zero;
+- one harmless `request_changes` decision was recorded and an exact duplicate
+  request was rejected, leaving one ledger row and zero active jobs;
+- the VPS-only evidence key was installed securely;
+- seven artifacts for `hb_20260802T100007Z_6bb867ff` were uploaded to the
+  private `orin-evidence` bucket and registered in `run_artifacts`;
+- an exact evidence-sync replay created zero uploads and zero new metadata
+  rows, and all seven downloaded service-side objects matched their SHA-256.
+
+The two remaining end-user proofs are a live hosted-dashboard session for the
+selected owner and one owner-authenticated Storage download. Supabase Auth's
+leaked-password protection warning must also be cleared before public access.
+The current hosted login is temporarily blocked by the project email sender's
+rate limit after repeated commissioning links; do not bypass that control.
 
 Shopify writes remain disabled. Dashboard decisions do not enqueue jobs or
 call Shopify.
