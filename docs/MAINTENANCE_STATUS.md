@@ -881,3 +881,41 @@ Proceed from transferred dry-run ownership without enabling Shopify writes:
 Do not enable the legacy main-agent scheduler, enable Shopify writes outside a
 controlled transaction, or describe the system as public-ready while the
 customer access layer and HBStore observation window remain incomplete.
+
+## Phase 6 private-pilot commissioning — 2026-08-03
+
+The two production handoffs are now installed without exposing credentials.
+The selected Bitleaf Supabase Auth identity has exactly one
+`hoverboard_store` owner membership. An authenticated database-boundary check
+returned exactly one redacted HBStore dashboard workspace for that owner and
+zero workspaces for a nonmember.
+
+One harmless `request_changes` decision was recorded with request ID
+`d4f6462a-6f03-4d5c-9e3f-431fd1b2f6a0`. The trigger bound the actor to
+`auth.uid()`. An exact retry hit the expected unique constraint and durable
+verification found one decision row, zero active jobs, zero open incidents,
+`allowed_mode=dry-run`, and `shopify_writes_enabled=false`.
+
+Portable evidence sync completed for the normal automatic dry-run
+`hb_20260802T100007Z_6bb867ff`:
+
+- first sync: seven uploads and seven `run_artifacts` registrations;
+- exact replay: zero uploads, zero registrations, seven verified replays;
+- bucket visibility: private;
+- service-side verification: all seven byte counts and SHA-256 digests match.
+
+The production checkout and running worker, scheduler-trigger, and watchdog
+remain at `6d4b108b0471ffe314a370ad555793ef2f12c6aa`. The dedicated dry-run
+scheduler and read-only watchdog are healthy and enabled at their normal
+11:00/11:15 Europe/London schedules. The legacy main-agent schedule remains
+disabled. There are zero active jobs and zero open incidents.
+
+Phase 6 is not yet declared complete. The selected owner must sign in through
+the hosted dashboard after the Supabase email rate limit clears, prove the live
+snapshot, and download one Storage object as that authenticated owner. The
+latest Supabase security advisor also reports leaked-password protection as
+disabled; enable it before public access. Unused-index notices are informational
+and are retained until representative production traffic exists.
+
+Durable details are in
+`docs/evidence/2026-08-03-phase6-private-pilot-commissioning.json`.
