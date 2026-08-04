@@ -594,6 +594,7 @@ def run_client(
                 )
                 if (
                     selected_item_number is not None
+                    and result.status == "completed"
                     and str(result.job_id) != str(selected_item_number)
                 ):
                     result = _failure_result(

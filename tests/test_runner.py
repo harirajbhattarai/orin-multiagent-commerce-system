@@ -8,6 +8,7 @@ import pytest
 
 from orin_runner.contract import (
     ERROR_CONTENT_PLAN_SELECTION_MISMATCH,
+    ERROR_PIPELINE_BLOCKED,
     ERROR_PIPELINE_EXIT_NONZERO,
     ERROR_PIPELINE_RESULT_MISSING,
     ERROR_PIPELINE_TIMEOUT,
@@ -207,6 +208,51 @@ def test_selected_database_item_cannot_complete_as_no_job_due(tmp_path):
     assert result["status"] == "failed"
     assert result["error_code"] == ERROR_CONTENT_PLAN_SELECTION_MISMATCH
     assert result["decision"] == "content_plan_selection_mismatch"
+
+
+def test_selected_database_item_preserves_pipeline_blocker_without_job_echo(tmp_path):
+    preview_path = tmp_path / "pipeline-preview.json"
+    command, _, _ = fake_pipeline(
+        tmp_path,
+        {
+            "blocked": True,
+            "block_reason": "Phase 2A content quality blocked",
+            "selected_job": None,
+            "effective_mode": "dry-run",
+            "shopify_touched": False,
+            "queue_touched": False,
+        },
+    )
+    content_plan = {
+        "schema": "orin.content-plan-snapshot/v1",
+        "client_id": "hoverboard_store",
+        "selected_item_number": 33,
+        "items": [
+            {
+                "item_number": 33,
+                "target_date": "2026-08-23",
+                "status": "in_progress",
+                "topic": "Approved future concept",
+            }
+        ],
+    }
+
+    result = run_client(
+        client_id="hoverboard_store",
+        request_id=str(uuid.uuid4()),
+        mode="dry-run",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        content_plan_snapshot=content_plan,
+        pipeline_command=command,
+        pipeline_preview_path=preview_path,
+    )
+
+    assert result["status"] == "blocked"
+    assert result["error_code"] == ERROR_PIPELINE_BLOCKED
+    assert result["decision"] == "blocked"
 
 
 def test_code_version_matches_checkout_without_global_git_configuration():
