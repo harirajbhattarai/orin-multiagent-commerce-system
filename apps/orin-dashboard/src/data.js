@@ -7,6 +7,8 @@ export const dashboardData = {
   },
   nextArticle: {
     id: 33,
+    contentItemId: "33333333-3333-4333-8333-333333333333",
+    version: 1,
     title: "Electric Scooter Safety Gear for Children: A Parent’s Checklist",
     keyword: "electric scooter safety gear for kids",
     intent: "Commercial guide",
@@ -59,6 +61,8 @@ export const dashboardData = {
   queue: [
     {
       id: 33,
+      contentItemId: "33333333-3333-4333-8333-333333333333",
+      version: 1,
       title: "Electric Scooter Safety Gear for Children: A Parent’s Checklist",
       keyword: "electric scooter safety gear for kids",
       stage: "Review",
@@ -111,6 +115,8 @@ export const dashboardData = {
   ],
   article: {
     id: 33,
+    contentItemId: "33333333-3333-4333-8333-333333333333",
+    version: 1,
     title: "Electric Scooter Safety Gear for Children: A Parent’s Checklist",
     dek: "A calm, practical guide to choosing everyday protection for young riders, with fit checks parents can repeat before every journey.",
     keyword: "electric scooter safety gear for kids",

@@ -33,30 +33,31 @@ import {
   signOutDashboard,
   subscribeToAuthChanges,
 } from "./lib/dashboardClient.js";
+import { reviewJobIdFromPath, selectRouteBoundReviewArticle } from "./reviewArticle.js";
 
-function readPath() {
-  const path = window.location.pathname;
+function readPath(path = window.location.pathname) {
   if (path.startsWith("/review/")) return "review";
   if (path.startsWith("/queue")) return "queue";
   return "overview";
 }
 
 function useRoute() {
-  const [route, setRoute] = useState(readPath);
+  const [path, setPath] = useState(() => window.location.pathname);
+  const route = readPath(path);
 
   useEffect(() => {
-    const onPopState = () => setRoute(readPath());
+    const onPopState = () => setPath(window.location.pathname);
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
   const navigate = (path) => {
     window.history.pushState({}, "", path);
-    setRoute(readPath());
+    setPath(window.location.pathname);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  return { route, navigate };
+  return { route, path, navigate };
 }
 
 function Brand() {
@@ -417,14 +418,29 @@ function Queue({ data, navigate }) {
   );
 }
 
-function Review({ data, navigate, dataSource }) {
+function Review({ data, jobId, navigate, dataSource }) {
   const [decision, setDecision] = useState(null);
   const [changesOpen, setChangesOpen] = useState(false);
   const [note, setNote] = useState("");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [decisionError, setDecisionError] = useState("");
-  const article = data.article;
+  const article = useMemo(() => selectRouteBoundReviewArticle(data, jobId), [data, jobId]);
+
+  if (!article) {
+    return (
+      <div className="review-page">
+        <div className="review-topline">
+          <button className="back-button" type="button" onClick={() => navigate("/queue")}><ArrowLeft size={17} /> Content queue</button>
+        </div>
+        <div className="empty-state" role="alert">
+          <WarningCircle size={26} />
+          <strong>Review item unavailable</strong>
+          <span>This route does not match a current, version-bound review item. Return to the queue and select it again.</span>
+        </div>
+      </div>
+    );
+  }
 
   const saveDecision = async (kind, decisionNote = "") => {
     setSaving(true);
@@ -480,7 +496,7 @@ function Review({ data, navigate, dataSource }) {
             <div className="article-byline">
               <span className="author-mark"><Robot size={17} weight="duotone" /></span>
               <span><strong>Prepared by ORIN</strong><small>Reviewed against HBStore policy</small></span>
-              <span className="article-length"><Clock size={15} /> {data.nextArticle.readingTime}</span>
+              <span className="article-length"><Clock size={15} /> {article.readingTime}</span>
             </div>
           </header>
 
@@ -503,8 +519,8 @@ function Review({ data, navigate, dataSource }) {
             <div className="decision-card-header"><span className="section-kicker">YOUR DECISION</span><h2>Ready for Shopify?</h2><p>Approval creates an unpublished draft only after production wiring is enabled.</p></div>
 
             <div className="review-score">
-              <span className="score-ring"><strong>{data.nextArticle.qualityScore ?? "—"}</strong><small>{data.nextArticle.qualityScore == null ? "brief" : "/100"}</small></span>
-              <div><strong>{data.nextArticle.qualityScore == null ? "Concept is version-bound" : "Quality checks passed"}</strong><span>{data.nextArticle.qualityScore == null ? "Draft quality checks run later in the controlled worker." : "Structure, safety language, SEO and originality."}</span></div>
+              <span className="score-ring"><strong>{article.qualityScore ?? "—"}</strong><small>{article.qualityScore == null ? "brief" : "/100"}</small></span>
+              <div><strong>{article.qualityScore == null ? "Concept is version-bound" : "Quality checks passed"}</strong><span>{article.qualityScore == null ? "Draft quality checks run later in the controlled worker." : "Structure, safety language, SEO and originality."}</span></div>
             </div>
 
             <dl className="seo-details">
@@ -540,7 +556,7 @@ function Review({ data, navigate, dataSource }) {
 }
 
 export function App() {
-  const { route, navigate } = useRoute();
+  const { route, path, navigate } = useRoute();
   const [state, setState] = useState({ data: null, source: "loading", error: null, requiresAuth: false });
 
   const reload = () => {
@@ -567,7 +583,7 @@ export function App() {
     <AppShell route={route} navigate={navigate} dataSource={state.source} onSignOut={signOutDashboard}>
       {route === "overview" && <Overview data={state.data} navigate={navigate} />}
       {route === "queue" && <Queue data={state.data} navigate={navigate} />}
-      {route === "review" && <Review data={state.data} navigate={navigate} dataSource={state.source} />}
+      {route === "review" && <Review data={state.data} jobId={reviewJobIdFromPath(path)} navigate={navigate} dataSource={state.source} />}
     </AppShell>
   );
 }

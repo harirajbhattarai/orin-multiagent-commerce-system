@@ -9,6 +9,27 @@ permissions:
   contents: read
 
 jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/orin-dashboard
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/orin-dashboard/package-lock.json
+      - name: Install dashboard dependencies
+        run: npm ci
+      - name: Test dashboard route bindings
+        run: npm test
+      - name: Build dashboard
+        run: npm run build
+      - name: Test Sites package
+        run: npm run test:sites
+
   test:
     runs-on: ubuntu-latest
     steps:
