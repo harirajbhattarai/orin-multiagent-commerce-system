@@ -12,11 +12,13 @@ from uuid import UUID
 
 from orin_control.secrets import read_private_secret
 from orin_shopify.hidden_draft import (
+    BODY_CANONICALIZATION,
     DraftResult,
     DraftSpec,
     GraphQLHTTPTransport,
     GraphQLTransport,
     HiddenDraftGateway,
+    canonical_shopify_body_sha256,
 )
 
 
@@ -174,6 +176,12 @@ def ensure_approved_review_draft(
             idempotency_key=f"{client_id}:{request_id}",
         )
     )
-    if result.body_sha256 != approved.body_sha256:
-        raise ReviewedDraftContractError("verified Shopify body hash differs from the approved draft")
+    approved_canonical_sha256 = canonical_shopify_body_sha256(approved.body_html)
+    if (
+        result.body_canonicalization != BODY_CANONICALIZATION
+        or result.canonical_body_sha256 != approved_canonical_sha256
+    ):
+        raise ReviewedDraftContractError(
+            "verified Shopify body differs from the approved draft after canonicalization"
+        )
     return result

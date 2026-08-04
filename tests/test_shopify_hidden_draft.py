@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from orin_shopify.hidden_draft import (
+    BODY_CANONICALIZATION,
     CREATE_HIDDEN_DRAFT,
     FIND_MARKED_DRAFTS,
     VERIFY_HIDDEN_DRAFT,
@@ -13,6 +14,7 @@ from orin_shopify.hidden_draft import (
     DraftSpec,
     HiddenDraftGateway,
     ShopifyRequestError,
+    canonical_shopify_body_sha256,
     idempotency_marker,
 )
 
@@ -95,6 +97,8 @@ def test_first_attempt_creates_exactly_one_explicit_hidden_draft():
     assert result.shopify_write_state == "article_observed"
     assert result.idempotency_marker == MARKER
     assert result.body_sha256 == hashlib.sha256(b"<p>Safe body</p>").hexdigest()
+    assert result.canonical_body_sha256 == result.body_sha256
+    assert result.body_canonicalization == BODY_CANONICALIZATION
     create_input = transport.create_calls[0]["article"]
     assert create_input["isPublished"] is False
     assert "publishDate" not in create_input
@@ -176,4 +180,35 @@ def test_marker_with_different_body_fails_closed():
         HiddenDraftGateway(transport).ensure(spec())
 
     assert failure.value.article_id == "gid://shopify/Article/1"
+    assert transport.create_calls == []
+
+
+def test_shopify_list_serializer_newline_reconciles_without_duplicate():
+    approved = "<ul><li><strong>Fit.</strong> Check the rider.</li></ul>"
+    serialized = "<ul><li>\n<strong>Fit.</strong> Check the rider.</li></ul>"
+    expected = spec()
+    expected = DraftSpec(
+        blog_id=expected.blog_id,
+        title=expected.title,
+        body_html=approved,
+        handle=expected.handle,
+        author_name=expected.author_name,
+        idempotency_key=expected.idempotency_key,
+    )
+    transport = FakeTransport([article(42, body=serialized)])
+
+    result = HiddenDraftGateway(transport).ensure(expected)
+
+    assert result.numeric_article_id == 42
+    assert result.body_sha256 == hashlib.sha256(serialized.encode()).hexdigest()
+    assert result.canonical_body_sha256 == canonical_shopify_body_sha256(approved)
+    assert transport.create_calls == []
+
+
+def test_canonicalization_does_not_ignore_inline_or_text_changes():
+    transport = FakeTransport([article(42, body="<p>Safe <strong>body</strong></p>")])
+
+    with pytest.raises(DraftReconciliationError, match="body differs"):
+        HiddenDraftGateway(transport).ensure(spec())
+
     assert transport.create_calls == []
