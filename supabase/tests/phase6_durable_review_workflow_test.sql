@@ -252,6 +252,12 @@ select orin_private.get_content_plan_snapshot(
   'worker:exact-review'
 ) as value;
 
+create temporary table phase6_exact_job as
+select job_id
+from public.content_jobs
+where request_id = 'efefefef-efef-4fef-8fef-efefefefefef';
+grant select on phase6_exact_job to orin_worker;
+
 select is(
   (select value #>> '{approved_draft,body_html}' from phase6_exact_snapshot),
   '<article><h1>Durable review</h1><p>Safe useful content.</p></article>',
@@ -271,8 +277,7 @@ select is(
 set local role orin_worker;
 select *
 from orin_private.complete_job_with_review_draft(
-  (select job_id from public.content_jobs
-   where request_id = 'efefefef-efef-4fef-8fef-efefefefefef'),
+  (select job_id from phase6_exact_job),
   'worker:exact-review',
   jsonb_build_object(
     'schema', 'orin.final-result/v2',
