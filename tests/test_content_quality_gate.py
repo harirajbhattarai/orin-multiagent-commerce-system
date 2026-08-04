@@ -103,6 +103,38 @@ class ContentQualityGateTests(unittest.TestCase):
         self.assertEqual(receipt["metrics"]["internal_link_count"], 5)
         self.assertEqual(receipt["metrics"]["faq_item_count"], 3)
 
+    def test_h1_accepts_all_meaningful_keyword_terms_in_natural_order(self):
+        html = _valid_article().replace(
+            "<h1>Hoverboard Charger Not Working: Safe Checks</h1>",
+            "<h1>Foldable vs Fixed-Frame Kids Electric Scooters: What Parents Should Compare</h1>",
+            1,
+        )
+        receipt = evaluate_article_quality(
+            html,
+            target_keyword="foldable vs fixed electric scooter kids",
+            site_url=SITE_URL,
+        )
+        codes = {blocker["code"] for blocker in receipt["blockers"]}
+
+        self.assertTrue(receipt["metrics"]["target_keyword_in_h1"])
+        self.assertNotIn("CQ_KEYWORD_MISSING_FROM_H1", codes)
+
+    def test_h1_still_blocks_when_a_meaningful_keyword_term_is_missing(self):
+        html = _valid_article().replace(
+            "<h1>Hoverboard Charger Not Working: Safe Checks</h1>",
+            "<h1>Foldable Kids Electric Scooters: What Parents Should Compare</h1>",
+            1,
+        )
+        receipt = evaluate_article_quality(
+            html,
+            target_keyword="foldable vs fixed electric scooter kids",
+            site_url=SITE_URL,
+        )
+        codes = {blocker["code"] for blocker in receipt["blockers"]}
+
+        self.assertFalse(receipt["metrics"]["target_keyword_in_h1"])
+        self.assertIn("CQ_KEYWORD_MISSING_FROM_H1", codes)
+
     def test_highlights_h2_is_not_a_substantive_section(self):
         html = _valid_article().replace(
             '<div class="hs-quick-answer">',

@@ -43,6 +43,18 @@ _NON_SUBSTANTIVE_H2 = {
     "quick answer",
     "introduction",
 }
+_KEYWORD_CONNECTORS = {
+    "a",
+    "an",
+    "and",
+    "for",
+    "in",
+    "of",
+    "or",
+    "the",
+    "to",
+    "vs",
+}
 
 
 def _words(value: str) -> list[str]:
@@ -55,6 +67,41 @@ def _normalise_space(value: str) -> str:
 
 def _normalise_paragraph(value: str) -> str:
     return " ".join(word.lower() for word in _words(value))
+
+
+def _normalise_keyword_token(value: str) -> str:
+    """Normalise a keyword token without using a broad linguistic stemmer."""
+    token = value.lower().replace("’", "'").strip("'-")
+    if len(token) > 4 and token.endswith("ies"):
+        return f"{token[:-3]}y"
+    if len(token) > 4 and token.endswith("s") and not token.endswith("ss"):
+        return token[:-1]
+    return token
+
+
+def _keyword_tokens(value: str) -> list[str]:
+    return _words(value.replace("-", " ").replace("’", " ").replace("'", " "))
+
+
+def _keyword_matches_heading(target_keyword: str, heading: str) -> bool:
+    """Require every meaningful keyword term while allowing natural word order."""
+    keyword = _normalise_space(target_keyword).lower()
+    heading_normalised = _normalise_space(heading).lower()
+    if not keyword or not heading_normalised:
+        return False
+    if keyword in heading_normalised:
+        return True
+
+    required = {
+        _normalise_keyword_token(token)
+        for token in _keyword_tokens(keyword)
+        if token.lower() not in _KEYWORD_CONNECTORS
+    }
+    present = {
+        _normalise_keyword_token(token)
+        for token in _keyword_tokens(heading_normalised)
+    }
+    return bool(required) and required.issubset(present)
 
 
 def _classes(attributes: list[tuple[str, str | None]]) -> set[str]:
@@ -266,7 +313,7 @@ def evaluate_article_quality(
     keyword_occurrences = visible_lower.count(keyword) if keyword else 0
     first_150_words = " ".join(visible_words[:150]).lower()
     keyword_in_opening = bool(keyword and keyword in first_150_words)
-    keyword_in_h1 = bool(keyword and keyword in h1.lower())
+    keyword_in_h1 = _keyword_matches_heading(target_keyword, h1)
 
     paragraph_norms = [
         _normalise_paragraph(paragraph)
