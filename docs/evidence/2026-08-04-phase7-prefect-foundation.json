@@ -1,0 +1,81 @@
+{
+  "schema": "orin.phase7-prefect-foundation/v1",
+  "observed_at": "2026-08-04T16:12:40Z",
+  "status": "foundation_deployed_shadow_run_not_started",
+  "review": {
+    "foundation_pr": 89,
+    "runtime_fix_pr": 90,
+    "deployed_commit": "5bdc759ddedb22105a8c8b00a77774d9aac0431e",
+    "ci": {
+      "test": "passed",
+      "database": "passed",
+      "dashboard": "passed"
+    }
+  },
+  "database_boundary": {
+    "migration": "phase7_prefect_shadow_role",
+    "role": "orin_prefect_shadow",
+    "login_enabled": false,
+    "direct_table_select": false,
+    "direct_job_insert": false,
+    "snapshot_function_execute": true,
+    "enqueue_function_execute": false,
+    "fixed_client": "hoverboard_store"
+  },
+  "prefect_server": {
+    "version": "3.8.1",
+    "database": "PostgreSQL 16.10",
+    "api_health": "healthy",
+    "api_http_status": 200,
+    "ui_http_status": 200,
+    "ui_runtime_errors": 0,
+    "bind": "127.0.0.1:54200",
+    "readonly_root_filesystem": true,
+    "ui_tmpfs": "96m,noexec,nosuid",
+    "worker_container_present": false,
+    "shadow_database_secret_present": false
+  },
+  "prefect_orchestration": {
+    "work_pool": "orin-shadow-process",
+    "work_pool_status": "PAUSED",
+    "work_pool_concurrency": 1,
+    "active_slots": 0,
+    "deployment": "orin-hbstore-shadow/orin-hbstore-shadow",
+    "deployment_version": "5bdc759ddedb22105a8c8b00a77774d9aac0431e",
+    "deployment_paused": true,
+    "deployment_schedules": [],
+    "collision_strategy": "CANCEL_NEW"
+  },
+  "production_safety": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "openclaw_next_wake_at_ms": null,
+    "openclaw_schedules": {
+      "legacy": false,
+      "dedicated": false,
+      "watchdog": false
+    },
+    "latest_scheduler_dry_run": {
+      "source_job_key": "scheduler:orin-hbstore-prod:2026-08-04",
+      "run_id": "hb_20260804T100003Z_24be9981",
+      "status": "completed",
+      "decision": "no_job_due",
+      "shopify_create_count": 0,
+      "shopify_published": false,
+      "queue_changed": false,
+      "reconciliation_status": "not_required"
+    }
+  },
+  "next_gate": {
+    "requires_unique_shadow_login_secret": true,
+    "action": "Install the dedicated Supabase session-pooler URL, then run one supervised read-only comparison with no schedule.",
+    "shopify_writes_must_remain_disabled": true
+  }
+}

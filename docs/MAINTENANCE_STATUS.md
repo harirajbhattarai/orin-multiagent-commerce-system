@@ -1078,12 +1078,13 @@ Durable details are in
 
 ## Phase 7 Prefect shadow foundation validation — 2026-08-04
 
-The isolated Prefect foundation is implemented on a development branch but is
-not deployed. Prefect 3.8.1 and PostgreSQL 16.10 are pinned by immutable image
-digests. The separate Compose project has no default service, exposes the UI
-only on VPS loopback, and gives its process worker neither the Docker socket
-nor any Shopify, model-writer, ORIN worker, scheduler, control API, evidence,
-or OpenClaw credential.
+The isolated Prefect foundation is reviewed, merged, and deployed at exact
+revision `5bdc759ddedb22105a8c8b00a77774d9aac0431e`. Prefect 3.8.1 and
+PostgreSQL 16.10 are pinned by immutable image digests. The separate Compose
+project has no default service, exposes the authenticated API and UI only on
+VPS loopback `127.0.0.1:54200`, and gives its process worker neither the Docker
+socket nor any Shopify, model-writer, ORIN worker, scheduler, control API,
+evidence, or OpenClaw credential.
 
 The local integration proof started the authenticated Prefect server and its
 dedicated PostgreSQL database, applied a deployment with no schedules, and
@@ -1099,5 +1100,19 @@ paused again and the test stack and temporary login were removed.
 Validation passed with 239 Python tests, 149 pgTAP database assertions, schema
 lint, shell and Compose contract checks, an immutable image build, authenticated
 server health, paused bootstrap inspection, and the real process-worker flow.
-The next step is normal PR review/CI, followed by migration and isolated VPS
-deployment with the worker and all schedules still disabled.
+The production deployment additionally proves authenticated API and UI HTTP
+200 responses, a read-only root filesystem, bounded non-executable UI tmpfs,
+zero UI runtime errors, a paused pool with concurrency one, a paused deployment
+with no schedules and `CANCEL_NEW`, and no shadow worker container or shadow
+database secret. PRs #89 and #90 passed all CI jobs.
+
+The Supabase migration is applied, but the production shadow role deliberately
+remains `NOLOGIN` and its VPS secret is absent. All ORIN gates remain closed,
+all three OpenClaw schedules remain disabled with `nextWakeAtMs=null`, and the
+latest production dry-run recorded zero Shopify creates. The next gate is to
+install one unique `orin_prefect_shadow` session-pooler credential, perform one
+supervised read-only comparison, then immediately pause the pool and stop the
+worker. No Prefect schedule or Shopify permission may be enabled.
+
+Durable details are in
+`docs/evidence/2026-08-04-phase7-prefect-foundation.json`.
