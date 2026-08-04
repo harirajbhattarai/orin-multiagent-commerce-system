@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 import sys
@@ -16,6 +17,7 @@ from orin_runner.contract import (
 )
 from orin_runner.runner import configured_repo_root, default_code_version, run_client
 from orin_runner.runner import IdempotencyConflictError
+from orin_shopify.hidden_draft import DraftResult, ShopifyRequestError
 
 
 def fake_pipeline(tmp_path: Path, preview: dict | None, exit_code: int = 0) -> tuple[list[str], Path, Path]:
@@ -510,6 +512,205 @@ def test_hidden_draft_child_receives_durable_marker_context(tmp_path):
     assert child_environment["durable"] == "1"
     assert child_environment["artifact_dir"] == result["artifact_uri"]
     assert result["effective_mode"] == "hidden-draft"
+
+
+def test_database_hidden_draft_uses_exact_reviewed_html_without_pipeline(
+    tmp_path, monkeypatch
+):
+    body = "<article><h1>Approved article</h1><p>Exact reviewed body.</p></article>"
+    body_sha256 = hashlib.sha256(body.encode()).hexdigest()
+    content_plan = {
+        "schema": "orin.content-plan-snapshot/v1",
+        "client_id": "hoverboard_store",
+        "selected_item_id": "dededede-dede-4ede-8ede-dededededede",
+        "selected_item_number": 33,
+        "items": [
+            {
+                "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+                "item_number": 33,
+                "target_date": "2026-08-23",
+                "status": "local_draft_created",
+                "topic": "Approved article",
+                "draft_path": "clients/hoverboard_store/content_engine/drafts/approved-article.html",
+            }
+        ],
+        "approved_draft": {
+            "draft_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+            "content_item_version": 5,
+            "source_run_id": "hb_20260804T123458Z_729bc75f",
+            "title": "Approved article",
+            "body_html": body,
+            "body_sha256": body_sha256,
+            "handle": "approved-article",
+        },
+    }
+    observed = {}
+
+    def ensure(approved, *, client_id, request_id):
+        observed["approved"] = approved
+        observed["client_id"] = client_id
+        observed["request_id"] = request_id
+        return DraftResult(
+            article_id="gid://shopify/Article/9001",
+            numeric_article_id=9001,
+            handle="approved-article",
+            create_count=1,
+            reconciliation_status="reconciled",
+            shopify_write_state="article_observed",
+            idempotency_marker=f"orin-v1:hoverboard_store:{request_id}",
+            body_sha256=body_sha256,
+        )
+
+    monkeypatch.setattr("orin_runner.runner.ensure_approved_review_draft", ensure)
+    request_id = str(uuid.uuid4())
+    result = run_client(
+        client_id="hoverboard_store",
+        request_id=request_id,
+        mode="hidden-draft",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        content_plan_snapshot=content_plan,
+        pipeline_command=["/must/not/run"],
+    )
+
+    assert observed["approved"].body_html == body
+    assert result["status"] == "completed"
+    assert result["job_id"] == "33"
+    assert result["shopify_article_id"] == "9001"
+    assert result["shopify_published"] is False
+    run_dir = Path(result["artifact_uri"])
+    assert (run_dir / "approved_review_draft.html").read_text() == body
+    evidence = json.loads((run_dir / "reviewed_draft_transaction.json").read_text())
+    assert evidence["sent_body_sha256"] == body_sha256
+    assert evidence["fetched_body_sha256"] == body_sha256
+
+
+def test_database_hidden_draft_rejects_tampered_review_body_before_shopify(
+    tmp_path, monkeypatch
+):
+    content_plan = {
+        "schema": "orin.content-plan-snapshot/v1",
+        "client_id": "hoverboard_store",
+        "selected_item_id": "dededede-dede-4ede-8ede-dededededede",
+        "selected_item_number": 33,
+        "items": [
+            {
+                "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+                "item_number": 33,
+                "status": "local_draft_created",
+                "topic": "Approved article",
+            }
+        ],
+        "approved_draft": {
+            "draft_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+            "content_item_version": 5,
+            "source_run_id": "hb_20260804T123458Z_729bc75f",
+            "title": "Approved article",
+            "body_html": "<p>Tampered.</p>",
+            "body_sha256": "0" * 64,
+            "handle": "approved-article",
+        },
+    }
+    called = False
+
+    def ensure(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("Shopify must not be contacted")
+
+    monkeypatch.setattr("orin_runner.runner.ensure_approved_review_draft", ensure)
+    result = run_client(
+        client_id="hoverboard_store",
+        request_id=str(uuid.uuid4()),
+        mode="hidden-draft",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        content_plan_snapshot=content_plan,
+    )
+
+    assert called is False
+    assert result["status"] == "failed"
+    assert result["error_code"] == "ORIN_APPROVED_DRAFT_INVALID"
+    assert result["shopify_write_state"] == "not_attempted"
+
+
+def test_database_hidden_draft_reconciles_same_marker_after_uncertain_write(
+    tmp_path, monkeypatch
+):
+    body = "<article><h1>Approved article</h1><p>Exact reviewed body.</p></article>"
+    body_sha256 = hashlib.sha256(body.encode()).hexdigest()
+    content_plan = {
+        "schema": "orin.content-plan-snapshot/v1",
+        "client_id": "hoverboard_store",
+        "selected_item_id": "dededede-dede-4ede-8ede-dededededede",
+        "selected_item_number": 33,
+        "items": [
+            {
+                "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+                "item_number": 33,
+                "status": "local_draft_created",
+                "topic": "Approved article",
+            }
+        ],
+        "approved_draft": {
+            "draft_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+            "content_item_version": 5,
+            "source_run_id": "hb_20260804T123458Z_729bc75f",
+            "title": "Approved article",
+            "body_html": body,
+            "body_sha256": body_sha256,
+            "handle": "approved-article",
+        },
+    }
+    calls = 0
+
+    def ensure(_approved, *, client_id, request_id):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise ShopifyRequestError("response lost after mutation")
+        return DraftResult(
+            article_id="gid://shopify/Article/9001",
+            numeric_article_id=9001,
+            handle="approved-article",
+            create_count=1,
+            reconciliation_status="reconciled",
+            shopify_write_state="article_observed",
+            idempotency_marker=f"orin-v1:{client_id}:{request_id}",
+            body_sha256=body_sha256,
+        )
+
+    monkeypatch.setattr("orin_runner.runner.ensure_approved_review_draft", ensure)
+    request_id = str(uuid.uuid4())
+    arguments = dict(
+        client_id="hoverboard_store",
+        request_id=request_id,
+        mode="hidden-draft",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        content_plan_snapshot=content_plan,
+    )
+
+    first = run_client(**arguments)
+    second = run_client(**arguments)
+    third = run_client(**arguments)
+
+    assert first["status"] == "blocked"
+    assert first["replay_disposition"] == "reconcile"
+    assert second["status"] == "completed"
+    assert second["attempt"] == 2
+    assert second["shopify_create_count"] == 1
+    assert third == second
+    assert calls == 2
 
 
 def test_database_worker_dry_run_uses_private_artifact_directory(tmp_path):

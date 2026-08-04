@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 import pytest
@@ -25,11 +26,15 @@ def article(
     *,
     marker: str = MARKER,
     handle: str = "safe-handle",
+    title: str = "Safe article",
+    body: str = "<p>Safe body</p>",
     published_at: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": f"gid://shopify/Article/{identifier}",
         "handle": handle,
+        "title": title,
+        "body": body,
         "publishedAt": published_at,
         "metafield": {"value": marker},
     }
@@ -89,6 +94,7 @@ def test_first_attempt_creates_exactly_one_explicit_hidden_draft():
     assert result.reconciliation_status == "reconciled"
     assert result.shopify_write_state == "article_observed"
     assert result.idempotency_marker == MARKER
+    assert result.body_sha256 == hashlib.sha256(b"<p>Safe body</p>").hexdigest()
     create_input = transport.create_calls[0]["article"]
     assert create_input["isPublished"] is False
     assert "publishDate" not in create_input
@@ -151,4 +157,23 @@ def test_marker_with_different_handle_fails_closed():
     with pytest.raises(DraftReconciliationError, match="different article handle"):
         HiddenDraftGateway(transport).ensure(spec())
 
+    assert transport.create_calls == []
+
+
+def test_marker_with_different_title_fails_closed():
+    transport = FakeTransport([article(1, title="Regenerated title")])
+
+    with pytest.raises(DraftReconciliationError, match="title differs"):
+        HiddenDraftGateway(transport).ensure(spec())
+
+    assert transport.create_calls == []
+
+
+def test_marker_with_different_body_fails_closed():
+    transport = FakeTransport([article(1, body="<p>Regenerated body</p>")])
+
+    with pytest.raises(DraftReconciliationError, match="body differs") as failure:
+        HiddenDraftGateway(transport).ensure(spec())
+
+    assert failure.value.article_id == "gid://shopify/Article/1"
     assert transport.create_calls == []

@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(21);
 
 select has_table('public', 'content_drafts', 'versioned review draft table exists');
 select ok(
@@ -161,7 +161,7 @@ from orin_private.complete_job_with_review_draft(
     'content_item_version', 1,
     'title', 'Durable review test concept',
     'body_html', '<article><h1>Durable review</h1><p>Safe useful content.</p></article>',
-    'body_sha256', repeat('a', 64),
+    'body_sha256', '993d7b9c2eadb208a95220813058bfa9e6aa24e715e91340862d12dbc98cd653',
     'word_count', 6,
     'meta_title', 'Durable review',
     'meta_description', 'A safe test draft.',
@@ -202,6 +202,70 @@ select is(
    where request_id = 'efefefef-efef-4fef-8fef-efefefefefef'),
   'recorded',
   'hidden-draft approval waits while Shopify write gates are closed'
+);
+
+update public.client_runtime_settings
+set shopify_writes_enabled = true,
+    allowed_mode = 'hidden-draft'
+where client_id = 'hoverboard_store';
+
+set local role orin_worker;
+select * from orin_private.materialize_next_content_decision();
+reset role;
+
+select is(
+  (select processing_status from public.content_decisions
+   where request_id = 'efefefef-efef-4fef-8fef-efefefefefef'),
+  'consumed',
+  'open write gates consume the exact version-bound hidden-draft approval'
+);
+select results_eq(
+  $$ select job.approved_draft_id, job.approved_content_item_version,
+            job.approved_body_sha256
+     from public.content_jobs job
+     where job.request_id = 'efefefef-efef-4fef-8fef-efefefefefef' $$,
+  $$ select draft.draft_id, draft.content_item_version, draft.body_sha256
+     from public.content_drafts draft
+     where draft.content_item_id = 'dededede-dede-4ede-8ede-dededededede'
+       and draft.content_item_version = 2 $$,
+  'hidden-draft job freezes the immutable draft identity, version, and hash'
+);
+select is(
+  (select payload from public.content_jobs
+   where request_id = 'efefefef-efef-4fef-8fef-efefefefefef'),
+  '{}'::jsonb,
+  'reviewed HTML is never copied into the public job payload'
+);
+
+update public.content_jobs
+set status = 'leased',
+    attempt_count = 1,
+    lock_owner = 'worker:exact-review',
+    locked_at = statement_timestamp(),
+    lease_expires_at = statement_timestamp() + interval '20 minutes'
+where request_id = 'efefefef-efef-4fef-8fef-efefefefefef';
+
+create temporary table phase6_exact_snapshot as
+select orin_private.get_content_plan_snapshot(
+  (select job_id from public.content_jobs
+   where request_id = 'efefefef-efef-4fef-8fef-efefefefefef'),
+  'worker:exact-review'
+) as value;
+
+select is(
+  (select value #>> '{approved_draft,body_html}' from phase6_exact_snapshot),
+  '<article><h1>Durable review</h1><p>Safe useful content.</p></article>',
+  'lease-bound worker snapshot returns the exact reviewed HTML'
+);
+select is(
+  (select value #>> '{approved_draft,body_sha256}' from phase6_exact_snapshot),
+  '993d7b9c2eadb208a95220813058bfa9e6aa24e715e91340862d12dbc98cd653',
+  'lease-bound worker snapshot returns the verified reviewed HTML hash'
+);
+select is(
+  (select value #>> '{approved_draft,handle}' from phase6_exact_snapshot),
+  'durable-review-test-concept',
+  'lease-bound worker snapshot derives the canonical approved handle'
 );
 
 select * from finish();
