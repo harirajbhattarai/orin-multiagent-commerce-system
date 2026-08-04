@@ -12,6 +12,16 @@ Shopify drafts. Job 33 completed through the version-bound dashboard approval,
 automatic worker, marker-first Shopify reconciliation, narrow body
 canonicalization, and durable article-handle persistence path.
 
+Phase 7 Prefect shadow foundation is now being implemented. The fixed design
+uses Prefect 3.8.1, one private PostgreSQL 16 database, one paused process work
+pool with concurrency one, and one paused deployment with no schedule. Prefect
+will initially observe and predict only; OpenClaw does not transfer ownership.
+The shadow worker has no Shopify, writer, ORIN worker, scheduler, control API,
+OpenClaw, Docker, or evidence credential. Its new `orin_prefect_shadow` role
+has no direct table privileges and can call only a sanitized, fixed-HBStore
+snapshot function. Existing production gates and schedules remain unchanged by
+the Phase 7 foundation.
+
 The current safe state supersedes the older chronological operating-state
 notes below: the client is in maintenance; request intake, automation, Shopify
 writes, scheduler ownership, and all OpenClaw schedules are disabled. The
@@ -1065,3 +1075,29 @@ input to the Shopify hidden-draft transaction and reconciliation path.
 
 Durable details are in
 `docs/evidence/2026-08-04-job33-durable-draft-proof.json`.
+
+## Phase 7 Prefect shadow foundation validation — 2026-08-04
+
+The isolated Prefect foundation is implemented on a development branch but is
+not deployed. Prefect 3.8.1 and PostgreSQL 16.10 are pinned by immutable image
+digests. The separate Compose project has no default service, exposes the UI
+only on VPS loopback, and gives its process worker neither the Docker socket
+nor any Shopify, model-writer, ORIN worker, scheduler, control API, evidence,
+or OpenClaw credential.
+
+The local integration proof started the authenticated Prefect server and its
+dedicated PostgreSQL database, applied a deployment with no schedules, and
+confirmed both the deployment and process pool were paused. Pool and
+deployment concurrency were one with `CANCEL_NEW` collision behavior. One
+supervised flow run then used the dedicated `orin_prefect_shadow` login to call
+only the fixed-client sanitized snapshot function. It observed maintenance,
+closed intake and automation, disabled scheduler ownership, disabled Shopify
+writes, zero active jobs, and zero open incidents; it emitted a shadow
+prediction artifact and completed successfully. The pool was immediately
+paused again and the test stack and temporary login were removed.
+
+Validation passed with 239 Python tests, 149 pgTAP database assertions, schema
+lint, shell and Compose contract checks, an immutable image build, authenticated
+server health, paused bootstrap inspection, and the real process-worker flow.
+The next step is normal PR review/CI, followed by migration and isolated VPS
+deployment with the worker and all schedules still disabled.

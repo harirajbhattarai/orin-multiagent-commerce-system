@@ -1,0 +1,172 @@
+name: orin-prefect-shadow
+
+services:
+  prefect-postgres:
+    profiles: ["server", "bootstrap", "shadow-worker"]
+    image: postgres:16.10-bookworm@sha256:38471f330eb885e04de130b768d6db4e10469e2311879c7e5c699f6d2d8a1c74
+    user: "999:999"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+      - /var/run/postgresql:rw,noexec,nosuid,size=16m,uid=999,gid=999
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 768m
+    cpus: 0.50
+    restart: unless-stopped
+    stop_grace_period: 60s
+    environment:
+      POSTGRES_DB: prefect
+      POSTGRES_USER: prefect
+      POSTGRES_PASSWORD_FILE: /run/secrets/prefect_postgres_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - prefect_postgres_password
+    volumes:
+      - prefect_postgres_data:/var/lib/postgresql/data
+      - type: bind
+        source: ${ORIN_PREFECT_PROJECT_ROOT:?set ORIN_PREFECT_PROJECT_ROOT}/deploy/prefect-shadow/init-prefect-db.sql
+        target: /docker-entrypoint-initdb.d/10-pg-trgm.sql
+        read_only: true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prefect -d prefect"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  prefect-server:
+    profiles: ["server", "bootstrap", "shadow-worker"]
+    image: local/orin-prefect-shadow:${ORIN_PREFECT_DEPLOY_SHA:?set ORIN_PREFECT_DEPLOY_SHA}
+    pull_policy: never
+    build:
+      context: ${ORIN_PREFECT_PROJECT_ROOT:?set ORIN_PREFECT_PROJECT_ROOT}
+      dockerfile: Dockerfile.prefect-shadow
+      args:
+        VERSION: ${ORIN_PREFECT_DEPLOY_SHA}
+        VCS_REF: ${ORIN_PREFECT_DEPLOY_SHA}
+    init: true
+    user: "10004:10004"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /home/orin-prefect/.prefect:rw,noexec,nosuid,size=32m,uid=10004,gid=10004
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 160
+    mem_limit: 768m
+    cpus: 0.60
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      prefect-postgres:
+        condition: service_healthy
+    environment:
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+      PREFECT_SERVER_UI_SHOW_PROMOTIONAL_CONTENT: "false"
+      PREFECT_SERVER_UI_API_URL: http://127.0.0.1:${ORIN_PREFECT_UI_PORT:-54200}/api
+      DO_NOT_TRACK: "1"
+    secrets:
+      - prefect_api_auth
+      - prefect_server_database_password
+    ports:
+      - "127.0.0.1:${ORIN_PREFECT_UI_PORT:-54200}:4200"
+    command: ["server"]
+    healthcheck:
+      test: ["CMD", "python", "/app/deploy/prefect-shadow/server_healthcheck.py"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  prefect-bootstrap:
+    profiles: ["bootstrap"]
+    image: local/orin-prefect-shadow:${ORIN_PREFECT_DEPLOY_SHA:?set ORIN_PREFECT_DEPLOY_SHA}
+    pull_policy: never
+    init: true
+    user: "10004:10004"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+      - /home/orin-prefect/.prefect:rw,noexec,nosuid,size=16m,uid=10004,gid=10004
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 384m
+    cpus: 0.30
+    restart: "no"
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+      DO_NOT_TRACK: "1"
+    secrets:
+      - prefect_api_auth
+    command: ["bootstrap"]
+
+  prefect-shadow-worker:
+    profiles: ["shadow-worker"]
+    image: local/orin-prefect-shadow:${ORIN_PREFECT_DEPLOY_SHA:?set ORIN_PREFECT_DEPLOY_SHA}
+    pull_policy: never
+    init: true
+    user: "10004:10004"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+      - /home/orin-prefect/.prefect:rw,noexec,nosuid,size=32m,uid=10004,gid=10004
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 0.50
+    restart: unless-stopped
+    stop_grace_period: 60s
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+      PREFECT_RUNNER_PROCESS_LIMIT: "1"
+      ORIN_PREFECT_SHADOW_DATABASE_URL_FILE: /run/secrets/shadow_database_url
+      ORIN_PREFECT_SHADOW_DATABASE_ROLE: orin_prefect_shadow
+      DO_NOT_TRACK: "1"
+    secrets:
+      - prefect_api_auth
+      - shadow_database_url
+    command: ["worker"]
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+secrets:
+  prefect_postgres_password:
+    file: ${ORIN_PREFECT_SECRETS_DIR:?set ORIN_PREFECT_SECRETS_DIR}/prefect_postgres_password
+  prefect_server_database_password:
+    file: ${ORIN_PREFECT_SECRETS_DIR:?set ORIN_PREFECT_SECRETS_DIR}/prefect_server_database_password
+  prefect_api_auth:
+    file: ${ORIN_PREFECT_SECRETS_DIR:?set ORIN_PREFECT_SECRETS_DIR}/prefect_api_auth
+  shadow_database_url:
+    file: ${ORIN_PREFECT_SECRETS_DIR:?set ORIN_PREFECT_SECRETS_DIR}/shadow_database_url
+
+volumes:
+  prefect_postgres_data:

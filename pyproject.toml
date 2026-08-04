@@ -16,11 +16,17 @@ dependencies = [
     "uvicorn>=0.35,<1",
 ]
 
+[project.optional-dependencies]
+prefect-shadow = [
+    "prefect==3.8.1",
+]
+
 [project.scripts]
 orin-runner = "orin_runner.cli:main"
 orin-worker = "orin_worker.cli:main"
 orin-watchdog = "orin_watchdog.cli:main"
 orin-evidence-sync = "orin_evidence_sync.cli:main"
+orin-prefect-shadow-bootstrap = "orin_prefect_shadow.bootstrap:main"
 
 [dependency-groups]
 dev = [
@@ -37,6 +43,7 @@ packages = [
   "src/orin_scheduler_trigger",
   "src/orin_watchdog",
   "src/orin_evidence_sync",
+  "src/orin_prefect_shadow",
 ]
 
 [tool.pytest.ini_options]
