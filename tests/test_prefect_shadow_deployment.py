@@ -25,6 +25,14 @@ def test_every_prefect_service_is_disabled_by_default_and_pinned():
 
 def test_server_is_loopback_only_and_has_no_traefik_or_docker_socket():
     assert '"127.0.0.1:${ORIN_PREFECT_UI_PORT:-54200}:4200"' in COMPOSE
+    assert (
+        "PREFECT_SERVER_UI_STATIC_DIRECTORY: "
+        "/home/orin-prefect/.prefect/ui"
+    ) in COMPOSE
+    assert (
+        "/home/orin-prefect/.prefect:rw,noexec,nosuid,size=96m,"
+        "uid=10004,gid=10004"
+    ) in COMPOSE
     assert "traefik." not in COMPOSE.lower()
     assert "/var/run/docker.sock" not in COMPOSE
     assert "network_mode: host" not in COMPOSE

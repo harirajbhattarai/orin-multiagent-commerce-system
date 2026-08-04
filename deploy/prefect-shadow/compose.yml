@@ -57,7 +57,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
-      - /home/orin-prefect/.prefect:rw,noexec,nosuid,size=32m,uid=10004,gid=10004
+      - /home/orin-prefect/.prefect:rw,noexec,nosuid,size=96m,uid=10004,gid=10004
     cap_drop: ["ALL"]
     security_opt:
       - no-new-privileges:true
@@ -73,6 +73,7 @@ services:
       PREFECT_SERVER_ANALYTICS_ENABLED: "false"
       PREFECT_SERVER_UI_SHOW_PROMOTIONAL_CONTENT: "false"
       PREFECT_SERVER_UI_API_URL: http://127.0.0.1:${ORIN_PREFECT_UI_PORT:-54200}/api
+      PREFECT_SERVER_UI_STATIC_DIRECTORY: /home/orin-prefect/.prefect/ui
       DO_NOT_TRACK: "1"
     secrets:
       - prefect_api_auth
