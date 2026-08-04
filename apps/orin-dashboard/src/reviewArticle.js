@@ -1,4 +1,4 @@
-const REVIEWABLE_STAGES = new Set(["Review"]);
+const REVIEWABLE_STAGES = new Set(["Planned", "Review"]);
 
 export function reviewJobIdFromPath(pathname) {
   const match = /^\/review\/([1-9]\d*)\/?$/.exec(pathname ?? "");
@@ -15,7 +15,7 @@ function sameBinding(article, item) {
   );
 }
 
-export function selectRouteBoundReviewArticle(data, jobId) {
+export function selectRouteBoundReviewArticle(data, jobId, loadedReview = null) {
   if (!Number.isSafeInteger(jobId)) return null;
 
   const item = (data?.queue ?? []).find((candidate) => Number(candidate.id) === jobId);
@@ -24,7 +24,8 @@ export function selectRouteBoundReviewArticle(data, jobId) {
   const isNextArticle = Number(data?.nextArticle?.id) === jobId;
   if (!REVIEWABLE_STAGES.has(item.stage) && !isNextArticle) return null;
 
-  const richArticle = sameBinding(data?.article, item) ? data.article : null;
+  if (loadedReview && !sameBinding(loadedReview, item)) return null;
+  const richArticle = loadedReview ?? (sameBinding(data?.article, item) ? data.article : null);
   const title = item.title || "Untitled content concept";
   const keyword = item.keyword || "Not assigned";
 
@@ -54,7 +55,15 @@ export function selectRouteBoundReviewArticle(data, jobId) {
       "Shopify publishing is outside this dashboard boundary",
       "All review decisions are immutable and tenant-scoped",
     ],
-    readingTime: isNextArticle ? (data.nextArticle.readingTime ?? "Concept review") : "Concept review",
-    qualityScore: isNextArticle ? (data.nextArticle.qualityScore ?? null) : null,
+    readingTime: richArticle?.wordCount
+      ? `${Math.max(1, Math.ceil(richArticle.wordCount / 220))} min read`
+      : isNextArticle ? (data.nextArticle.readingTime ?? "Concept review") : "Concept review",
+    qualityScore: richArticle?.qualityScore ?? (isNextArticle ? (data.nextArticle.qualityScore ?? null) : null),
+    reviewKind: richArticle?.reviewKind ?? (item.stage === "Planned" ? "concept" : "draft"),
+    bodyHtml: richArticle?.bodyHtml ?? null,
+    wordCount: richArticle?.wordCount ?? null,
+    latestDecision: richArticle?.latestDecision ?? null,
+    latestDecisionStatus: richArticle?.latestDecisionStatus ?? null,
+    latestDecisionOutcome: richArticle?.latestDecisionOutcome ?? "",
   };
 }

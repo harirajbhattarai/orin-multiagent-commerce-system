@@ -19,6 +19,7 @@ class ResultContractError(RuntimeError):
 
 
 class Repository(Protocol):
+    def materialize_next_content_decision(self) -> None: ...
     def claim_next(self, *, worker_id: str, lease_seconds: int) -> ClaimedJob | None: ...
     def renew(self, *, job_id: UUID, worker_id: str, lease_seconds: int) -> bool: ...
     def complete(
@@ -27,6 +28,7 @@ class Repository(Protocol):
         job_id: UUID,
         worker_id: str,
         final_result: dict[str, Any],
+        review_draft: dict[str, Any] | None = None,
     ) -> CompletionRecord: ...
     def defer(
         self,
@@ -181,6 +183,7 @@ def work_once(
     if heartbeat_interval_seconds <= 0 or heartbeat_interval_seconds >= lease_seconds:
         raise ValueError("heartbeat interval must be positive and shorter than the lease")
 
+    repository.materialize_next_content_decision()
     job = repository.claim_next(worker_id=worker_id, lease_seconds=lease_seconds)
     if job is None:
         return WorkOutcome(status="no_job_due", job_id=None, run_id=None, replayed=False)
@@ -202,18 +205,21 @@ def work_once(
 
     if heartbeat.lost:
         raise LeaseLostError("database lease was lost before finalization")
-    _validate_result(job, result)
-    if result["replay_disposition"] == "terminal":
+    persisted_result = dict(result)
+    review_draft = persisted_result.pop("_review_draft", None)
+    _validate_result(job, persisted_result)
+    if persisted_result["replay_disposition"] == "terminal":
         completion = repository.complete(
             job_id=job.job_id,
             worker_id=worker_id,
-            final_result=result,
+            final_result=persisted_result,
+            review_draft=review_draft,
         )
     else:
         completion = repository.defer(
             job_id=job.job_id,
             worker_id=worker_id,
-            final_result=result,
+            final_result=persisted_result,
         )
     return WorkOutcome(
         status=completion.status,

@@ -65,6 +65,17 @@ values
 create temporary table phase6_job_count_before as
 select count(*)::bigint as value from public.content_jobs;
 
+insert into public.content_plan_items (
+  content_item_id, client_id, item_number, target_date, cluster, decision,
+  status, topic, target_keyword, draft_path, source_document, source_revision
+) values (
+  'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 'hoverboard_store', 999,
+  '2026-12-31', 'Test', 'create_new', 'planned', 'Phase 6 test concept',
+  'phase 6 test concept',
+  'clients/hoverboard_store/content_engine/drafts/phase-6-test-concept.html',
+  'supabase-test', repeat('e', 64)
+);
+
 select set_config('request.jwt.claim.sub', '44444444-4444-4444-8444-444444444444', true);
 set local role authenticated;
 
@@ -99,12 +110,13 @@ select
   item.client_id,
   item.content_item_id,
   item.version,
-  'approve_hidden_draft',
+  'approve_concept',
   '',
   '66666666-6666-4666-8666-666666666666',
   '77777777-7777-4777-8777-777777777777'
 from public.content_plan_items item
 where item.client_id = 'hoverboard_store'
+  and item.status = 'planned'
 order by item.item_number
 limit 1;
 
@@ -129,11 +141,12 @@ select throws_ok(
       client_id, content_item_id, content_item_version, decision,
       requested_by, request_id
     )
-    select client_id, content_item_id, version + 1, 'approve_hidden_draft',
+    select client_id, content_item_id, version + 1, 'approve_concept',
            '44444444-4444-4444-8444-444444444444',
            '88888888-8888-4888-8888-888888888888'
     from public.content_plan_items
     where client_id = 'hoverboard_store'
+      and status = 'planned'
     order by item_number
     limit 1
   $$,
@@ -148,11 +161,12 @@ select throws_ok(
       client_id, content_item_id, content_item_version, decision,
       requested_by, request_id
     )
-    select client_id, content_item_id, version, 'approve_hidden_draft',
+    select client_id, content_item_id, version, 'approve_concept',
            '44444444-4444-4444-8444-444444444444',
            '77777777-7777-4777-8777-777777777777'
     from public.content_plan_items
     where client_id = 'hoverboard_store'
+      and status = 'planned'
     order by item_number
     limit 1
   $$,

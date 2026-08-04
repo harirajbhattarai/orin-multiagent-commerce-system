@@ -82,6 +82,43 @@ export async function loadDashboardData() {
   return { data: normalizeSnapshot(data.snapshot), source: "supabase", error: null, requiresAuth: false };
 }
 
+export async function loadReviewItem(clientId, itemNumber) {
+  if (!supabase) return { data: null, error: null };
+  const { data, error } = await supabase
+    .from("client_content_review_items")
+    .select("client_id,item_number,content_item_id,version,status,review_kind,title,target_keyword,cluster,expected_draft_date,draft_version,body_html,body_sha256,word_count,meta_title,meta_description,quality_score,checks,source_run_id,latest_decision,latest_decision_status,latest_decision_outcome,latest_decision_at")
+    .eq("client_id", clientId)
+    .eq("item_number", itemNumber)
+    .maybeSingle();
+  if (error || !data) {
+    return { data: null, error: error ?? new Error("This review item is no longer available.") };
+  }
+  return {
+    data: {
+      id: data.item_number,
+      contentItemId: data.content_item_id,
+      version: data.version,
+      status: data.status,
+      reviewKind: data.review_kind,
+      title: data.title,
+      keyword: data.target_keyword,
+      intent: data.cluster,
+      draftVersion: data.draft_version,
+      bodyHtml: data.body_html,
+      bodySha256: data.body_sha256,
+      wordCount: data.word_count,
+      metaTitle: data.meta_title || data.title,
+      metaDescription: data.meta_description || "Metadata will be finalized before the Shopify draft is created.",
+      qualityScore: data.quality_score,
+      evidence: Array.isArray(data.checks) ? data.checks : [],
+      latestDecision: data.latest_decision,
+      latestDecisionStatus: data.latest_decision_status,
+      latestDecisionOutcome: data.latest_decision_outcome,
+    },
+    error: null,
+  };
+}
+
 export async function sendMagicLink(email) {
   if (!supabase) {
     return { error: new Error("Supabase sign-in is not enabled in this preview.") };

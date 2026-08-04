@@ -958,3 +958,30 @@ mode should be normalized in a subsequent hardening change.
 
 Durable details are in
 `docs/evidence/2026-08-04-normal-run-verification.json`.
+
+## Phase 6 durable review workflow implementation — 2026-08-04
+
+The dashboard review boundary is now implemented as a two-stage workflow in
+the development branch. Concept approval and unpublished-Shopify-draft
+approval are distinct decisions. Generated HTML is captured from the exact
+private run directory, hashed, stored as an immutable tenant/version-bound
+`content_drafts` row, and exposed through a `security_invoker` review view.
+The dashboard renders that full HTML inside a sandboxed, script-disabled
+frame; it no longer substitutes another queue item's article.
+
+The existing automatic worker now asks the database to materialize at most one
+eligible decision before claiming normal jobs. The database can create only a
+dry-run job from `approve_concept`. `approve_hidden_draft` additionally
+requires the matching stored draft plus active intake, automation,
+hidden-draft mode, and Shopify-write gates. The browser cannot open those
+gates or create jobs directly. Stale decisions are superseded and closed gates
+leave approvals recorded without work.
+
+Local verification completed with 182 Python tests, 131 pgTAP database tests,
+five dashboard routing tests, four Sites worker tests, a production dashboard
+build, schema lint, and whitespace validation. No production migration,
+worker deployment, dashboard deployment, Shopify request, or live publish was
+performed by this implementation step. Production rollout must be ordered:
+database migration, immutable worker deployment with gates closed, dashboard
+deployment, then one concept-only pilot. Shopify writes remain disabled until
+that pilot is reviewed.
