@@ -23,8 +23,9 @@ leaked-password protection warning must also be cleared before public access.
 The current hosted login is temporarily blocked by the project email sender's
 rate limit after repeated commissioning links; do not bypass that control.
 
-Shopify writes remain disabled. Dashboard decisions do not enqueue jobs or
-call Shopify.
+Shopify writes remain disabled. Browser decisions never call Shopify or change
+runtime gates. The narrow worker may materialize an eligible decision only
+when the separately managed runtime gates already permit that exact stage.
 
 ## Database contract
 
@@ -41,9 +42,22 @@ Authenticated members can read only their tenant. Only `owner` and `operator`
 members can append decisions. `viewer` members cannot insert. A stale content
 version fails closed, and `request_id` is the idempotency key.
 
-`approve_hidden_draft` records client intent only. It does not change
-`client_runtime_settings`, create a `content_job`, enable Shopify writes, or
-publish anything.
+Migration `20260804113303_phase6_durable_review_workflow.sql` separates the
+review stages and adds:
+
+- immutable `content_drafts`, bound to client, item, content version, and the
+  exact source run;
+- `client_content_review_items`, a tenant-safe `security_invoker` projection
+  containing the full review HTML but no private filesystem path;
+- `approve_concept`, which can materialize only a `dry-run` drafting job;
+- `approve_hidden_draft`, which requires the exact stored draft version and
+  all existing hidden-draft write gates;
+- a worker-only decision consumer and atomic dry-run draft capture.
+
+The browser cannot execute the consumer, modify runtime settings, create a
+job directly, or publish. Change requests move the exact version to human
+revision. Stale approvals are superseded. Closed gates leave approvals as
+durable `recorded` receipts.
 
 ## Dashboard contract
 
@@ -57,6 +71,12 @@ workspace fails to load. The production behaviors are:
 - owner/operator decision: append one immutable ledger row;
 - duplicate browser retry: replay the existing row only when every field
   matches.
+
+The review route then fetches the exact item/version from
+`client_content_review_items`. Concepts show the brief and the action
+"Approve concept for drafting". Generated drafts show the complete HTML in a
+sandboxed, script-disabled frame and the separate action "Approve unpublished
+Shopify draft". A route/version mismatch fails closed.
 
 Never place a server secret, service-role key, database URL, Shopify token, or
 writer key in a `VITE_` variable.
@@ -105,6 +125,8 @@ docker compose --env-file /docker/orin/deployment.env \
 8. Download one object as the authenticated owner and verify its SHA-256.
 9. Re-run the Supabase security advisor.
 
-Phase 6 is complete only after all nine checks pass. An approval-to-worker
-bridge is a later product phase and must retain separate runtime and Shopify
-write gates.
+Phase 6 is complete only after all nine checks pass and one controlled
+concept-to-full-preview pilot proves the durable review bridge. The first
+hidden-draft approval remains a separate controlled test and must retain the
+existing runtime and Shopify write gates. Live publishing is outside this
+workflow.

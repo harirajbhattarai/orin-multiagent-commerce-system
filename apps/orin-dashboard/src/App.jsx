@@ -28,6 +28,7 @@ import {
 } from "@phosphor-icons/react";
 import {
   loadDashboardData,
+  loadReviewItem,
   recordContentDecision,
   sendMagicLink,
   signOutDashboard,
@@ -425,9 +426,28 @@ function Review({ data, jobId, navigate, dataSource }) {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [decisionError, setDecisionError] = useState("");
-  const article = useMemo(() => selectRouteBoundReviewArticle(data, jobId), [data, jobId]);
+  const [reviewDetail, setReviewDetail] = useState({ data: null, loading: dataSource === "supabase", error: null });
 
-  if (!article) {
+  useEffect(() => {
+    let active = true;
+    setReviewDetail({ data: null, loading: dataSource === "supabase", error: null });
+    if (dataSource !== "supabase") return () => { active = false; };
+    loadReviewItem(data.client.id, jobId).then((result) => {
+      if (active) setReviewDetail({ data: result.data, loading: false, error: result.error });
+    });
+    return () => { active = false; };
+  }, [data.client.id, dataSource, jobId]);
+
+  const article = useMemo(
+    () => selectRouteBoundReviewArticle(data, jobId, reviewDetail.data),
+    [data, jobId, reviewDetail.data],
+  );
+
+  if (reviewDetail.loading) {
+    return <div className="loading-screen"><Brand /><span className="loading-line" /><p>Loading the version-bound review…</p></div>;
+  }
+
+  if (!article || reviewDetail.error) {
     return (
       <div className="review-page">
         <div className="review-topline">
@@ -436,7 +456,7 @@ function Review({ data, jobId, navigate, dataSource }) {
         <div className="empty-state" role="alert">
           <WarningCircle size={26} />
           <strong>Review item unavailable</strong>
-          <span>This route does not match a current, version-bound review item. Return to the queue and select it again.</span>
+          <span>{reviewDetail.error?.message ?? "This route does not match a current, version-bound review item. Return to the queue and select it again."}</span>
         </div>
       </div>
     );
@@ -457,12 +477,19 @@ function Review({ data, jobId, navigate, dataSource }) {
       setDecisionError(result.error.message ?? "The decision could not be saved.");
       return;
     }
-    setDecision(kind === "approve_hidden_draft" ? "approved" : "changes");
+    setDecision(kind === "request_changes" ? "changes" : "approved");
     setChangesOpen(false);
     if (kind === "request_changes") setNote("");
   };
 
-  const approve = () => saveDecision("approve_hidden_draft");
+  const approvalKind = article.reviewKind === "draft"
+    ? "approve_hidden_draft"
+    : article.reviewKind === "concept" ? "approve_concept" : null;
+  const approve = () => approvalKind && saveDecision(approvalKind);
+  const approvalLabel = article.reviewKind === "draft"
+    ? "Approve unpublished Shopify draft"
+    : article.reviewKind === "concept" ? "Approve concept for drafting" : "Revision required";
+  const draftDocument = article.bodyHtml ? `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><style>body{margin:0;padding:32px;color:#283a46;font:16px/1.7 Georgia,serif}h1,h2,h3{color:#172a37;line-height:1.25}a{color:#0b7f68}img{max-width:100%;height:auto}</style></head><body>${article.bodyHtml}</body></html>` : null;
 
   const submitChanges = () => {
     if (!note.trim()) return;
@@ -480,8 +507,8 @@ function Review({ data, jobId, navigate, dataSource }) {
         <div className={`decision-banner ${decision}`} role="status">
           {decision === "approved" ? <CheckCircle size={22} weight="fill" /> : <NotePencil size={22} weight="duotone" />}
           <div>
-            <strong>{decision === "approved" ? "Hidden-draft approval recorded" : "Change request recorded"}</strong>
-            <span>{dataSource === "supabase" ? "Saved durably. No Shopify action was performed." : "Saved in this local preview. No Shopify action was performed."}</span>
+            <strong>{decision === "approved" ? `${article.reviewKind === "draft" ? "Hidden-draft" : "Concept"} approval recorded` : "Change request recorded"}</strong>
+            <span>{dataSource === "supabase" ? "Saved durably. The controlled worker will act only when the matching gates are open." : "Saved in this local preview. No Shopify action was performed."}</span>
           </div>
           <button type="button" onClick={() => setDecision(null)} aria-label="Dismiss"><X size={17} /></button>
         </div>
@@ -500,7 +527,9 @@ function Review({ data, jobId, navigate, dataSource }) {
             </div>
           </header>
 
-          <div className="article-body">
+          {draftDocument ? (
+            <iframe className="draft-preview-frame" title={`Full draft preview for ${article.title}`} sandbox="" srcDoc={draftDocument} />
+          ) : <div className="article-body">
             {article.sections.map((section) => (
               <section key={section.heading}>
                 <h2>{section.heading}</h2>
@@ -511,16 +540,16 @@ function Review({ data, jobId, navigate, dataSource }) {
               </section>
             ))}
             <div className="article-disclaimer"><Info size={20} weight="duotone" /><p><strong>A practical reminder</strong>Always follow the scooter and protective equipment manufacturers’ instructions. Supervision and local rules still apply.</p></div>
-          </div>
+          </div>}
         </article>
 
         <aside className="decision-rail">
           <div className="decision-card">
-            <div className="decision-card-header"><span className="section-kicker">YOUR DECISION</span><h2>Ready for Shopify?</h2><p>Approval creates an unpublished draft only after production wiring is enabled.</p></div>
+            <div className="decision-card-header"><span className="section-kicker">YOUR DECISION</span><h2>{article.reviewKind === "draft" ? "Ready for Shopify?" : article.reviewKind === "concept" ? "Ready to draft?" : "Revision required"}</h2><p>{article.reviewKind === "draft" ? "Approval can create one unpublished Shopify draft only when every production gate is open." : article.reviewKind === "concept" ? "Approval queues the controlled drafting and quality-check run. It cannot contact Shopify." : "This version did not reach an approvable stage. Record the needed changes before a new version is generated."}</p></div>
 
             <div className="review-score">
               <span className="score-ring"><strong>{article.qualityScore ?? "—"}</strong><small>{article.qualityScore == null ? "brief" : "/100"}</small></span>
-              <div><strong>{article.qualityScore == null ? "Concept is version-bound" : "Quality checks passed"}</strong><span>{article.qualityScore == null ? "Draft quality checks run later in the controlled worker." : "Structure, safety language, SEO and originality."}</span></div>
+              <div><strong>{article.reviewKind === "concept" ? "Concept is version-bound" : "Full draft is version-bound"}</strong><span>{article.reviewKind === "concept" ? "Draft quality checks run later in the controlled worker." : `${article.wordCount ?? "—"} words captured from the exact generation run.`}</span></div>
             </div>
 
             <dl className="seo-details">
@@ -536,7 +565,7 @@ function Review({ data, jobId, navigate, dataSource }) {
 
             {!changesOpen ? (
               <div className="decision-actions">
-                <button className="approve-button" type="button" onClick={approve} disabled={saving}><CheckCircle size={19} weight="fill" /> {saving ? "Saving…" : "Approve hidden draft"}</button>
+                <button className="approve-button" type="button" onClick={approve} disabled={saving || !approvalKind}><CheckCircle size={19} weight="fill" /> {saving ? "Saving…" : approvalLabel}</button>
                 <button className="changes-button" type="button" onClick={() => setChangesOpen(true)} disabled={saving}><NotePencil size={18} /> Request changes</button>
               </div>
             ) : (
@@ -547,7 +576,8 @@ function Review({ data, jobId, navigate, dataSource }) {
               </div>
             )}
             {decisionError && <p className="decision-error" role="alert"><WarningCircle size={15} /> {decisionError}</p>}
-            <p className="no-publish-note"><WarningCircle size={15} /> This preview cannot publish to Shopify.</p>
+            {article.latestDecision && <p className="decision-receipt"><CloudCheck size={15} /> Latest: {article.latestDecision.replaceAll("_", " ")} · {article.latestDecisionStatus}{article.latestDecisionOutcome ? ` — ${article.latestDecisionOutcome}` : ""}</p>}
+            <p className="no-publish-note"><WarningCircle size={15} /> This dashboard has no live-publish capability.</p>
           </div>
         </aside>
       </div>

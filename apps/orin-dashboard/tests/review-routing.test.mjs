@@ -71,6 +71,22 @@ test("uses rich article content only when its job and version binding match", ()
   assert.deepEqual(article.sections, data.article.sections);
 });
 
+test("uses a full draft only when the fetched route binding is exact", () => {
+  const loaded = {
+    id: 3,
+    contentItemId: "item-3",
+    version: 2,
+    reviewKind: "draft",
+    bodyHtml: "<article><h1>Job Three</h1></article>",
+    wordCount: 440,
+  };
+  const article = selectRouteBoundReviewArticle(data, 3, loaded);
+  assert.equal(article.reviewKind, "draft");
+  assert.equal(article.bodyHtml, loaded.bodyHtml);
+  assert.equal(article.readingTime, "2 min read");
+  assert.equal(selectRouteBoundReviewArticle(data, 3, { ...loaded, version: 3 }), null);
+});
+
 test("fails closed for missing, unbound, or non-reviewable jobs", () => {
   assert.equal(selectRouteBoundReviewArticle(data, 4), null);
   assert.equal(selectRouteBoundReviewArticle(data, 999), null);

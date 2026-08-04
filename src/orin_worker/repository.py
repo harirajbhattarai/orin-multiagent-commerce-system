@@ -49,6 +49,14 @@ class PostgresWorkerRepository:
             lease_expires_at=value["lease_expires_at"],
         )
 
+    def materialize_next_content_decision(self) -> None:
+        """Turn at most one eligible dashboard decision into a gated job."""
+        with self.engine.begin() as connection:
+            self._assert_narrow_role(connection)
+            connection.execute(
+                text("select * from orin_private.materialize_next_content_decision()")
+            ).first()
+
     def renew(self, *, job_id: UUID, worker_id: str, lease_seconds: int) -> bool:
         with self.engine.begin() as connection:
             self._assert_narrow_role(connection)
@@ -94,23 +102,28 @@ class PostgresWorkerRepository:
         job_id: UUID,
         worker_id: str,
         final_result: dict[str, Any],
+        review_draft: dict[str, Any] | None = None,
     ) -> CompletionRecord:
         with self.engine.begin() as connection:
             self._assert_narrow_role(connection)
             statement = text(
                 """
                 select *
-                from orin_private.complete_job(
-                  :job_id, :worker_id, :final_result
+                from orin_private.complete_job_with_review_draft(
+                  :job_id, :worker_id, :final_result, :review_draft
                 )
                 """
-            ).bindparams(bindparam("final_result", type_=JSONB))
+            ).bindparams(
+                bindparam("final_result", type_=JSONB),
+                bindparam("review_draft", type_=JSONB),
+            )
             row = connection.execute(
                 statement,
                 {
                     "job_id": job_id,
                     "worker_id": worker_id,
                     "final_result": final_result,
+                    "review_draft": review_draft,
                 },
             ).one()
         value = row._mapping

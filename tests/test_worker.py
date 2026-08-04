@@ -9,7 +9,7 @@ from uuid import UUID
 import pytest
 
 from orin_worker.models import ClaimedJob, CompletionRecord
-from orin_worker.cli import build_parser, database_url_from_environment
+from orin_worker.cli import _capture_review_draft, build_parser, database_url_from_environment
 from orin_worker.repository import PostgresWorkerRepository
 from orin_worker.service import (
     LeaseLostError,
@@ -76,6 +76,7 @@ class FakeRepository:
     def __init__(self, job: ClaimedJob | None) -> None:
         self.job = job
         self.claims: list[tuple[str, int]] = []
+        self.materializations = 0
         self.renewals: list[tuple[UUID, str, int]] = []
         self.completions: list[dict[str, Any]] = []
         self.deferrals: list[dict[str, Any]] = []
@@ -85,6 +86,9 @@ class FakeRepository:
             status="completed",
             replayed=False,
         )
+
+    def materialize_next_content_decision(self) -> None:
+        self.materializations += 1
 
     def claim_next(self, *, worker_id: str, lease_seconds: int) -> ClaimedJob | None:
         self.claims.append((worker_id, lease_seconds))
@@ -100,9 +104,15 @@ class FakeRepository:
         job_id: UUID,
         worker_id: str,
         final_result: dict[str, Any],
+        review_draft: dict[str, Any] | None = None,
     ) -> CompletionRecord:
         self.completions.append(
-            {"job_id": job_id, "worker_id": worker_id, "final_result": final_result}
+            {
+                "job_id": job_id,
+                "worker_id": worker_id,
+                "final_result": final_result,
+                "review_draft": review_draft,
+            }
         )
         return self.completion
 
@@ -141,6 +151,7 @@ def test_no_due_job_is_a_successful_noop():
         "replayed": False,
     }
     assert executed is False
+    assert repository.materializations == 1
     assert repository.completions == []
 
 
@@ -221,7 +232,7 @@ def test_claimed_job_is_completed_with_the_exact_runner_result():
     assert outcome.status == "completed"
     assert outcome.job_id == str(JOB_ID)
     assert outcome.run_id == result["run_id"]
-    assert repository.completions[0]["final_result"] is result
+    assert repository.completions[0]["final_result"] == result
 
 
 @pytest.mark.parametrize(
@@ -326,7 +337,40 @@ def test_needs_review_is_durably_deferred_instead_of_completed():
 
     assert outcome.status == "queued"
     assert repository.completions == []
-    assert repository.deferrals[0]["final_result"] is result
+    assert repository.deferrals[0]["final_result"] == result
+
+
+def test_current_run_draft_capture_is_version_bound_and_private(tmp_path):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    draft = run_dir / "writer_output.html"
+    draft.write_text("<article><h1>Safe guide</h1><p>Useful parent advice.</p></article>")
+    (run_dir / "pipeline_preview.json").write_text(
+        '{"writer_output_path": "' + str(draft) + '", "selected_topic": "Safe guide"}'
+    )
+    result = final_result(
+        job_id="33",
+        artifact_uri=str(run_dir),
+    )
+    snapshot = {
+        "selected_item_number": 33,
+        "items": [
+            {
+                "item_number": 33,
+                "content_item_id": "33333333-3333-4333-8333-333333333333",
+                "version": 4,
+                "topic": "Safe guide",
+            }
+        ],
+    }
+
+    captured = _capture_review_draft(result, snapshot)
+
+    assert captured is not None
+    assert captured["content_item_version"] == 4
+    assert captured["title"] == "Safe guide"
+    assert captured["word_count"] == 5
+    assert len(str(captured["body_sha256"])) == 64
 
 
 def test_unknown_hidden_draft_state_requires_reconciliation_not_safe_retry():

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import signal
 import socket
 import sys
@@ -19,6 +21,71 @@ from orin_runner.runner import configured_repo_root, run_client
 from orin_worker.models import ClaimedJob
 from orin_worker.repository import PostgresWorkerRepository
 from orin_worker.service import WorkOutcome, work_forever, work_once
+
+
+MAX_REVIEW_DRAFT_BYTES = 500_000
+
+
+def _capture_review_draft(
+    result: dict[str, object], content_plan_snapshot: dict[str, object]
+) -> dict[str, object] | None:
+    """Read only the current run's selected draft and bind it to its DB version."""
+    if result.get("requested_mode") != "dry-run" or result.get("status") != "completed":
+        return None
+    selected_number = content_plan_snapshot.get("selected_item_number")
+    if selected_number is None or str(result.get("job_id")) != str(selected_number):
+        return None
+    selected = next(
+        (
+            item
+            for item in content_plan_snapshot.get("items", [])  # type: ignore[union-attr]
+            if isinstance(item, dict) and item.get("item_number") == selected_number
+        ),
+        None,
+    )
+    if selected is None:
+        raise RuntimeError("selected content item is missing from the worker snapshot")
+
+    run_dir = Path(str(result.get("artifact_uri") or "")).resolve()
+    preview_path = run_dir / "pipeline_preview.json"
+    if not run_dir.is_dir() or not preview_path.is_file():
+        raise RuntimeError("current-run review evidence is missing")
+    preview = json.loads(preview_path.read_text(encoding="utf-8"))
+    writer_source_path = Path(str(preview.get("writer_output_path") or ""))
+    if writer_source_path.is_symlink():
+        raise RuntimeError("current-run writer draft must not be a symbolic link")
+    writer_path = writer_source_path.resolve()
+    try:
+        writer_path.relative_to(run_dir)
+    except ValueError as exc:
+        raise RuntimeError("writer draft escaped the current run directory") from exc
+    if not writer_path.is_file():
+        raise RuntimeError("current-run writer draft is not a regular file")
+    raw = writer_path.read_bytes()
+    if not raw or len(raw) > MAX_REVIEW_DRAFT_BYTES:
+        raise RuntimeError("current-run writer draft has an invalid size")
+    body_html = raw.decode("utf-8")
+    plain_text = re.sub(r"<[^>]+>", " ", body_html)
+    word_count = len(re.findall(r"\b[\w'-]+\b", plain_text))
+    if word_count < 1:
+        raise RuntimeError("current-run writer draft has no readable words")
+
+    return {
+        "content_item_id": selected.get("content_item_id"),
+        "content_item_version": selected.get("version"),
+        "title": preview.get("selected_topic") or selected.get("topic") or "Untitled draft",
+        "body_html": body_html,
+        "body_sha256": hashlib.sha256(raw).hexdigest(),
+        "word_count": word_count,
+        "meta_title": "",
+        "meta_description": "",
+        "quality_score": None,
+        "checks": [
+            "Current-run draft identity verified",
+            "Automated post-write review completed",
+            "Shopify was not contacted during this draft-generation run",
+        ],
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -112,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
             job_id=job.job_id,
             worker_id=worker_id,
         )
-        return run_client(
+        result = run_client(
             client_id=job.client_id,
             request_id=str(job.request_id),
             mode=job.requested_mode,
@@ -124,6 +191,10 @@ def main(argv: list[str] | None = None) -> int:
             durable_db_mode=True,
             content_plan_snapshot=content_plan_snapshot,
         )
+        review_draft = _capture_review_draft(result, content_plan_snapshot)
+        if review_draft is not None:
+            result["_review_draft"] = review_draft
+        return result
 
     try:
         if args.command == "once":
