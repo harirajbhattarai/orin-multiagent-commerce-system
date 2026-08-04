@@ -2,6 +2,7 @@
 !Dockerfile.runner
 !Dockerfile.control-api
 !Dockerfile.worker
+!Dockerfile.prefect-shadow
 !pyproject.toml
 !uv.lock
 !src/
@@ -10,3 +11,6 @@
 !tools/**
 !schemas/
 !schemas/**
+!deploy/
+!deploy/prefect-shadow/
+!deploy/prefect-shadow/**

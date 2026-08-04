@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+require_shadow_secret=false
+if [[ "${1:-}" == "--require-shadow-secret" ]]; then
+  require_shadow_secret=true
+elif [[ $# -ne 0 ]]; then
+  echo "usage: $0 [--require-shadow-secret]" >&2
+  exit 2
+fi
+
+: "${ORIN_PREFECT_DEPLOY_SHA:?set ORIN_PREFECT_DEPLOY_SHA}"
+: "${ORIN_PREFECT_PROJECT_ROOT:?set ORIN_PREFECT_PROJECT_ROOT}"
+: "${ORIN_PREFECT_SECRETS_DIR:?set ORIN_PREFECT_SECRETS_DIR}"
+: "${ORIN_PREFECT_UI_PORT:=54200}"
+
+if [[ "${EUID}" -ne 0 ]]; then
+  echo "Prefect preflight must run as root on the VPS" >&2
+  exit 1
+fi
+if [[ ! "${ORIN_PREFECT_DEPLOY_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "ORIN_PREFECT_DEPLOY_SHA must be an exact 40-character commit" >&2
+  exit 1
+fi
+if [[ -n "$(git -c safe.directory="${ORIN_PREFECT_PROJECT_ROOT}" -C "${ORIN_PREFECT_PROJECT_ROOT}" status --porcelain)" ]]; then
+  echo "canonical Git checkout is not clean" >&2
+  exit 1
+fi
+actual_sha="$(git -c safe.directory="${ORIN_PREFECT_PROJECT_ROOT}" -C "${ORIN_PREFECT_PROJECT_ROOT}" rev-parse HEAD)"
+if [[ "${actual_sha}" != "${ORIN_PREFECT_DEPLOY_SHA}" ]]; then
+  echo "checkout mismatch: expected ${ORIN_PREFECT_DEPLOY_SHA}, received ${actual_sha}" >&2
+  exit 1
+fi
+if ss -H -ltn "sport = :${ORIN_PREFECT_UI_PORT}" | grep -q .; then
+  echo "loopback Prefect port ${ORIN_PREFECT_UI_PORT} is already in use" >&2
+  exit 1
+fi
+
+compose_file="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compose.yml"
+if [[ -n "$(docker compose --env-file /dev/null -f "${compose_file}" config --services)" ]]; then
+  echo "Prefect deployment has an unprofiled default service" >&2
+  exit 1
+fi
+docker compose --env-file /dev/null -f "${compose_file}" --profile "*" config --quiet
+
+declare -A expected_uid=(
+  [prefect_postgres_password]=999
+  [prefect_server_database_password]=10004
+  [prefect_api_auth]=10004
+  [shadow_database_url]=10004
+)
+secret_names=(
+  prefect_postgres_password
+  prefect_server_database_password
+  prefect_api_auth
+)
+if [[ "${require_shadow_secret}" == true ]]; then
+  secret_names+=(shadow_database_url)
+fi
+for name in "${secret_names[@]}"; do
+  path="${ORIN_PREFECT_SECRETS_DIR}/${name}"
+  if [[ ! -f "${path}" || ! -s "${path}" ]]; then
+    echo "missing or empty secret: ${path}" >&2
+    exit 1
+  fi
+  if [[ "$(stat -c %a "${path}")" != "400" ]]; then
+    echo "secret must have mode 0400: ${path}" >&2
+    exit 1
+  fi
+  if [[ "$(stat -c %u "${path}")" != "${expected_uid[${name}]}" ]]; then
+    echo "secret has the wrong owner: ${path}" >&2
+    exit 1
+  fi
+  if [[ "$(wc -l < "${path}")" -gt 1 ]]; then
+    echo "secret must contain exactly one line: ${path}" >&2
+    exit 1
+  fi
+done
+if ! cmp -s \
+  "${ORIN_PREFECT_SECRETS_DIR}/prefect_postgres_password" \
+  "${ORIN_PREFECT_SECRETS_DIR}/prefect_server_database_password"; then
+  echo "Prefect database password copies do not match" >&2
+  exit 1
+fi
+
+echo "ORIN Prefect shadow preflight passed; no service was started"

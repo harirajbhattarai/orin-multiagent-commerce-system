@@ -1,0 +1,37 @@
+FROM prefecthq/prefect:3.8.1-python3.12@sha256:2d647011130f4bb36ee07b8386921890f1da44a9b7fbf81cfa86a555b92f151e
+
+ARG VERSION=dev
+ARG VCS_REF=unknown
+
+LABEL org.opencontainers.image.title="ORIN Prefect Shadow" \
+      org.opencontainers.image.description="Read-only, fixed-client ORIN Prefect shadow worker" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.source="https://github.com/harirajbhattarai/orin-multiagent-commerce-system"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH=/app/.venv/bin:${PATH} \
+    HOME=/home/orin-prefect \
+    PREFECT_HOME=/home/orin-prefect/.prefect \
+    ORIN_CODE_VERSION=${VCS_REF}
+
+RUN groupadd --gid 10004 orin-prefect \
+    && useradd --uid 10004 --gid 10004 --create-home --shell /usr/sbin/nologin orin-prefect
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+COPY src/ ./src/
+COPY deploy/prefect-shadow/ ./deploy/prefect-shadow/
+
+RUN python -m pip install --no-cache-dir uv==0.11.16 \
+    && python -m uv sync --frozen --no-dev --no-editable --extra prefect-shadow \
+    && /usr/local/bin/python -m pip uninstall --yes uv \
+    && chmod 0555 deploy/prefect-shadow/*.sh \
+    && chown -R 10004:10004 /app /home/orin-prefect
+
+USER 10004:10004
+
+ENTRYPOINT ["/app/deploy/prefect-shadow/entrypoint.sh"]
+CMD ["bootstrap"]

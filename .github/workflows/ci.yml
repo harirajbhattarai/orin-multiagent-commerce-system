@@ -98,6 +98,17 @@ jobs:
             .
           docker run --rm orin-watchdog:ci --help
           test "$(docker image inspect orin-watchdog:ci --format '{{.Config.User}}')" = "10003:10003"
+      - name: Build and smoke-test Prefect shadow image
+        run: |
+          docker build \
+            --file Dockerfile.prefect-shadow \
+            --build-arg "VERSION=ci" \
+            --build-arg "VCS_REF=${GITHUB_SHA}" \
+            --tag orin-prefect-shadow:ci \
+            .
+          docker run --rm --entrypoint python orin-prefect-shadow:ci \
+            -c "import prefect; from orin_prefect_shadow.flow import hbstore_shadow_flow; assert prefect.__version__ == '3.8.1'; print(hbstore_shadow_flow.name)"
+          test "$(docker image inspect orin-prefect-shadow:ci --format '{{.Config.User}}')" = "10004:10004"
       - name: Validate disabled VPS deployment contract
         run: |
           bash -n deploy/vps/preflight.sh
@@ -137,6 +148,30 @@ jobs:
             ORIN_RUNTIME_GID=1000 \
             ORIN_API_PORT=58080 \
               docker compose -f deploy/vps/compose.yml config --services)"
+      - name: Validate disabled Prefect shadow deployment contract
+        run: |
+          bash -n deploy/prefect-shadow/entrypoint.sh
+          bash -n deploy/prefect-shadow/install_server_secrets.sh
+          bash -n deploy/prefect-shadow/install_shadow_db_secret.sh
+          bash -n deploy/prefect-shadow/preflight.sh
+          prefect_tmp="$(mktemp -d)"
+          mkdir -p "${prefect_tmp}/secrets"
+          touch \
+            "${prefect_tmp}/secrets/prefect_postgres_password" \
+            "${prefect_tmp}/secrets/prefect_server_database_password" \
+            "${prefect_tmp}/secrets/prefect_api_auth" \
+            "${prefect_tmp}/secrets/shadow_database_url"
+          ORIN_PREFECT_DEPLOY_SHA="${GITHUB_SHA}" \
+          ORIN_PREFECT_PROJECT_ROOT="${GITHUB_WORKSPACE}" \
+          ORIN_PREFECT_SECRETS_DIR="${prefect_tmp}/secrets" \
+          ORIN_PREFECT_UI_PORT=54200 \
+            docker compose -f deploy/prefect-shadow/compose.yml \
+              --profile "*" config --quiet
+          test -z "$(ORIN_PREFECT_DEPLOY_SHA="${GITHUB_SHA}" \
+            ORIN_PREFECT_PROJECT_ROOT="${GITHUB_WORKSPACE}" \
+            ORIN_PREFECT_SECRETS_DIR="${prefect_tmp}/secrets" \
+            ORIN_PREFECT_UI_PORT=54200 \
+              docker compose -f deploy/prefect-shadow/compose.yml config --services)"
 
   database:
     runs-on: ubuntu-latest
