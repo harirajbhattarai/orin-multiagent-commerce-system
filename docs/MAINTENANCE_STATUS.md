@@ -985,3 +985,41 @@ performed by this implementation step. Production rollout must be ordered:
 database migration, immutable worker deployment with gates closed, dashboard
 deployment, then one concept-only pilot. Shopify writes remain disabled until
 that pilot is reviewed.
+
+## Phase 6 Job 33 durable-draft pilot — 2026-08-04
+
+The concept-only production pilot is complete. PR #83 corrected the natural-H1
+false negative without weakening the fail-closed keyword rule: every meaningful
+target term is still required, while hyphenation, natural word order, and simple
+singular/plural differences are accepted. It also preserves genuine pipeline
+blockers instead of replacing them with a selected-item mismatch. All three CI
+jobs passed, and the worker plus scheduler-trigger were deployed at exact merged
+revision `008c4ebe3fb82eb403bdc2596faff96dd054bd0e` with zero restarts.
+
+The owner approved Job 33 version 4 through the private dashboard. The existing
+automatic worker materialized, claimed, and completed exactly one dry-run job,
+one run, and one attempt without a date or item override. Run
+`hb_20260804T123458Z_729bc75f` returned
+`READY_TO_CREATE_SELECTED_JOB_DRAFT`, selected Job 33, and recorded zero Shopify
+creates, no publish, no queue mutation, `shopify_write_state=not_attempted`, and
+`reconciliation_status=not_required`.
+
+Completion atomically advanced Job 33 to `local_draft_created` version 5 and
+stored the exact 2,122-word HTML as an immutable `content_drafts` row. The
+database body digest and private evidence-file digest both equal
+`cded6db118f6967bdbc1d02a066265368e69c586ea1b5be1e708e5a220f880ea`.
+The owner dashboard renders the full stored draft in its sandboxed frame and
+shows the separate unpublished-Shopify-draft approval action. That action was
+not selected.
+
+Commissioning gates were closed immediately after completion: the client is in
+maintenance, request intake and automation are disabled, Shopify writes are
+disabled, allowed mode remains `dry-run`, scheduler state is disabled with no
+owner, and there are zero active jobs or open incidents. Legacy, dedicated, and
+watchdog OpenClaw schedules are all disabled. Phase 6 durable concept-to-review
+is proven. Before any hidden-draft approval, the next implementation must prove
+that the exact stored reviewed HTML—not regenerated content—is the idempotent
+input to the Shopify hidden-draft transaction and reconciliation path.
+
+Durable details are in
+`docs/evidence/2026-08-04-job33-durable-draft-proof.json`.
