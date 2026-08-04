@@ -119,6 +119,7 @@ JSON_MODE = "--json" in sys.argv
 JOB_FILTER = None
 AS_OF_DATE = None  # resolved business date override
 CLIENT_ROUTE = None  # 'hcs_gadgets' | 'hoverboard_store' | None (default=Hoverboard)
+DURABLE_SELECTED_JOB = os.environ.get("ORIN_DURABLE_SELECTED_JOB")
 for index, arg in enumerate(sys.argv):
     m = re.match(r"^--client=(\w+)$", arg)
     if m:
@@ -214,11 +215,47 @@ def writer_output_path(planned_draft_path, job_num, pipeline_run_id):
     return str(artifact_root / f"writer_output_{pipeline_run_id}.html")
 
 
-def select_job_for_run(phase1b, job_filter):
+def select_job_for_run(phase1b, job_filter, durable_selected_job=None):
     """Apply a manual job pin without weakening the planner's safety gates."""
     planner = phase1b.get("planner", {})
     planner_decision = planner.get("planner_decision", "")
     selected_job = planner.get("selected_job_number")
+    candidates = planner.get("all_jobs_summary", {})
+
+    if durable_selected_job is not None:
+        durable_value = str(durable_selected_job)
+        if (
+            not durable_value.isascii()
+            or not durable_value.isdecimal()
+            or int(durable_value) < 1
+        ):
+            raise ValueError("durable selected job is invalid")
+        requested = str(int(durable_value))
+        if job_filter is not None and str(int(job_filter)) != requested:
+            raise ValueError("manual and durable job selections disagree")
+        target = None
+        target_number = None
+        for candidate_number, item in candidates.items():
+            candidate_number = str(candidate_number)
+            if (
+                candidate_number.isascii()
+                and candidate_number.isdecimal()
+                and str(int(candidate_number)) == requested
+            ):
+                target = item
+                target_number = candidate_number
+                break
+        if target is None:
+            raise ValueError("durable selected job is absent from the content plan")
+        blocking_issues = target.get("blocking_issues")
+        if (
+            target.get("queue_status") != "planned"
+            or not isinstance(blocking_issues, list)
+            or blocking_issues
+        ):
+            raise ValueError("durable selected job is not planned and unblocked")
+        return "job_selected", target_number
+
     if not job_filter:
         return planner_decision, selected_job
 
@@ -228,7 +265,6 @@ def select_job_for_run(phase1b, job_filter):
         )
 
     requested = str(int(job_filter))
-    candidates = planner.get("all_jobs_summary", {})
     target = None
     target_number = None
     for candidate_number, item in candidates.items():
@@ -432,7 +468,11 @@ def run_pipeline():
 
     planner = phase1b.get("planner", {})
     try:
-        planner_decision, selected_job = select_job_for_run(phase1b, JOB_FILTER)
+        planner_decision, selected_job = select_job_for_run(
+            phase1b,
+            JOB_FILTER,
+            DURABLE_SELECTED_JOB,
+        )
     except (TypeError, ValueError) as exc:
         return pipeline_blocked(f"Phase 1B manual job selection blocked: {exc}")
     print(f"  Planner decision: {planner_decision}")

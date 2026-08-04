@@ -100,6 +100,43 @@ def test_manual_job_pin_selects_an_explicit_due_planned_job():
     assert select_job_for_run(phase1b, "29") == ("job_selected", "29")
 
 
+def test_durable_approval_selects_exact_future_planned_job():
+    phase1b = {
+        "planner": {
+            "planner_decision": "no_job_due",
+            "selected_job_number": None,
+            "all_jobs_summary": {
+                "33": {
+                    "queue_status": "planned",
+                    "days_until_draft": 5,
+                    "blocking_issues": [],
+                }
+            },
+        }
+    }
+
+    assert select_job_for_run(phase1b, None, "33") == ("job_selected", "33")
+
+
+def test_durable_approval_cannot_select_nonplanned_job():
+    phase1b = {
+        "planner": {
+            "planner_decision": "no_job_due",
+            "selected_job_number": None,
+            "all_jobs_summary": {
+                "33": {
+                    "queue_status": "in_progress",
+                    "days_until_draft": 5,
+                    "blocking_issues": [],
+                }
+            },
+        }
+    }
+
+    with pytest.raises(ValueError, match="not planned and unblocked"):
+        select_job_for_run(phase1b, None, "33")
+
+
 @pytest.mark.parametrize(
     "phase1b",
     [

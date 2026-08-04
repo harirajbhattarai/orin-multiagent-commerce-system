@@ -45,6 +45,16 @@ def test_snapshot_renders_canonical_read_only_projection():
     assert "- Keep this safe." in rendered
 
 
+def test_selected_in_progress_item_is_planned_only_in_compatibility_projection():
+    value = snapshot()
+    value["items"][0]["status"] = "in_progress"  # type: ignore[index]
+
+    rendered = render_content_plan_markdown(value, client_id="hoverboard_store")
+
+    assert "Status: planned" in rendered
+    assert value["items"][0]["status"] == "in_progress"  # type: ignore[index]
+
+
 def test_snapshot_rejects_cross_tenant_data():
     with pytest.raises(ContentPlanSnapshotError, match="another client"):
         validate_content_plan_snapshot(snapshot(), client_id="hcs_gadgets")

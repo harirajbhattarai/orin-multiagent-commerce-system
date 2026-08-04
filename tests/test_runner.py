@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from orin_runner.contract import (
+    ERROR_CONTENT_PLAN_SELECTION_MISMATCH,
     ERROR_PIPELINE_EXIT_NONZERO,
     ERROR_PIPELINE_RESULT_MISSING,
     ERROR_PIPELINE_TIMEOUT,
@@ -123,9 +124,10 @@ def test_database_content_plan_is_private_pipeline_input(tmp_path):
         "import json, os, pathlib\n"
         "projection = pathlib.Path(os.environ['ORIN_CONTENT_QUEUE_PATH'])\n"
         "artifact_root = pathlib.Path(os.environ['ORIN_RUN_ARTIFACT_DIR'])\n"
+        "assert os.environ['ORIN_DURABLE_SELECTED_JOB'] == '31'\n"
         "assert projection.parent == artifact_root\n"
         "assert '## Job 31' in projection.read_text()\n"
-        f"pathlib.Path({str(preview_path)!r}).write_text(json.dumps({{'blocked': False, 'planner_decision': 'no_job_due', 'selected_job': None, 'effective_mode': 'dry-run', 'shopify_touched': False, 'queue_touched': False}}))\n",
+        f"pathlib.Path({str(preview_path)!r}).write_text(json.dumps({{'blocked': False, 'planner_decision': 'job_selected', 'selected_job': 31, 'effective_mode': 'dry-run', 'shopify_touched': False, 'queue_touched': False}}))\n",
         encoding="utf-8",
     )
     content_plan = {
@@ -160,6 +162,51 @@ def test_database_content_plan_is_private_pipeline_input(tmp_path):
     run_dir = Path(result["artifact_uri"])
     assert (run_dir / "content_queue_projection.md").stat().st_mode & 0o077 == 0
     assert json.loads((run_dir / "content_plan_snapshot.json").read_text()) == content_plan
+
+
+def test_selected_database_item_cannot_complete_as_no_job_due(tmp_path):
+    preview_path = tmp_path / "pipeline-preview.json"
+    command, _, _ = fake_pipeline(
+        tmp_path,
+        {
+            "blocked": False,
+            "planner_decision": "no_job_due",
+            "selected_job": None,
+            "effective_mode": "dry-run",
+            "shopify_touched": False,
+            "queue_touched": False,
+        },
+    )
+    content_plan = {
+        "schema": "orin.content-plan-snapshot/v1",
+        "client_id": "hoverboard_store",
+        "selected_item_number": 33,
+        "items": [
+            {
+                "item_number": 33,
+                "target_date": "2026-08-23",
+                "status": "in_progress",
+                "topic": "Approved future concept",
+            }
+        ],
+    }
+
+    result = run_client(
+        client_id="hoverboard_store",
+        request_id=str(uuid.uuid4()),
+        mode="dry-run",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        content_plan_snapshot=content_plan,
+        pipeline_command=command,
+        pipeline_preview_path=preview_path,
+    )
+
+    assert result["status"] == "failed"
+    assert result["error_code"] == ERROR_CONTENT_PLAN_SELECTION_MISMATCH
+    assert result["decision"] == "content_plan_selection_mismatch"
 
 
 def test_code_version_matches_checkout_without_global_git_configuration():
