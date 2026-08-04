@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import socket
@@ -25,6 +26,8 @@ query FindOrinDrafts($blogId: ID!, $after: String) {
       nodes {
         id
         handle
+        title
+        body
         publishedAt
         metafield(namespace: "orin_control", key: "idempotency_key") {
           value
@@ -46,6 +49,8 @@ mutation CreateOrinHiddenDraft($article: ArticleCreateInput!) {
     article {
       id
       handle
+      title
+      body
       publishedAt
       metafield(namespace: "orin_control", key: "idempotency_key") {
         value
@@ -66,6 +71,8 @@ query VerifyOrinHiddenDraft($id: ID!) {
   article(id: $id) {
     id
     handle
+    title
+    body
     publishedAt
     metafield(namespace: "orin_control", key: "idempotency_key") {
       value
@@ -81,6 +88,10 @@ class ShopifyRequestError(RuntimeError):
 
 class DraftReconciliationError(RuntimeError):
     """A hidden draft cannot be created or reconciled safely."""
+
+    def __init__(self, message: str, *, article_id: str | None = None) -> None:
+        super().__init__(message)
+        self.article_id = article_id
 
 
 class GraphQLTransport(Protocol):
@@ -106,6 +117,7 @@ class DraftResult:
     reconciliation_status: str
     shopify_write_state: str
     idempotency_marker: str
+    body_sha256: str
 
 
 def idempotency_marker(value: str) -> str:
@@ -203,11 +215,38 @@ class HiddenDraftGateway:
         if not isinstance(article_id, str):
             raise DraftReconciliationError("Shopify article is missing its ID")
         if article.get("publishedAt") is not None:
-            raise DraftReconciliationError("Shopify article is published or scheduled; manual review required")
+            raise DraftReconciliationError(
+                "Shopify article is published or scheduled; manual review required",
+                article_id=article_id,
+            )
         if article.get("handle") != spec.handle:
-            raise DraftReconciliationError("Shopify marker belongs to a different article handle")
+            raise DraftReconciliationError(
+                "Shopify marker belongs to a different article handle",
+                article_id=article_id,
+            )
         if HiddenDraftGateway._marker(article) != marker:
-            raise DraftReconciliationError("Shopify article is missing the expected idempotency marker")
+            raise DraftReconciliationError(
+                "Shopify article is missing the expected idempotency marker",
+                article_id=article_id,
+            )
+        if article.get("title") != spec.title:
+            raise DraftReconciliationError(
+                "Shopify article title differs from the approved review draft",
+                article_id=article_id,
+            )
+        body = article.get("body")
+        if not isinstance(body, str):
+            raise DraftReconciliationError(
+                "Shopify article is missing its body for exact verification",
+                article_id=article_id,
+            )
+        body_sha256 = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        approved_sha256 = hashlib.sha256(spec.body_html.encode("utf-8")).hexdigest()
+        if body_sha256 != approved_sha256:
+            raise DraftReconciliationError(
+                "Shopify article body differs from the approved review draft",
+                article_id=article_id,
+            )
         return DraftResult(
             article_id=article_id,
             numeric_article_id=HiddenDraftGateway._numeric_id(article_id),
@@ -216,6 +255,7 @@ class HiddenDraftGateway:
             reconciliation_status=reconciliation_status,
             shopify_write_state=shopify_write_state,
             idempotency_marker=marker,
+            body_sha256=body_sha256,
         )
 
     def _find(self, *, blog_id: str, marker: str) -> list[dict[str, Any]]:

@@ -9,6 +9,14 @@ from orin_shopify.hidden_draft import (
     ShopifyRequestError,
     idempotency_marker,
 )
+from orin_shopify.reviewed_draft import (
+    ApprovedReviewDraft,
+    ReviewedDraftContractError,
+    ShopifyRuntimeConfig,
+    approved_review_draft_from_snapshot,
+    ensure_approved_review_draft,
+    load_shopify_runtime_config,
+)
 
 __all__ = [
     "DraftReconciliationError",
@@ -18,4 +26,10 @@ __all__ = [
     "HiddenDraftGateway",
     "ShopifyRequestError",
     "idempotency_marker",
+    "ApprovedReviewDraft",
+    "ReviewedDraftContractError",
+    "ShopifyRuntimeConfig",
+    "approved_review_draft_from_snapshot",
+    "ensure_approved_review_draft",
+    "load_shopify_runtime_config",
 ]

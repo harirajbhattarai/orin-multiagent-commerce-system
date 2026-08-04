@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Iterator, Sequence
 
 from orin_runner.contract import (
+    ERROR_APPROVED_DRAFT_INVALID,
     ERROR_CONTENT_PLAN_SELECTION_MISMATCH,
     ERROR_PIPELINE_BLOCKED,
     ERROR_PIPELINE_EXIT_NONZERO,
@@ -25,10 +26,19 @@ from orin_runner.contract import (
     ERROR_PIPELINE_START_FAILED,
     ERROR_PIPELINE_TIMEOUT,
     ERROR_RUNNER_BUSY,
+    ERROR_SHOPIFY_RECONCILIATION_FAILED,
     FinalResult,
     SCHEMA_VERSION,
 )
 from orin_runner.content_plan import render_content_plan_markdown
+from orin_shopify import (
+    DraftReconciliationError,
+    ReviewedDraftContractError,
+    ShopifyRequestError,
+    approved_review_draft_from_snapshot,
+    ensure_approved_review_draft,
+    idempotency_marker,
+)
 
 
 SUPPORTED_CLIENTS = {"hoverboard_store"}
@@ -380,6 +390,160 @@ def _failure_result(
     )
 
 
+def _reviewed_hidden_draft_result(
+    *,
+    snapshot: dict[str, Any],
+    run_dir: Path,
+    run_id: str,
+    request_id: str,
+    client_id: str,
+    code_version: str,
+    started_at: str,
+    artifact_uri: str,
+    attempt: int,
+) -> FinalResult:
+    """Execute the frozen review draft directly; never invoke the writer pipeline."""
+    marker = idempotency_marker(f"{client_id}:{request_id}")
+    try:
+        approved = approved_review_draft_from_snapshot(snapshot, client_id=client_id)
+        _write_private(run_dir / "approved_review_draft.html", approved.body_html)
+        _atomic_json(run_dir / "approved_review_draft.json", approved.evidence())
+    except (OSError, ReviewedDraftContractError, ValueError) as error:
+        _write_private(run_dir / "stdout.log", "")
+        _write_private(run_dir / "stderr.log", f"{type(error).__name__}: {error}\n")
+        return _failure_result(
+            error_code=ERROR_APPROVED_DRAFT_INVALID,
+            decision="approved_review_draft_invalid",
+            run_id=run_id,
+            request_id=request_id,
+            client_id=client_id,
+            requested_mode="hidden-draft",
+            code_version=code_version,
+            started_at=started_at,
+            artifact_uri=artifact_uri,
+            pipeline_exit_code=None,
+            attempt=attempt,
+            replay_disposition="retry",
+            shopify_write_state="not_attempted",
+            reconciliation_status="not_started",
+        )
+
+    try:
+        draft_result = ensure_approved_review_draft(
+            approved,
+            client_id=client_id,
+            request_id=request_id,
+        )
+    except (OSError, ReviewedDraftContractError, ValueError) as error:
+        _atomic_json(
+            run_dir / "reviewed_draft_transaction.json",
+            {
+                "status": "failed",
+                "approved_draft": approved.evidence(),
+                "shopify_idempotency_marker": marker,
+                "shopify_write_state": "not_attempted",
+                "reconciliation_status": "not_started",
+                "error_type": type(error).__name__,
+            },
+        )
+        _write_private(run_dir / "stdout.log", "")
+        _write_private(run_dir / "stderr.log", f"{type(error).__name__}: {error}\n")
+        return _failure_result(
+            error_code=ERROR_APPROVED_DRAFT_INVALID,
+            decision="shopify_hidden_draft_configuration_invalid",
+            run_id=run_id,
+            request_id=request_id,
+            client_id=client_id,
+            requested_mode="hidden-draft",
+            code_version=code_version,
+            started_at=started_at,
+            artifact_uri=artifact_uri,
+            pipeline_exit_code=None,
+            attempt=attempt,
+            replay_disposition="retry",
+            shopify_write_state="not_attempted",
+            reconciliation_status="not_started",
+        )
+    except (DraftReconciliationError, ShopifyRequestError) as error:
+        _atomic_json(
+            run_dir / "reviewed_draft_transaction.json",
+            {
+                "status": "needs_review",
+                "approved_draft": approved.evidence(),
+                "shopify_idempotency_marker": marker,
+                "shopify_write_state": "unknown",
+                "reconciliation_status": "needs_review",
+                "error_type": type(error).__name__,
+            },
+        )
+        _write_private(run_dir / "stdout.log", "")
+        _write_private(run_dir / "stderr.log", f"{type(error).__name__}: {error}\n")
+        failed = _failure_result(
+            error_code=ERROR_SHOPIFY_RECONCILIATION_FAILED,
+            decision="approved_review_draft_reconciliation_required",
+            run_id=run_id,
+            request_id=request_id,
+            client_id=client_id,
+            requested_mode="hidden-draft",
+            code_version=code_version,
+            started_at=started_at,
+            artifact_uri=artifact_uri,
+            pipeline_exit_code=None,
+            attempt=attempt,
+            replay_disposition="reconcile",
+            shopify_write_state="unknown",
+            reconciliation_status="needs_review",
+        )
+        return FinalResult(**{**failed.to_dict(), "status": "blocked", "effective_mode": "hidden-draft"})
+
+    transaction_evidence = {
+        "status": "completed",
+        "approved_draft": approved.evidence(),
+        "sent_body_sha256": approved.body_sha256,
+        "fetched_body_sha256": draft_result.body_sha256,
+        "shopify_article_id": str(draft_result.numeric_article_id),
+        "shopify_graphql_article_id": draft_result.article_id,
+        "shopify_idempotency_marker": draft_result.idempotency_marker,
+        "shopify_create_count": draft_result.create_count,
+        "shopify_published": False,
+        "reconciliation_status": draft_result.reconciliation_status,
+    }
+    _atomic_json(run_dir / "reviewed_draft_transaction.json", transaction_evidence)
+    _write_private(
+        run_dir / "stdout.log",
+        "Approved review draft reconciled as one unpublished Shopify article.\n",
+    )
+    _write_private(run_dir / "stderr.log", "")
+    return FinalResult(
+        schema=SCHEMA_VERSION,
+        run_id=run_id,
+        request_id=request_id,
+        client_id=client_id,
+        job_id=str(approved.item_number),
+        attempt=attempt,
+        requested_mode="hidden-draft",
+        effective_mode="hidden-draft",
+        status="completed",
+        decision="APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED",
+        code_version=code_version,
+        config_version=os.environ.get("ORIN_CONFIG_VERSION"),
+        idempotency_key=f"{client_id}:{request_id}",
+        replay_disposition="terminal",
+        shopify_write_state=draft_result.shopify_write_state,
+        shopify_idempotency_marker=draft_result.idempotency_marker,
+        shopify_article_id=str(draft_result.numeric_article_id),
+        shopify_create_count=draft_result.create_count,
+        shopify_published=False,
+        queue_changed=False,
+        reconciliation_status=draft_result.reconciliation_status,
+        started_at=started_at,
+        finished_at=utc_now(),
+        artifact_uri=artifact_uri,
+        error_code=None,
+        pipeline_exit_code=0,
+    )
+
+
 def run_client(
     *,
     client_id: str,
@@ -447,6 +611,43 @@ def run_client(
                 selected_item_number=content_plan_snapshot.get("selected_item_number"),
                 item_count=len(content_plan_snapshot.get("items", [])),
             )
+
+        if mode == "hidden-draft" and durable_db_mode:
+            result = _reviewed_hidden_draft_result(
+                snapshot=content_plan_snapshot or {},
+                run_dir=run_dir,
+                run_id=run_id,
+                request_id=request_id,
+                client_id=client_id,
+                code_version=code_version,
+                started_at=started_at,
+                artifact_uri=artifact_uri,
+                attempt=attempt,
+            )
+            payload = result.to_dict()
+            _atomic_json(final_path, payload)
+            _atomic_json(
+                request_index,
+                {
+                    "run_id": run_id,
+                    "final_result_path": str(final_path.resolve()),
+                    "client_id": client_id,
+                    "requested_mode": mode,
+                    "as_of_date": as_of_date,
+                    "job_number": job_number,
+                    "attempt": attempt,
+                    "replay_disposition": result.replay_disposition,
+                },
+            )
+            _event(
+                events_path,
+                "run_finished",
+                run_id=run_id,
+                status=result.status,
+                decision=result.decision,
+                error_code=result.error_code,
+            )
+            return payload
 
         command = list(pipeline_command or [
             sys.executable,
