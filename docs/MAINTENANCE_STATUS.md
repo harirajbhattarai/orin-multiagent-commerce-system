@@ -1,6 +1,6 @@
 # ORIN maintenance status
 
-Last updated: 2026-08-02
+Last updated: 2026-08-04
 
 ## Current phase
 
@@ -919,3 +919,42 @@ and are retained until representative production traffic exists.
 
 Durable details are in
 `docs/evidence/2026-08-03-phase6-private-pilot-commissioning.json`.
+
+## Normal dry-run and watchdog verification — 2026-08-04
+
+The normal 11:00 Europe/London dedicated schedule ran automatically with its
+fixed command. OpenClaw recorded `status=accepted`, `replayed=false`, and
+source key `scheduler:orin-hbstore-prod:2026-08-04`. The continuously running
+immutable worker claimed the request without overrides and completed run
+`hb_20260804T100003Z_24be9981` with decision `no_job_due`.
+
+Durable database verification found exactly one job, one run, and one attempt
+for the source key. Requested and effective modes are `dry-run`; Shopify create
+count is zero, `shopify_published=false`, `queue_changed=false`, Shopify write
+state is `not_attempted`, and reconciliation is `not_required`. The previously
+required source key `scheduler:orin-hbstore-prod:2026-08-02` also remains
+unique with exactly one completed job, run, and attempt.
+
+The worker and scheduler-trigger are running at exact deployed revision
+`6d4b108b0471ffe314a370ad555793ef2f12c6aa`, both with zero restarts, and the
+trigger sidecar is healthy. The VPS checkout is clean. Production remains
+dry-run only: the client is active, intake and automation are enabled,
+concurrency is one, Shopify writes are disabled, and scheduler ownership is
+`openclaw:orin-hbstore-prod`. There are zero active jobs and zero open
+incidents.
+
+The read-only watchdog ran automatically at 11:15 Europe/London and returned
+`ORIN_SCHEDULED_RUN_OBSERVED` for the same completed run. Its delivery remains
+disabled. The dedicated schedule remains enabled at `0 11 * * *`, the
+watchdog remains enabled at `15 11 * * *`, and the legacy main-agent schedule
+has no active entry.
+
+Canonical private evidence is contained beneath mode-`0700` directories at
+`/docker/orin/evidence/hb_20260804T100003Z_24be9981`. The four canonical
+receipt files are mode `0600` and their hashes are recorded in the non-secret
+manifest. One moved pre-existing pipeline preview retains mode `0644`, but is
+not externally readable because both parent directories are mode `0700`; its
+mode should be normalized in a subsequent hardening change.
+
+Durable details are in
+`docs/evidence/2026-08-04-normal-run-verification.json`.
