@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import threading
 from dataclasses import asdict, dataclass
 from typing import Any, Callable, Protocol
@@ -116,6 +117,7 @@ def _validate_result(job: ClaimedJob, result: dict[str, Any]) -> None:
         raise ResultContractError("runner result is missing run identity or decision")
     create_count = result.get("shopify_create_count")
     article_id = result.get("shopify_article_id")
+    article_handle = result.get("shopify_handle")
     reconciliation = result.get("reconciliation_status")
     replay_disposition = result.get("replay_disposition")
     write_state = result.get("shopify_write_state")
@@ -129,6 +131,7 @@ def _validate_result(job: ClaimedJob, result: dict[str, Any]) -> None:
         if (
             create_count != 0
             or article_id is not None
+            or article_handle is not None
             or result.get("shopify_idempotency_marker") is not None
             or write_state != "not_attempted"
         ):
@@ -155,8 +158,19 @@ def _validate_result(job: ClaimedJob, result: dict[str, Any]) -> None:
             raise ResultContractError("observed Shopify article evidence is incomplete")
         if reconciliation not in {"reconciled", "needs_review"}:
             raise ResultContractError("hidden-draft article has an invalid reconciliation state")
-    elif article_id is not None or create_count != 0:
+        if article_handle is not None and not re.fullmatch(
+            r"[a-z0-9]+(?:-[a-z0-9]+)*", article_handle
+        ):
+            raise ResultContractError("hidden-draft result has an invalid Shopify handle")
+    elif article_id is not None or article_handle is not None or create_count != 0:
         raise ResultContractError("hidden-draft result contradicts its Shopify write state")
+
+    if (
+        result.get("decision") == "APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED"
+        and replay_disposition == "terminal"
+        and not isinstance(article_handle, str)
+    ):
+        raise ResultContractError("approved review draft result is missing its Shopify handle")
 
     if replay_disposition == "terminal":
         if write_state == "unknown" or reconciliation == "needs_review":

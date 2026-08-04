@@ -22,6 +22,7 @@
     "shopify_write_state",
     "shopify_idempotency_marker",
     "shopify_article_id",
+    "shopify_handle",
     "shopify_create_count",
     "shopify_published",
     "queue_changed",
@@ -52,6 +53,10 @@
     },
     "shopify_idempotency_marker": {"type": ["string", "null"]},
     "shopify_article_id": {"type": ["string", "null"]},
+    "shopify_handle": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
     "shopify_create_count": {"type": "integer", "minimum": 0, "maximum": 1},
     "shopify_published": {"const": false},
     "queue_changed": {"const": false},
@@ -101,6 +106,7 @@
       "else": {
         "properties": {
           "shopify_article_id": {"type": "null"},
+          "shopify_handle": {"type": "null"},
           "shopify_create_count": {"const": 0}
         }
       }
@@ -115,7 +121,8 @@
       "then": {
         "properties": {
           "shopify_write_state": {"const": "not_attempted"},
-          "shopify_idempotency_marker": {"type": "null"}
+          "shopify_idempotency_marker": {"type": "null"},
+          "shopify_handle": {"type": "null"}
         }
       },
       "else": {
