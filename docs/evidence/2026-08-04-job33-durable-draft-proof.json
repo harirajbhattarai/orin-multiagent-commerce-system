@@ -1,0 +1,94 @@
+{
+  "schema": "orin.phase6-durable-draft-proof/v1",
+  "verified_at": "2026-08-04T12:37:00Z",
+  "client_id": "hoverboard_store",
+  "content_item": {
+    "item_number": 33,
+    "title": "Foldable vs Fixed-Frame Kids Electric Scooters: What Parents Should Compare",
+    "target_keyword": "foldable vs fixed electric scooter kids",
+    "status": "local_draft_created",
+    "version": 5
+  },
+  "fix": {
+    "pull_request": 83,
+    "deployed_revision": "008c4ebe3fb82eb403bdc2596faff96dd054bd0e",
+    "changes": [
+      "Natural H1 word order requires every meaningful target-keyword term.",
+      "Hyphenation and simple singular/plural variants are normalized without broad stemming.",
+      "Real blocked results are preserved instead of being overwritten by the selection guard."
+    ],
+    "tests": {
+      "targeted_python": 44,
+      "full_python": 187,
+      "ci_dashboard": "passed",
+      "ci_database": "passed",
+      "ci_test": "passed"
+    }
+  },
+  "repair": {
+    "previous_run_id": "hb_20260804T121850Z_64c9f597",
+    "previous_item_status": "checks_failed",
+    "previous_item_version": 3,
+    "repaired_item_status": "planned",
+    "repaired_item_version": 4,
+    "incident_code": "PHASE6_H1_KEYWORD_FALSE_NEGATIVE",
+    "incident_status": "resolved"
+  },
+  "pilot": {
+    "decision": "approve_concept",
+    "decision_processing_status": "consumed",
+    "job_id": "8a85a6b7-8029-41b6-aac4-c5e4d75c5af4",
+    "run_id": "hb_20260804T123458Z_729bc75f",
+    "job_status": "completed",
+    "run_status": "completed",
+    "attempt_count": 1,
+    "attempt_rows": 1,
+    "requested_mode": "dry-run",
+    "decision_result": "READY_TO_CREATE_SELECTED_JOB_DRAFT",
+    "error_code": null,
+    "code_version": "008c4ebe3fb82eb403bdc2596faff96dd054bd0e",
+    "shopify_create_count": 0,
+    "shopify_published": false,
+    "shopify_write_state": "not_attempted",
+    "queue_changed": false,
+    "reconciliation_status": "not_required"
+  },
+  "draft": {
+    "content_item_version": 5,
+    "source_run_id": "hb_20260804T123458Z_729bc75f",
+    "word_count": 2122,
+    "body_bytes": 16110,
+    "body_sha256": "cded6db118f6967bdbc1d02a066265368e69c586ea1b5be1e708e5a220f880ea",
+    "database_hash_matches_private_file": true,
+    "dashboard_full_preview_verified": true,
+    "dashboard_live_publish_capability": false,
+    "unpublished_shopify_approval_recorded": false
+  },
+  "deployment": {
+    "checkout_clean": true,
+    "checkout_revision": "008c4ebe3fb82eb403bdc2596faff96dd054bd0e",
+    "worker_image_revision": "008c4ebe3fb82eb403bdc2596faff96dd054bd0e",
+    "worker_restart_count": 0,
+    "scheduler_trigger_image_revision": "008c4ebe3fb82eb403bdc2596faff96dd054bd0e",
+    "scheduler_trigger_restart_count": 0,
+    "scheduler_trigger_healthy": true,
+    "watchdog_image_revision": "6d4b108b0471ffe314a370ad555793ef2f12c6aa",
+    "watchdog_restart_count": 0,
+    "watchdog_healthy": true
+  },
+  "closed_state": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "max_concurrency": 1,
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "legacy_schedule_enabled": false,
+    "dedicated_schedule_enabled": false,
+    "watchdog_schedule_enabled": false
+  }
+}
