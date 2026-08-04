@@ -58,6 +58,7 @@ def validate_content_plan_snapshot(
 def render_content_plan_markdown(snapshot: dict[str, Any], *, client_id: str) -> str:
     """Render the compatibility projection consumed by the proven pipeline."""
     items = validate_content_plan_snapshot(snapshot, client_id=client_id)
+    selected_number = snapshot.get("selected_item_number")
     lines = [
         "# ORIN content queue projection",
         "",
@@ -66,13 +67,21 @@ def render_content_plan_markdown(snapshot: dict[str, Any], *, client_id: str) ->
         "",
     ]
     for item in items:
+        status = item["status"]
+        # Concept approval reserves the authoritative row as ``in_progress``
+        # before the worker claims it. The legacy pipeline must still receive
+        # its expected ``planned`` input state for that exact selected item.
+        # This normalization is confined to the private compatibility file;
+        # the stored snapshot and database row remain authoritative.
+        if item["item_number"] == selected_number and status == "in_progress":
+            status = "planned"
         lines.extend(
             [
                 f"## Job {item['item_number']}",
                 f"Date target: {item.get('target_date') or ''}",
                 f"Cluster: {item.get('cluster') or ''}",
                 f"Decision: {item.get('decision') or ''}",
-                f"Status: {item['status']}",
+                f"Status: {status}",
                 f"Topic: {item.get('topic') or ''}",
                 f"Target keyword: {item.get('target_keyword') or ''}",
                 f"File: {item.get('draft_path') or ''}",

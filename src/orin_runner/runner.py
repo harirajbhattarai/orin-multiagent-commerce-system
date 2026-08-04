@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Iterator, Sequence
 
 from orin_runner.contract import (
+    ERROR_CONTENT_PLAN_SELECTION_MISMATCH,
     ERROR_PIPELINE_BLOCKED,
     ERROR_PIPELINE_EXIT_NONZERO,
     ERROR_PIPELINE_RESULT_INVALID,
@@ -466,6 +467,10 @@ def run_client(
         if durable_execution:
             environment["ORIN_DURABLE_DB_MODE"] = "1"
             environment["ORIN_RUN_ARTIFACT_DIR"] = artifact_uri
+        if content_plan_snapshot is not None:
+            selected_item_number = content_plan_snapshot.get("selected_item_number")
+            if selected_item_number is not None:
+                environment["ORIN_DURABLE_SELECTED_JOB"] = str(selected_item_number)
         if content_queue_projection is not None:
             environment["ORIN_CONTENT_QUEUE_PATH"] = str(content_queue_projection.resolve())
         if mode == "hidden-draft":
@@ -582,6 +587,31 @@ def run_client(
                     pipeline_exit_code=completed.returncode,
                     attempt=attempt,
                 )
+                selected_item_number = (
+                    content_plan_snapshot.get("selected_item_number")
+                    if content_plan_snapshot is not None
+                    else None
+                )
+                if (
+                    selected_item_number is not None
+                    and str(result.job_id) != str(selected_item_number)
+                ):
+                    result = _failure_result(
+                        error_code=ERROR_CONTENT_PLAN_SELECTION_MISMATCH,
+                        decision="content_plan_selection_mismatch",
+                        run_id=run_id,
+                        request_id=request_id,
+                        client_id=client_id,
+                        requested_mode=mode,
+                        code_version=code_version,
+                        started_at=started_at,
+                        artifact_uri=artifact_uri,
+                        pipeline_exit_code=completed.returncode,
+                        attempt=attempt,
+                        replay_disposition="terminal",
+                        shopify_write_state="not_attempted",
+                        reconciliation_status="not_required",
+                    )
             except (json.JSONDecodeError, OSError, TypeError, ValueError):
                 result = _failure_result(
                     error_code=ERROR_PIPELINE_RESULT_INVALID,
