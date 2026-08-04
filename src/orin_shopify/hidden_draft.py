@@ -16,7 +16,9 @@ MARKER_NAMESPACE = "orin_control"
 MARKER_KEY = "idempotency_key"
 MARKER_TYPE = "single_line_text_field"
 MARKER_PREFIX = "orin-v1:"
+BODY_CANONICALIZATION = "shopify-list-leading-strong-whitespace/v1"
 _GRAPHQL_ID = re.compile(r"^gid://shopify/Article/([0-9]+)$")
+_SHOPIFY_LIST_LEADING_STRONG_WHITESPACE = re.compile(r"(<li>)[\t\r\n ]+(<strong>)")
 
 
 FIND_MARKED_DRAFTS = """
@@ -118,6 +120,23 @@ class DraftResult:
     shopify_write_state: str
     idempotency_marker: str
     body_sha256: str
+    canonical_body_sha256: str | None = None
+    body_canonicalization: str = BODY_CANONICALIZATION
+
+
+def canonicalize_shopify_body(body_html: str) -> str:
+    """Ignore only Shopify's observed list-item serializer whitespace.
+
+    Shopify inserts a newline between a list item's opening ``li`` tag and a
+    leading ``strong`` tag. That text node does not alter rendering. No other
+    whitespace, element, attribute, or text difference is ignored.
+    """
+    return _SHOPIFY_LIST_LEADING_STRONG_WHITESPACE.sub(r"\1\2", body_html)
+
+
+def canonical_shopify_body_sha256(body_html: str) -> str:
+    canonical = canonicalize_shopify_body(body_html)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def idempotency_marker(value: str) -> str:
@@ -241,8 +260,9 @@ class HiddenDraftGateway:
                 article_id=article_id,
             )
         body_sha256 = hashlib.sha256(body.encode("utf-8")).hexdigest()
-        approved_sha256 = hashlib.sha256(spec.body_html.encode("utf-8")).hexdigest()
-        if body_sha256 != approved_sha256:
+        canonical_body_sha256 = canonical_shopify_body_sha256(body)
+        approved_canonical_sha256 = canonical_shopify_body_sha256(spec.body_html)
+        if canonical_body_sha256 != approved_canonical_sha256:
             raise DraftReconciliationError(
                 "Shopify article body differs from the approved review draft",
                 article_id=article_id,
@@ -256,6 +276,7 @@ class HiddenDraftGateway:
             shopify_write_state=shopify_write_state,
             idempotency_marker=marker,
             body_sha256=body_sha256,
+            canonical_body_sha256=canonical_body_sha256,
         )
 
     def _find(self, *, blog_id: str, marker: str) -> list[dict[str, Any]]:

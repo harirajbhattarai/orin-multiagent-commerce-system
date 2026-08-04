@@ -560,6 +560,7 @@ def test_database_hidden_draft_uses_exact_reviewed_html_without_pipeline(
             shopify_write_state="article_observed",
             idempotency_marker=f"orin-v1:hoverboard_store:{request_id}",
             body_sha256=body_sha256,
+            canonical_body_sha256=body_sha256,
         )
 
     monkeypatch.setattr("orin_runner.runner.ensure_approved_review_draft", ensure)
@@ -584,8 +585,12 @@ def test_database_hidden_draft_uses_exact_reviewed_html_without_pipeline(
     run_dir = Path(result["artifact_uri"])
     assert (run_dir / "approved_review_draft.html").read_text() == body
     evidence = json.loads((run_dir / "reviewed_draft_transaction.json").read_text())
+    assert evidence["stored_body_sha256"] == body_sha256
     assert evidence["sent_body_sha256"] == body_sha256
     assert evidence["fetched_body_sha256"] == body_sha256
+    assert evidence["approved_canonical_body_sha256"] == body_sha256
+    assert evidence["fetched_canonical_body_sha256"] == body_sha256
+    assert evidence["body_canonicalization"] == "shopify-list-leading-strong-whitespace/v1"
 
 
 def test_database_hidden_draft_rejects_tampered_review_body_before_shopify(
@@ -685,6 +690,7 @@ def test_database_hidden_draft_reconciles_same_marker_after_uncertain_write(
             shopify_write_state="article_observed",
             idempotency_marker=f"orin-v1:{client_id}:{request_id}",
             body_sha256=body_sha256,
+            canonical_body_sha256=body_sha256,
         )
 
     monkeypatch.setattr("orin_runner.runner.ensure_approved_review_draft", ensure)

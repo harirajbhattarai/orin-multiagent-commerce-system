@@ -32,10 +32,12 @@ from orin_runner.contract import (
 )
 from orin_runner.content_plan import render_content_plan_markdown
 from orin_shopify import (
+    BODY_CANONICALIZATION,
     DraftReconciliationError,
     ReviewedDraftContractError,
     ShopifyRequestError,
     approved_review_draft_from_snapshot,
+    canonical_shopify_body_sha256,
     ensure_approved_review_draft,
     idempotency_marker,
 )
@@ -499,8 +501,14 @@ def _reviewed_hidden_draft_result(
     transaction_evidence = {
         "status": "completed",
         "approved_draft": approved.evidence(),
+        "stored_body_sha256": approved.body_sha256,
         "sent_body_sha256": approved.body_sha256,
         "fetched_body_sha256": draft_result.body_sha256,
+        "approved_canonical_body_sha256": canonical_shopify_body_sha256(
+            approved.body_html
+        ),
+        "fetched_canonical_body_sha256": draft_result.canonical_body_sha256,
+        "body_canonicalization": BODY_CANONICALIZATION,
         "shopify_article_id": str(draft_result.numeric_article_id),
         "shopify_graphql_article_id": draft_result.article_id,
         "shopify_idempotency_marker": draft_result.idempotency_marker,
