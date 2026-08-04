@@ -1,0 +1,91 @@
+{
+  "schema": "orin.phase7-first-production-shadow-proof/v1",
+  "observed_at": "2026-08-04T19:20:26Z",
+  "status": "passed",
+  "deployed_commit": "5bdc759ddedb22105a8c8b00a77774d9aac0431e",
+  "flow_run": {
+    "id": "4f712cfc-30fb-41f7-9551-3d80d4277a37",
+    "name": "phase7-first-shadow-20260804",
+    "state": "Completed",
+    "run_count": 1,
+    "deployment_version": "5bdc759ddedb22105a8c8b00a77774d9aac0431e",
+    "as_of_date": "2026-08-04",
+    "mode": "shadow",
+    "started_at": "2026-08-04T19:18:15.489095Z",
+    "completed_at": "2026-08-04T19:18:15.894872Z"
+  },
+  "prediction": {
+    "planner_decision": "no_job_due",
+    "selected_job_number": null,
+    "next_due_job_number": 34,
+    "next_due_date": "2026-08-12",
+    "comparison": {
+      "status": "match",
+      "actual_run_id": "hb_20260804T100003Z_24be9981",
+      "actual_decision": "no_job_due",
+      "actual_selected_job_number": null
+    },
+    "gate_projection": {
+      "would_accept_scheduler_request": false,
+      "blockers": [
+        "client_not_active",
+        "request_intake_closed",
+        "automation_disabled"
+      ],
+      "shopify_writes_observed": false,
+      "scheduler_state": "disabled",
+      "scheduler_owner": null
+    },
+    "observed_active_jobs": 0,
+    "observed_open_incidents": 0
+  },
+  "database_role": {
+    "name": "orin_prefect_shadow",
+    "login_enabled": true,
+    "superuser": false,
+    "create_role": false,
+    "create_database": false,
+    "bypass_rls": false,
+    "content_jobs_select": false,
+    "content_jobs_insert": false,
+    "snapshot_execute": true,
+    "enqueue_execute": false,
+    "credential_rotated_after_invalid_url_attempt": true
+  },
+  "production_invariants": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "latest_scheduler_run_id": "hb_20260804T100003Z_24be9981",
+    "latest_scheduler_shopify_create_count": 0,
+    "latest_scheduler_shopify_published": false,
+    "latest_scheduler_queue_changed": false,
+    "latest_scheduler_reconciliation_status": "not_required"
+  },
+  "post_run_cleanup": {
+    "worker_container_present": false,
+    "work_pool_paused": true,
+    "work_pool_concurrency": 1,
+    "work_pool_active_slots": 0,
+    "deployment_paused": true,
+    "deployment_schedules": [],
+    "openclaw_schedules_enabled": 0,
+    "openclaw_next_wake_at_ms": null
+  },
+  "advisor": {
+    "new_phase7_findings": 0,
+    "existing_warning": "auth_leaked_password_protection",
+    "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+  },
+  "next_gate": {
+    "action": "Accumulate several same-date shadow matches before any schedule or ownership-transfer proposal.",
+    "prefect_schedule_must_remain_disabled": true,
+    "shopify_writes_must_remain_disabled": true
+  }
+}

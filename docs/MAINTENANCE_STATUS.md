@@ -1106,13 +1106,42 @@ zero UI runtime errors, a paused pool with concurrency one, a paused deployment
 with no schedules and `CANCEL_NEW`, and no shadow worker container or shadow
 database secret. PRs #89 and #90 passed all CI jobs.
 
-The Supabase migration is applied, but the production shadow role deliberately
-remains `NOLOGIN` and its VPS secret is absent. All ORIN gates remain closed,
-all three OpenClaw schedules remain disabled with `nextWakeAtMs=null`, and the
-latest production dry-run recorded zero Shopify creates. The next gate is to
-install one unique `orin_prefect_shadow` session-pooler credential, perform one
-supervised read-only comparison, then immediately pause the pool and stop the
-worker. No Prefect schedule or Shopify permission may be enabled.
+At this foundation checkpoint the production shadow role remained `NOLOGIN`
+and its VPS secret was absent. All ORIN gates were closed, all three OpenClaw
+schedules were disabled with `nextWakeAtMs=null`, and the latest production
+dry-run recorded zero Shopify creates. No Prefect schedule or Shopify
+permission was enabled.
 
 Durable details are in
 `docs/evidence/2026-08-04-phase7-prefect-foundation.json`.
+
+## Phase 7 first production shadow comparison — 2026-08-04
+
+The first supervised production shadow comparison passed at deployed revision
+`5bdc759ddedb22105a8c8b00a77774d9aac0431e`. Prefect flow run
+`4f712cfc-30fb-41f7-9551-3d80d4277a37` completed once with no retries and
+emitted the fixed-client prediction artifact. For London business date
+2026-08-04 it predicted `no_job_due`, matching OpenClaw production dry-run
+`hb_20260804T100003Z_24be9981` exactly. The next planned item is Job 34, due
+2026-08-12.
+
+The dedicated database login has no direct `content_jobs` read or insert
+privilege, cannot execute the scheduler enqueue function, and can execute only
+the sanitized snapshot function. The initial malformed URL credential was
+removed and rotated before this run. No credential value is stored in evidence
+or repository history.
+
+The comparison observed maintenance mode, closed intake and automation,
+disabled scheduler ownership, disabled Shopify writes, zero active jobs, and
+zero open incidents. After completion the worker container was removed, the
+pool was paused with concurrency one and zero active slots, the deployment was
+paused with no schedules, all OpenClaw schedules remained disabled, and
+`nextWakeAtMs` remained null. Production state still records zero Shopify
+creates, no publication, no queue mutation, and reconciliation not required.
+
+Phase 7 now has one valid production shadow match. Promotion is not authorized:
+several additional same-date matches are required before proposing any Prefect
+schedule or scheduler-ownership transfer, and Shopify writes remain disabled.
+
+Durable details are in
+`docs/evidence/2026-08-04-phase7-first-production-shadow-proof.json`.
