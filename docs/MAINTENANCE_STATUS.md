@@ -4,14 +4,20 @@ Last updated: 2026-08-04
 
 ## Current phase
 
-Phase 6 authoritative content-plan migration is complete for Hoverboard Store.
-Supabase now owns the 60-item plan, execution jobs bind to plan items through a
+Phase 6 exact-reviewed hidden-draft proof is complete for Hoverboard Store.
+Supabase owns the 60-item plan, execution jobs bind to plan items through a
 lease-checked worker capability, and the legacy Markdown format is generated
-only as private run input. Jobs 28-32 are reconciled to their verified hidden
-Shopify drafts, removing the stale Markdown `planned` state. The reviewed
-migration is applied, the worker and trigger are deployed at the exact merged
-revision, and an immediate automatic-worker commissioning request completed
-with `no_job_due`. Shopify writes remain disabled.
+only as private run input. Jobs 28-33 are reconciled to their verified hidden
+Shopify drafts. Job 33 completed through the version-bound dashboard approval,
+automatic worker, marker-first Shopify reconciliation, narrow body
+canonicalization, and durable article-handle persistence path.
+
+The current safe state supersedes the older chronological operating-state
+notes below: the client is in maintenance; request intake, automation, Shopify
+writes, scheduler ownership, and all OpenClaw schedules are disabled. The
+worker remains running at concurrency one and reports `no_job_due`; the
+scheduler-trigger and read-only watchdog are healthy. There are zero active
+jobs and zero open incidents. Live publishing was never enabled.
 
 Phase 3 manual verification is complete. Phase 4 automatic
 trigger-plus-worker commissioning passed on the fresh London-date source key
@@ -109,7 +115,43 @@ draft. Independent Shopify verification found one marker match for article
 
 The reviewed worker and scheduler-trigger code deployed on the VPS is:
 
-`5c755295604648161af83fdebf92b2c176b6f8e6`
+`d257e94271a916c13f736f74e8831c9d0cc1cde6`
+
+## Phase 6 Job 33 exact reviewed hidden-draft proof — 2026-08-04
+
+- Dashboard decision `17f732ba-de75-439d-999c-b7a4961f5cbd` approved only
+  the immutable version-5 review draft for Job 33. The dashboard exposes no
+  live-publish action.
+- The first worker attempt failed closed with
+  `ORIN_SHOPIFY_RECONCILIATION_FAILED` after Shopify inserted newline text
+  nodes between opening `li` tags and leading `strong` tags. The stored and
+  sent raw SHA-256 remained `cded6db118f6967bdbc1d02a066265368e69c586ea1b5be1e708e5a220f880ea`;
+  Shopify's fetched raw SHA-256 was
+  `afad7da732ecf77689c6bb293e74be20519c462b594785e9812ec69fa08ca1da`.
+- PR 86 added one narrow normalization rule for that observed Shopify
+  serializer behavior. No other whitespace, text, element, or attribute
+  difference is ignored. The approved and fetched canonical hashes are both
+  `cded6db118f6967bdbc1d02a066265368e69c586ea1b5be1e708e5a220f880ea`.
+- Attempt two reconciled the existing request marker and terminalized run
+  `hb_20260804T142717Z_9d305d7d` as
+  `APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED` at revision
+  `e2c5ef62135c7938d45c15dd15a2fbf38c39e264`. Independent read-only Shopify
+  verification found exactly one marker match: article `1007318892892`, handle
+  `foldable-vs-fixed-kids-electric-scooters`, with `publishedAt = null`.
+- Job 33 is `draft_created` at version 6. The one request-owned article is
+  reconciled, unpublished, and queue-unchanged. The retry created no duplicate.
+- PR 87 requires future exact-reviewed terminal results to include a canonical
+  Shopify handle and persists it atomically. Remote migration
+  `20260804144407_phase6_persist_verified_shopify_handle` constrained the
+  historical Job 33 backfill to its exact client, item number, terminal state,
+  article ID, and null handle. Supabase now stores the verified handle.
+- The VPS checkout, worker image, and scheduler-trigger image are exact revision
+  `d257e94271a916c13f736f74e8831c9d0cc1cde6`, with zero restarts. The trigger
+  and independently pinned watchdog are healthy; the worker reports
+  `no_job_due` with all gates closed.
+- Canonical private evidence is mode `0700`/`0600` under
+  `/docker/orin/evidence/hb_20260804T142717Z_9d305d7d`. The non-secret proof is
+  `docs/evidence/2026-08-04-job33-exact-reviewed-hidden-draft-proof.json`.
 
 ## Verified results
 

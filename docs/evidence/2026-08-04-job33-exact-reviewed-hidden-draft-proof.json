@@ -1,0 +1,142 @@
+{
+  "schema": "orin.phase6-exact-reviewed-hidden-draft-proof/v1",
+  "verified_at": "2026-08-04T14:49:43Z",
+  "status": "passed",
+  "client_id": "hoverboard_store",
+  "content_item": {
+    "content_item_id": "49f371f6-739a-4e78-823c-e59f9a6aa545",
+    "item_number": 33,
+    "topic": "Foldable vs Fixed-Frame Kids Electric Scooters: What Parents Should Compare",
+    "target_keyword": "foldable vs fixed electric scooter kids",
+    "status_before": "local_draft_created",
+    "version_before": 5,
+    "status_after": "draft_created",
+    "version_after": 6,
+    "shopify_article_id": "1007318892892",
+    "shopify_handle": "foldable-vs-fixed-kids-electric-scooters",
+    "last_run_id": "hb_20260804T142717Z_9d305d7d"
+  },
+  "approved_draft": {
+    "draft_id": "4bb553d0-6026-45c2-b8fe-77ddd229c0dd",
+    "content_item_version": 5,
+    "source_run_id": "hb_20260804T123458Z_729bc75f",
+    "word_count": 2122,
+    "body_sha256": "cded6db118f6967bdbc1d02a066265368e69c586ea1b5be1e708e5a220f880ea"
+  },
+  "approval": {
+    "decision_id": "17f732ba-de75-439d-999c-b7a4961f5cbd",
+    "decision": "approve_hidden_draft",
+    "processing_status": "consumed",
+    "request_id": "c78b3660-5645-4981-a417-9ba0d9e52fa7",
+    "dashboard_live_publish_capability": false
+  },
+  "execution": {
+    "source_job_key": "decision:17f732ba-de75-439d-999c-b7a4961f5cbd",
+    "job_id": "36da333c-51cc-4653-90c4-ef700a6cb0ef",
+    "request_id": "c78b3660-5645-4981-a417-9ba0d9e52fa7",
+    "requested_mode": "hidden-draft",
+    "job_status": "completed",
+    "attempt_count": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "run_id": "hb_20260804T141114Z_e920b824",
+        "code_version": "4e5c4cc9c48cba63c3eb06410db276f87453b87c",
+        "status": "blocked",
+        "decision": "approved_review_draft_reconciliation_required",
+        "error_code": "ORIN_SHOPIFY_RECONCILIATION_FAILED",
+        "replay_disposition": "reconcile",
+        "shopify_write_state": "unknown",
+        "shopify_create_count": 0,
+        "shopify_published": false,
+        "queue_changed": false,
+        "reconciliation_status": "needs_review"
+      },
+      {
+        "attempt": 2,
+        "run_id": "hb_20260804T142717Z_9d305d7d",
+        "code_version": "e2c5ef62135c7938d45c15dd15a2fbf38c39e264",
+        "status": "completed",
+        "decision": "APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED",
+        "error_code": null,
+        "replay_disposition": "terminal",
+        "shopify_write_state": "article_observed",
+        "shopify_article_id": "1007318892892",
+        "shopify_create_count": 1,
+        "shopify_create_count_semantics": "one request-owned article observed; the retry made no duplicate article",
+        "shopify_published": false,
+        "queue_changed": false,
+        "reconciliation_status": "reconciled"
+      }
+    ]
+  },
+  "shopify": {
+    "verification_mode": "read_only_graphql_marker_scan",
+    "idempotency_marker": "orin-v1:hoverboard_store:c78b3660-5645-4981-a417-9ba0d9e52fa7",
+    "independent_marker_match_count": 1,
+    "article_gid": "gid://shopify/Article/1007318892892",
+    "article_id": "1007318892892",
+    "handle": "foldable-vs-fixed-kids-electric-scooters",
+    "title": "Foldable vs Fixed-Frame Kids Electric Scooters: What Parents Should Compare",
+    "published_at": null,
+    "shopify_published": false,
+    "durable_article_ownership_count": 1,
+    "reconciliation_status": "reconciled"
+  },
+  "body_verification": {
+    "stored_body_sha256": "cded6db118f6967bdbc1d02a066265368e69c586ea1b5be1e708e5a220f880ea",
+    "sent_body_sha256": "cded6db118f6967bdbc1d02a066265368e69c586ea1b5be1e708e5a220f880ea",
+    "fetched_raw_body_sha256": "afad7da732ecf77689c6bb293e74be20519c462b594785e9812ec69fa08ca1da",
+    "canonicalization": "shopify-list-leading-strong-whitespace/v1",
+    "approved_canonical_body_sha256": "cded6db118f6967bdbc1d02a066265368e69c586ea1b5be1e708e5a220f880ea",
+    "fetched_canonical_body_sha256": "cded6db118f6967bdbc1d02a066265368e69c586ea1b5be1e708e5a220f880ea",
+    "canonical_hashes_match": true,
+    "normalization_scope": "only whitespace inserted between an opening li tag and a leading strong tag"
+  },
+  "persistence": {
+    "normalization_pull_request": "https://github.com/harirajbhattarai/orin-multiagent-commerce-system/pull/86",
+    "handle_persistence_pull_request": "https://github.com/harirajbhattarai/orin-multiagent-commerce-system/pull/87",
+    "handle_persistence_revision": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+    "migration": "20260804144407_phase6_persist_verified_shopify_handle",
+    "original_terminal_result_shopify_handle": null,
+    "database_shopify_handle_after_constrained_backfill": "foldable-vs-fixed-kids-electric-scooters",
+    "future_exact_review_results_require_canonical_handle": true
+  },
+  "deployment": {
+    "checkout_clean": true,
+    "checkout_revision": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+    "worker_image_revision": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+    "worker_restart_count": 0,
+    "worker_receipt": "no_job_due",
+    "scheduler_trigger_image_revision": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+    "scheduler_trigger_restart_count": 0,
+    "scheduler_trigger_healthy": true,
+    "watchdog_image_revision": "6d4b108b0471ffe314a370ad555793ef2f12c6aa",
+    "watchdog_restart_count": 0,
+    "watchdog_healthy": true
+  },
+  "closed_state": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "max_concurrency": 1,
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "legacy_schedule_enabled": false,
+    "legacy_schedule": "0 11 * * * Europe/London",
+    "dedicated_schedule_enabled": false,
+    "dedicated_schedule": "0 11 * * * Europe/London",
+    "watchdog_schedule_enabled": false,
+    "watchdog_schedule": "15 11 * * * Europe/London"
+  },
+  "private_evidence": {
+    "directory": "/docker/orin/evidence/hb_20260804T142717Z_9d305d7d",
+    "directory_mode": "0700",
+    "files_mode": "0600",
+    "transaction_file": "/docker/orin/evidence/hb_20260804T142717Z_9d305d7d/reviewed_draft_transaction.json"
+  }
+}
