@@ -27,6 +27,8 @@ jobs:
         run: npm test
       - name: Build dashboard
         run: npm run build
+      - name: Test Sites package
+        run: npm run test:sites
 
   test:
     runs-on: ubuntu-latest
