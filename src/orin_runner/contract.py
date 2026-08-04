@@ -53,6 +53,7 @@ class FinalResult:
     artifact_uri: str
     error_code: str | None
     pipeline_exit_code: int | None
+    shopify_handle: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

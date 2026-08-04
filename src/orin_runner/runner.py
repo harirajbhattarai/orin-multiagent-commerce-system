@@ -540,6 +540,7 @@ def _reviewed_hidden_draft_result(
         shopify_write_state=draft_result.shopify_write_state,
         shopify_idempotency_marker=draft_result.idempotency_marker,
         shopify_article_id=str(draft_result.numeric_article_id),
+        shopify_handle=draft_result.handle,
         shopify_create_count=draft_result.create_count,
         shopify_published=False,
         queue_changed=False,

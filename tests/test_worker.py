@@ -285,6 +285,25 @@ def test_hidden_draft_completion_requires_exact_marker_and_stays_unpublished():
     assert repository.completions[0]["final_result"]["queue_changed"] is False
 
 
+def test_approved_review_draft_completion_requires_verified_shopify_handle():
+    repository = FakeRepository(claimed_job(requested_mode="hidden-draft"))
+    result = final_result(
+        requested_mode="hidden-draft",
+        effective_mode="hidden-draft",
+        decision="APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED",
+        shopify_idempotency_marker=f"orin-v1:hoverboard_store:{REQUEST_ID}",
+        shopify_article_id="9001",
+        shopify_create_count=1,
+        reconciliation_status="reconciled",
+        shopify_write_state="article_observed",
+    )
+
+    with pytest.raises(ResultContractError, match="missing its Shopify handle"):
+        work_once(repository, worker_id="worker:test:1", execute=lambda _: result)
+
+    assert repository.completions == []
+
+
 @pytest.mark.parametrize(
     "overrides",
     [

@@ -581,6 +581,7 @@ def test_database_hidden_draft_uses_exact_reviewed_html_without_pipeline(
     assert result["status"] == "completed"
     assert result["job_id"] == "33"
     assert result["shopify_article_id"] == "9001"
+    assert result["shopify_handle"] == "approved-article"
     assert result["shopify_published"] is False
     run_dir = Path(result["artifact_uri"])
     assert (run_dir / "approved_review_draft.html").read_text() == body

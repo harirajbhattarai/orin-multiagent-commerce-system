@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(23);
 
 select has_table('public', 'content_drafts', 'versioned review draft table exists');
 select ok(
@@ -266,6 +266,59 @@ select is(
   (select value #>> '{approved_draft,handle}' from phase6_exact_snapshot),
   'durable-review-test-concept',
   'lease-bound worker snapshot derives the canonical approved handle'
+);
+
+set local role orin_worker;
+select *
+from orin_private.complete_job_with_review_draft(
+  (select job_id from public.content_jobs
+   where request_id = 'efefefef-efef-4fef-8fef-efefefefefef'),
+  'worker:exact-review',
+  jsonb_build_object(
+    'schema', 'orin.final-result/v2',
+    'run_id', 'hb_20260804T140000Z_cafefeed',
+    'request_id', 'efefefef-efef-4fef-8fef-efefefefefef',
+    'client_id', 'hoverboard_store',
+    'job_id', '998',
+    'attempt', 1,
+    'requested_mode', 'hidden-draft',
+    'effective_mode', 'hidden-draft',
+    'status', 'completed',
+    'decision', 'APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED',
+    'code_version', 'review-test',
+    'config_version', null,
+    'idempotency_key', 'hoverboard_store:efefefef-efef-4fef-8fef-efefefefefef',
+    'replay_disposition', 'terminal',
+    'shopify_write_state', 'article_observed',
+    'shopify_idempotency_marker',
+      'orin-v1:hoverboard_store:efefefef-efef-4fef-8fef-efefefefefef',
+    'shopify_article_id', '990998',
+    'shopify_handle', 'durable-review-test-concept',
+    'shopify_create_count', 1,
+    'shopify_published', false,
+    'queue_changed', false,
+    'reconciliation_status', 'reconciled',
+    'started_at', '2026-08-04T14:00:00Z',
+    'finished_at', '2026-08-04T14:00:01Z',
+    'artifact_uri', '/private/review-hidden-test',
+    'error_code', null,
+    'pipeline_exit_code', 0
+  ),
+  null
+);
+reset role;
+
+select is(
+  (select status from public.content_plan_items
+   where content_item_id = 'dededede-dede-4ede-8ede-dededededede'),
+  'draft_created',
+  'verified hidden-draft result advances the reviewed item'
+);
+select is(
+  (select shopify_handle from public.content_plan_items
+   where content_item_id = 'dededede-dede-4ede-8ede-dededededede'),
+  'durable-review-test-concept',
+  'verified Shopify handle is durable on the content plan item'
 );
 
 select * from finish();
