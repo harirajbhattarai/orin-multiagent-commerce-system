@@ -1,0 +1,130 @@
+{
+  "schema": "orin.phase7-second-production-shadow-proof/v1",
+  "observed_at": "2026-08-09T12:28:55Z",
+  "status": "passed",
+  "prefect_deployed_commit": "5bdc759ddedb22105a8c8b00a77774d9aac0431e",
+  "orin_worker_commit": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+  "controlled_openclaw_trigger": {
+    "schedule_id": "e09fc195-17e4-44f0-8697-bf6ae4b3dec8",
+    "manual_run_id": "manual:e09fc195-17e4-44f0-8697-bf6ae4b3dec8:1786278314822:4",
+    "status": "accepted",
+    "replayed": false,
+    "job_id": "0594ed26-0998-4535-b927-4d319be71d36",
+    "request_id": "7b0198ad-3885-53eb-8f71-ca37fb50af44",
+    "source_job_key": "scheduler:orin-hbstore-prod:2026-08-09",
+    "requested_mode": "dry-run",
+    "payload": {}
+  },
+  "openclaw_dry_run": {
+    "source_key_count": 1,
+    "job_count": 1,
+    "run_count": 1,
+    "attempt_count": 1,
+    "run_id": "hb_20260809T122528Z_eccb4fdb",
+    "job_status": "completed",
+    "run_status": "completed",
+    "attempt_status": "completed",
+    "replay_disposition": "terminal",
+    "decision": "no_job_due",
+    "selected_job_number": null,
+    "code_version": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+    "shopify_create_count": 0,
+    "shopify_published": false,
+    "shopify_write_state": "not_attempted",
+    "queue_changed": false,
+    "reconciliation_status": "not_required",
+    "error_code": null
+  },
+  "flow_run": {
+    "id": "af0ea3da-bf10-47c5-a5aa-3ce380b581f0",
+    "name": "phase7-second-shadow-20260809",
+    "state": "Completed",
+    "run_count": 1,
+    "deployment_version": "5bdc759ddedb22105a8c8b00a77774d9aac0431e",
+    "as_of_date": "2026-08-09",
+    "mode": "shadow",
+    "started_at": "2026-08-09T12:27:28.459395Z",
+    "completed_at": "2026-08-09T12:27:29.181657Z"
+  },
+  "prediction": {
+    "planner_decision": "no_job_due",
+    "selected_job_number": null,
+    "next_due_job_number": 34,
+    "next_due_date": "2026-08-12",
+    "comparison": {
+      "status": "match",
+      "actual_run_id": "hb_20260809T122528Z_eccb4fdb",
+      "actual_decision": "no_job_due",
+      "actual_selected_job_number": null
+    },
+    "gate_projection": {
+      "would_accept_scheduler_request": false,
+      "blockers": [
+        "client_not_active",
+        "request_intake_closed",
+        "automation_disabled"
+      ],
+      "shopify_writes_observed": false,
+      "scheduler_state": "disabled",
+      "scheduler_owner": null
+    },
+    "observed_active_jobs": 0,
+    "observed_open_incidents": 0
+  },
+  "database_role": {
+    "name": "orin_prefect_shadow",
+    "login_enabled": true,
+    "superuser": false,
+    "create_role": false,
+    "create_database": false,
+    "bypass_rls": false,
+    "content_jobs_select": false,
+    "content_jobs_insert": false,
+    "snapshot_execute": true,
+    "enqueue_execute": false
+  },
+  "production_invariants": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "worker_restart_count": 0,
+    "scheduler_trigger_restart_count": 0,
+    "scheduler_trigger_healthy": true
+  },
+  "post_run_cleanup": {
+    "worker_container_present": false,
+    "work_pool_paused": true,
+    "work_pool_concurrency": 1,
+    "deployment_paused": true,
+    "deployment_concurrency": 1,
+    "deployment_active_slots": 0,
+    "deployment_collision_strategy": "CANCEL_NEW",
+    "deployment_schedules": [],
+    "openclaw_schedules_enabled": 0,
+    "openclaw_next_wake_at_ms": null
+  },
+  "durable_evidence": {
+    "directory": "/docker/orin/evidence/hb_20260809T122528Z_eccb4fdb",
+    "directory_mode": "0700",
+    "files_mode": "0600",
+    "final_result_sha256": "2a8752ae00dd87e0a88be3fcf6971cfaa58371cbdbfe52b37910bfe86d0a83d6",
+    "events_sha256": "d0240d91c3f6a81742005ae43a250eef2eb25c30b073bc943fc74d66329ef3f9"
+  },
+  "advisor": {
+    "new_phase7_findings": 0,
+    "existing_warning": "auth_leaked_password_protection",
+    "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+  },
+  "phase7_progress": {
+    "valid_production_shadow_matches": 2,
+    "next_action": "Record at least one additional independent same-date match before any Prefect schedule or scheduler-ownership proposal.",
+    "prefect_schedule_must_remain_disabled": true,
+    "shopify_writes_must_remain_disabled": true
+  }
+}

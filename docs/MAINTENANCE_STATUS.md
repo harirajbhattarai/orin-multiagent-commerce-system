@@ -1145,3 +1145,36 @@ schedule or scheduler-ownership transfer, and Shopify writes remain disabled.
 
 Durable details are in
 `docs/evidence/2026-08-04-phase7-first-production-shadow-proof.json`.
+
+## Phase 7 second production shadow comparison — 2026-08-09
+
+The second independent same-date production comparison passed. With Shopify
+writes explicitly disabled, a controlled invocation of the existing fixed
+OpenClaw schedule created source key
+`scheduler:orin-hbstore-prod:2026-08-09` exactly once. The automatic ORIN
+worker completed one job, one run, and one terminal attempt as
+`no_job_due`. Run `hb_20260809T122528Z_eccb4fdb` recorded zero Shopify
+creates, no publication, no queue change, `shopify_write_state=not_attempted`,
+and `reconciliation_status=not_required`.
+
+Prefect flow run `af0ea3da-bf10-47c5-a5aa-3ce380b581f0` then completed once
+with no retry at deployed revision
+`5bdc759ddedb22105a8c8b00a77774d9aac0431e`. For London business date
+2026-08-09 it independently predicted `no_job_due` and matched the OpenClaw
+run exactly. The next due plan item remains Job 34 on 2026-08-12.
+
+Cleanup is complete. The client is in maintenance, request intake and
+automation are disabled, Shopify writes are disabled, allowed mode is
+`dry-run`, scheduler ownership is disabled with no owner, and there are zero
+active jobs or open incidents. The Prefect worker was removed, its process
+pool is paused at concurrency one, the deployment is paused with no schedules,
+concurrency one, zero active slots, and `CANCEL_NEW`. All three OpenClaw
+schedules are disabled and `nextWakeAtMs` is null.
+
+Phase 7 now has two valid production shadow matches. Promotion remains
+unauthorized: record at least one more independent same-date match before any
+Prefect schedule or scheduler-ownership proposal. Shopify writes remain
+disabled.
+
+Durable details are in
+`docs/evidence/2026-08-09-phase7-second-production-shadow-proof.json`.
