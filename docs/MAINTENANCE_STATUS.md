@@ -1178,3 +1178,43 @@ disabled.
 
 Durable details are in
 `docs/evidence/2026-08-09-phase7-second-production-shadow-proof.json`.
+
+## Phase 7 third production shadow comparison — 2026-08-11
+
+The third independent same-date comparison passed for London business date
+2026-08-11. The first OpenClaw cron-wrapper attempt reached the scheduler
+sidecar but returned `ORIN_SCHEDULER_TRIGGER_BLOCKED`; the sidecar recorded only
+the exception class `ProgrammingError`. It created no database job. All gates
+were closed immediately, a rollback-only scheduler-role preflight passed, and
+the exact fixed schedule command was then invoked as the OpenClaw runtime UID
+without changing credentials or configuration.
+
+That controlled retry created source key
+`scheduler:orin-hbstore-prod:2026-08-11` exactly once. The automatic worker
+completed one job, one run, and one terminal attempt as `no_job_due`. Run
+`hb_20260810T233526Z_5d645f81` recorded zero Shopify creates, no publication,
+no queue change, `shopify_write_state=not_attempted`, and
+`reconciliation_status=not_required`.
+
+Prefect flow run `7e3599f8-e2b8-42fa-a545-5eb2d5c2572e` completed once with
+no retry at deployed revision
+`5bdc759ddedb22105a8c8b00a77774d9aac0431e`. It independently predicted
+`no_job_due` for 2026-08-11 and matched the OpenClaw result exactly. The next
+due item remains Job 34 on 2026-08-12.
+
+Cleanup is complete: the client is in maintenance, intake and automation are
+disabled, Shopify writes are disabled, scheduler ownership is disabled with no
+owner, and there are zero active jobs or incidents. The Prefect worker is
+removed, its pool and deployment are paused at concurrency one with zero
+active slots, the deployment has no schedules, all OpenClaw schedules are
+disabled, and `nextWakeAtMs` is null.
+
+Phase 7 has now accumulated three valid production shadow matches, so the
+shadow-observation threshold is met. Scheduler ownership is not transferred
+yet. Before a controlled ownership test, harden the scheduler-trigger database
+health/retry boundary so a transient blocked call is observable and safely
+recoverable without exposing database details. Prefect scheduling and Shopify
+writes remain disabled.
+
+Durable details are in
+`docs/evidence/2026-08-11-phase7-third-production-shadow-proof.json`.

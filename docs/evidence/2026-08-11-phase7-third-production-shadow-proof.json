@@ -1,0 +1,133 @@
+{
+  "schema": "orin.phase7-third-production-shadow-proof/v1",
+  "observed_at": "2026-08-10T23:37:29Z",
+  "business_date": "2026-08-11",
+  "status": "passed_with_recovered_preflight_error",
+  "prefect_deployed_commit": "5bdc759ddedb22105a8c8b00a77774d9aac0431e",
+  "orin_worker_commit": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+  "recovered_preflight_error": {
+    "occurred_at": "2026-08-10T23:30:34Z",
+    "openclaw_schedule_id": "e09fc195-17e4-44f0-8697-bf6ae4b3dec8",
+    "status": "blocked",
+    "error_code": "ORIN_SCHEDULER_TRIGGER_BLOCKED",
+    "command_exit_code": 4,
+    "sidecar_exception_class": "ProgrammingError",
+    "database_job_created": false,
+    "gates_closed_immediately": true,
+    "diagnosis": "The local SSH connection was healthy. The first OpenClaw cron-wrapper invocation reached the sidecar but the database operation was blocked. A rollback-only scheduler-role preflight then passed, and the exact fixed command succeeded without a configuration change. The redacted sidecar log does not preserve enough information to identify the precise transient database cause.",
+    "follow_up": "Improve scheduler-trigger database health observation and safe error classification before ownership transfer."
+  },
+  "controlled_openclaw_trigger": {
+    "schedule_id": "e09fc195-17e4-44f0-8697-bf6ae4b3dec8",
+    "invocation": "exact fixed schedule command as OpenClaw runtime UID 1000",
+    "status": "accepted",
+    "replayed": false,
+    "job_id": "17b0495b-9197-4333-b5e5-00334fceae3b",
+    "request_id": "20442b0a-2f3b-55f2-81ea-9b984a119fc3",
+    "source_job_key": "scheduler:orin-hbstore-prod:2026-08-11",
+    "requested_mode": "dry-run",
+    "payload": {}
+  },
+  "openclaw_dry_run": {
+    "source_key_count": 1,
+    "job_count": 1,
+    "run_count": 1,
+    "attempt_count": 1,
+    "run_id": "hb_20260810T233526Z_5d645f81",
+    "job_status": "completed",
+    "run_status": "completed",
+    "attempt_status": "completed",
+    "replay_disposition": "terminal",
+    "decision": "no_job_due",
+    "selected_job_number": null,
+    "code_version": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+    "shopify_create_count": 0,
+    "shopify_published": false,
+    "shopify_write_state": "not_attempted",
+    "queue_changed": false,
+    "reconciliation_status": "not_required",
+    "error_code": null
+  },
+  "flow_run": {
+    "id": "7e3599f8-e2b8-42fa-a545-5eb2d5c2572e",
+    "name": "phase7-third-shadow-20260811",
+    "state": "Completed",
+    "run_count": 1,
+    "deployment_version": "5bdc759ddedb22105a8c8b00a77774d9aac0431e",
+    "as_of_date": "2026-08-11",
+    "mode": "shadow",
+    "started_at": "2026-08-10T23:36:23.607235Z",
+    "completed_at": "2026-08-10T23:36:24.050655Z"
+  },
+  "prediction": {
+    "planner_decision": "no_job_due",
+    "selected_job_number": null,
+    "next_due_job_number": 34,
+    "next_due_date": "2026-08-12",
+    "comparison": {
+      "status": "match",
+      "actual_run_id": "hb_20260810T233526Z_5d645f81",
+      "actual_decision": "no_job_due",
+      "actual_selected_job_number": null
+    },
+    "gate_projection": {
+      "would_accept_scheduler_request": false,
+      "blockers": [
+        "client_not_active",
+        "request_intake_closed",
+        "automation_disabled"
+      ],
+      "shopify_writes_observed": false,
+      "scheduler_state": "disabled",
+      "scheduler_owner": null
+    },
+    "observed_active_jobs": 0,
+    "observed_open_incidents": 0
+  },
+  "production_invariants": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "worker_restart_count": 0,
+    "scheduler_trigger_restart_count": 0,
+    "scheduler_trigger_socket_healthy": true
+  },
+  "post_run_cleanup": {
+    "worker_container_present": false,
+    "work_pool_paused": true,
+    "work_pool_concurrency": 1,
+    "deployment_paused": true,
+    "deployment_concurrency": 1,
+    "deployment_active_slots": 0,
+    "deployment_collision_strategy": "CANCEL_NEW",
+    "deployment_schedules": [],
+    "openclaw_schedules_enabled": 0,
+    "openclaw_next_wake_at_ms": null
+  },
+  "durable_evidence": {
+    "directory": "/docker/orin/evidence/hb_20260810T233526Z_5d645f81",
+    "directory_mode": "0700",
+    "generated_files_mode": "0600",
+    "final_result_sha256": "f9d823d444731c4282542e12d4c56af7033581136396a484cb1263cdf86c2f3f",
+    "events_sha256": "a08f6a9398c3db53636898f7273d6ab1854a91e6b2f7790ce64123b83a31cf3d"
+  },
+  "advisor": {
+    "new_phase7_findings": 0,
+    "existing_warning": "auth_leaked_password_protection",
+    "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection"
+  },
+  "phase7_progress": {
+    "valid_production_shadow_matches": 3,
+    "shadow_match_threshold_met": true,
+    "ownership_transfer_authorized": false,
+    "next_action": "Harden and test the scheduler-trigger health and retry boundary, then design a separately reviewed controlled Prefect ownership-transfer test.",
+    "prefect_schedule_must_remain_disabled": true,
+    "shopify_writes_must_remain_disabled": true
+  }
+}
