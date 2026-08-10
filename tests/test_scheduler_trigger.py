@@ -11,8 +11,15 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
-from orin_scheduler_trigger.repository import ScheduledJob
+from orin_scheduler_trigger.repository import (
+    DatabaseFailure,
+    ScheduledJob,
+    SchedulerDatabaseError,
+    SchedulerRepository,
+    classify_database_failure,
+)
 from orin_scheduler_trigger.server import (
     REQUEST_LINE,
     Settings,
@@ -43,6 +50,33 @@ class FakeCapability:
             scheduled_for=datetime(2026, 7, 26, 11, tzinfo=UTC),
             created_at=datetime(2026, 7, 26, 11, tzinfo=UTC),
             replayed=False,
+        )
+
+
+class FakeEngine:
+    def __init__(self) -> None:
+        self.dispose_calls = 0
+
+    def dispose(self) -> None:
+        self.dispose_calls += 1
+
+
+class FakeDatabaseError(Exception):
+    def __init__(self, sqlstate: str) -> None:
+        super().__init__("sensitive database detail")
+        self.sqlstate = sqlstate
+
+
+class ClassifiedFailureCapability:
+    def trigger(self) -> ScheduledJob:
+        raise SchedulerDatabaseError(
+            DatabaseFailure(
+                response_code="ORIN_SCHEDULER_DATABASE_UNAVAILABLE",
+                category="transient_database",
+                retryable=True,
+                sqlstate_class="08",
+            ),
+            attempts=2,
         )
 
 
@@ -121,6 +155,115 @@ def test_database_errors_are_redacted_and_fail_closed():
             "error_code": "ORIN_SCHEDULER_TRIGGER_BLOCKED",
         }
         assert "sensitive" not in json.dumps(response)
+
+
+def test_classified_database_error_returns_only_the_stable_code():
+    with tempfile.TemporaryDirectory(prefix="orin-trigger-", dir="/tmp") as directory:
+        socket_path = Path(directory) / "trigger.sock"
+        server = build_server(
+            socket_path=socket_path,
+            socket_directory_mode=0o710,
+            socket_mode=0o620,
+            allowed_peer_uid=os.getuid(),
+            peer_uid_resolver=lambda _: os.getuid(),
+            capability=ClassifiedFailureCapability(),
+        )
+        try:
+            thread = serve_once(server)
+            response = request(socket_path, REQUEST_LINE)
+            thread.join(timeout=2)
+        finally:
+            server.server_close()
+
+    assert response == {
+        "schema": "orin.scheduler-trigger/v1",
+        "status": "blocked",
+        "error_code": "ORIN_SCHEDULER_DATABASE_UNAVAILABLE",
+    }
+
+
+def test_transient_database_failure_retries_once_then_succeeds(monkeypatch):
+    engine = FakeEngine()
+    repository = SchedulerRepository(engine)  # type: ignore[arg-type]
+    expected = FakeCapability().trigger()
+    calls = 0
+
+    def trigger_once() -> ScheduledJob:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise OperationalError(
+                None,
+                None,
+                FakeDatabaseError("08006"),
+                connection_invalidated=True,
+            )
+        return expected
+
+    monkeypatch.setattr(repository, "_trigger_once", trigger_once)
+
+    assert repository.trigger() == expected
+    assert calls == 2
+    assert engine.dispose_calls == 1
+
+
+def test_policy_database_failure_is_not_retried(monkeypatch):
+    engine = FakeEngine()
+    repository = SchedulerRepository(engine)  # type: ignore[arg-type]
+    calls = 0
+
+    def trigger_once() -> ScheduledJob:
+        nonlocal calls
+        calls += 1
+        raise ProgrammingError(None, None, FakeDatabaseError("42501"))
+
+    monkeypatch.setattr(repository, "_trigger_once", trigger_once)
+
+    with pytest.raises(SchedulerDatabaseError) as captured:
+        repository.trigger()
+
+    assert captured.value.response_code == "ORIN_SCHEDULER_POLICY_BLOCKED"
+    assert captured.value.category == "policy"
+    assert captured.value.attempts == 1
+    assert calls == 1
+    assert engine.dispose_calls == 0
+
+
+def test_transient_database_failure_stops_after_two_attempts(monkeypatch):
+    engine = FakeEngine()
+    repository = SchedulerRepository(engine)  # type: ignore[arg-type]
+    calls = 0
+
+    def trigger_once() -> ScheduledJob:
+        nonlocal calls
+        calls += 1
+        raise OperationalError(
+            None,
+            None,
+            FakeDatabaseError("08006"),
+            connection_invalidated=True,
+        )
+
+    monkeypatch.setattr(repository, "_trigger_once", trigger_once)
+
+    with pytest.raises(SchedulerDatabaseError) as captured:
+        repository.trigger()
+
+    assert captured.value.response_code == "ORIN_SCHEDULER_DATABASE_UNAVAILABLE"
+    assert captured.value.category == "transient_database"
+    assert captured.value.attempts == 2
+    assert calls == 2
+    assert engine.dispose_calls == 1
+
+
+def test_database_failure_classification_never_includes_error_text():
+    failure = classify_database_failure(
+        ProgrammingError(None, None, FakeDatabaseError("XX000"))
+    )
+
+    assert failure.response_code == "ORIN_SCHEDULER_TRIGGER_BLOCKED"
+    assert failure.category == "database"
+    assert "sensitive" not in repr(failure)
 
 
 def test_socket_rejects_a_peer_outside_the_approved_runtime_uid():

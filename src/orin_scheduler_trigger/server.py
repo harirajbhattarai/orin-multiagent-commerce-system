@@ -19,7 +19,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from orin_control.repository import create_database_engine
 from orin_control.secrets import read_private_secret
-from orin_scheduler_trigger.repository import ScheduledJob, SchedulerRepository
+from orin_scheduler_trigger.repository import (
+    ScheduledJob,
+    SchedulerDatabaseError,
+    SchedulerRepository,
+)
 
 
 REQUEST_LINE = b"TRIGGER ORIN-HBSTORE V1\n"
@@ -103,6 +107,14 @@ class TriggerHandler(socketserver.StreamRequestHandler):
         else:
             try:
                 response = accepted_response(self.server.capability.trigger())  # type: ignore[attr-defined]
+            except SchedulerDatabaseError as exc:
+                print(
+                    "scheduler trigger blocked: "
+                    f"code={exc.response_code} category={exc.category} "
+                    f"attempts={exc.attempts} sqlstate_class={exc.sqlstate_class or 'none'}",
+                    file=sys.stderr,
+                )
+                response = blocked_response(exc.response_code)
             except Exception as exc:
                 print(f"scheduler trigger blocked: {type(exc).__name__}", file=sys.stderr)
                 response = blocked_response("ORIN_SCHEDULER_TRIGGER_BLOCKED")
