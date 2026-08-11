@@ -1218,3 +1218,43 @@ writes remain disabled.
 
 Durable details are in
 `docs/evidence/2026-08-11-phase7-third-production-shadow-proof.json`.
+
+## Scheduler-trigger reliability deployment — 2026-08-11
+
+The scheduler-trigger reliability hardening from PR #95 is merged and deployed
+at exact revision `96cc33c34a8288090846060e430c69bf01eb76b7`. The boundary now
+classifies database failures into stable non-sensitive categories, retries an
+idempotent trigger exactly once only for transient database failures, never
+retries policy failures, and reports database unavailability without exposing
+SQL or credential details. Its container health check now verifies both the
+real `orin_scheduler` database role and the fixed Unix socket.
+
+Validation passed 21 focused tests, the 244-test Python suite, compileall, diff
+checks, and all GitHub CI jobs, including database and immutable image checks.
+The scheduler-only image was built from a local Git archive of the exact merge
+revision and deployed with `--no-deps`; the pinned Prefect checkout was not
+moved. The replacement sidecar is healthy with restart count zero and emits
+`ORIN_SCHEDULER_TRIGGER_HEALTHY`. The previous scheduler image remains on the
+VPS for rollback.
+
+The existing fixed OpenClaw command was exercised as runtime UID 1000. Because
+the 2026-08-11 source key already existed from the third shadow proof, the safe
+probe returned the existing completed dry-run with `replayed=true`. The source
+key remains exactly one job and one run with zero Shopify creates; no new job
+was inserted. Policy classification and its no-retry behavior are covered by
+automated tests; no database fault was injected into production.
+
+Post-deployment state remains closed: maintenance mode, intake and automation
+off, Shopify writes off, dry-run only, scheduler disabled with no owner, and
+zero active jobs or incidents. The worker, watchdog, and Prefect server images
+and restart counts are unchanged. Legacy, dedicated, and watchdog OpenClaw
+schedules are all disabled, the dedicated cron remains `0 11 * * *`
+Europe/London, and `nextWakeAtMs` is null.
+
+The scheduler reliability prerequisite is complete. The next Phase 7 action is
+a separately reviewed, controlled Prefect ownership-transfer test with Shopify
+writes and Prefect scheduling still disabled until that test is explicitly
+commissioned.
+
+Durable details are in
+`docs/evidence/2026-08-11-scheduler-trigger-reliability-deployment.json`.
