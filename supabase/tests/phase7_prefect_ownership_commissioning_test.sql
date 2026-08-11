@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(13);
 
 select ok(
   (
@@ -28,10 +28,10 @@ select ok(
 select ok(
   has_function_privilege(
     'orin_prefect_scheduler',
-    'orin_private.enqueue_hoverboard_prefect_commissioning_job()',
+    'orin_private.enqueue_hoverboard_prefect_scheduled_job()',
     'EXECUTE'
   ),
-  'Prefect scheduler can execute the fixed commissioning function'
+  'Prefect scheduler can execute the fixed daily scheduler function'
 );
 
 select ok(
@@ -43,6 +43,11 @@ select ok(
   and not has_function_privilege(
     'orin_prefect_scheduler',
     'orin_private.enqueue_hoverboard_scheduled_job()',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'orin_prefect_scheduler',
+    'orin_private.enqueue_hoverboard_prefect_commissioning_job()',
     'EXECUTE'
   )
   and not has_function_privilege(
@@ -63,7 +68,7 @@ set local role orin_prefect_scheduler;
 do $$
 begin
   begin
-    perform * from orin_private.enqueue_hoverboard_prefect_commissioning_job();
+    perform * from orin_private.enqueue_hoverboard_prefect_scheduled_job();
     insert into prefect_owner_test_results values ('maintenance', false);
   exception when insufficient_privilege or check_violation then
     insert into prefect_owner_test_results values ('maintenance', true);
@@ -74,7 +79,7 @@ reset role;
 
 select ok(
   (select passed from prefect_owner_test_results where test_name = 'maintenance'),
-  'maintenance gates reject Prefect commissioning'
+  'maintenance gates reject Prefect scheduling'
 );
 
 update public.clients
@@ -99,7 +104,7 @@ set local role orin_prefect_scheduler;
 do $$
 begin
   begin
-    perform * from orin_private.enqueue_hoverboard_prefect_commissioning_job();
+    perform * from orin_private.enqueue_hoverboard_prefect_scheduled_job();
     insert into prefect_owner_test_results values ('wrong_owner', false);
   exception when insufficient_privilege then
     insert into prefect_owner_test_results values ('wrong_owner', true);
@@ -127,7 +132,7 @@ set local role orin_prefect_scheduler;
 do $$
 begin
   begin
-    perform * from orin_private.enqueue_hoverboard_prefect_commissioning_job();
+    perform * from orin_private.enqueue_hoverboard_prefect_scheduled_job();
     insert into prefect_owner_test_results values ('not_dry_run', false);
   exception when check_violation then
     insert into prefect_owner_test_results values ('not_dry_run', true);
@@ -138,7 +143,7 @@ reset role;
 
 select ok(
   (select passed from prefect_owner_test_results where test_name = 'not_dry_run'),
-  'Prefect commissioning rejects Shopify writes and hidden-draft mode'
+  'Prefect scheduling rejects Shopify writes and hidden-draft mode'
 );
 
 update public.client_runtime_settings
@@ -172,7 +177,7 @@ set local role orin_prefect_scheduler;
 do $$
 begin
   begin
-    perform * from orin_private.enqueue_hoverboard_prefect_commissioning_job();
+    perform * from orin_private.enqueue_hoverboard_prefect_scheduled_job();
     insert into prefect_owner_test_results values ('active_queue', false);
   exception when object_not_in_prerequisite_state then
     insert into prefect_owner_test_results values ('active_queue', true);
@@ -183,7 +188,7 @@ reset role;
 
 select ok(
   (select passed from prefect_owner_test_results where test_name = 'active_queue'),
-  'Prefect commissioning rejects a non-empty active queue'
+  'Prefect scheduling rejects a non-empty active queue'
 );
 
 delete from public.content_jobs
@@ -203,27 +208,27 @@ grant insert, select on prefect_owner_jobs_result to orin_prefect_scheduler;
 
 set local role orin_prefect_scheduler;
 insert into prefect_owner_jobs_result
-select * from orin_private.enqueue_hoverboard_prefect_commissioning_job();
+select * from orin_private.enqueue_hoverboard_prefect_scheduled_job();
 insert into prefect_owner_jobs_result
-select * from orin_private.enqueue_hoverboard_prefect_commissioning_job();
+select * from orin_private.enqueue_hoverboard_prefect_scheduled_job();
 reset role;
 
 select is(
   (select count(*) from prefect_owner_jobs_result),
   2::bigint,
-  'two commissioning calls return two acknowledgements'
+  'two scheduler calls return two acknowledgements'
 );
 
 select is(
   (select count(distinct job_id) from prefect_owner_jobs_result),
   1::bigint,
-  'commissioning replay resolves to one durable job'
+  'scheduler replay resolves to one durable job'
 );
 
 select results_eq(
   'select replayed from prefect_owner_jobs_result order by replayed',
   array[false, true],
-  'first commissioning call inserts and second replays'
+  'first scheduler call inserts and second replays'
 );
 
 select ok(
@@ -231,13 +236,36 @@ select ok(
     select
       requested_by is null
       and requested_mode = 'dry-run'
-      and source_job_key =
-        'scheduler:orin-hbstore-prod:prefect-commissioning-v1'
+      and source_job_key ~
+        '^scheduler:orin-hbstore-prod:[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      and right(source_job_key, 10)::date =
+        (scheduled_for at time zone 'Europe/London')::date
       and payload = '{}'::jsonb
     from public.content_jobs
     where job_id = (select job_id from prefect_owner_jobs_result limit 1)
   ),
-  'commissioning job is fixed, dry-run, system-owned, and payload-free'
+  'daily job is fixed, dry-run, system-owned, and payload-free'
+);
+
+select ok(
+  (
+    select request_id = (
+      substr(expected_digest, 1, 8) || '-' ||
+      substr(expected_digest, 9, 4) || '-' ||
+      '5' || substr(expected_digest, 14, 3) || '-' ||
+      '8' || substr(expected_digest, 18, 3) || '-' ||
+      substr(expected_digest, 21, 12)
+    )::uuid
+    from public.content_jobs,
+    lateral (
+      select md5(
+        'orin-scheduler-v1:hoverboard_store:' ||
+        right(source_job_key, 10)
+      ) as expected_digest
+    ) digest
+    where job_id = (select job_id from prefect_owner_jobs_result limit 1)
+  ),
+  'Prefect preserves the existing cross-owner daily request identity'
 );
 
 select * from finish();
