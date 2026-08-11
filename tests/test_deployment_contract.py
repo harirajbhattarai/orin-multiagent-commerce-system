@@ -124,6 +124,9 @@ def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():
     assert "worker_database_url" not in trigger
     assert "hoverboard_shopify_access_token" not in trigger
     assert "writer_api_key" not in trigger
+    assert 'test: ["CMD", "python", "-m", "orin_scheduler_trigger.healthcheck"]' in trigger
+    assert "interval: 60s" in trigger
+    assert "timeout: 15s" in trigger
 
 
 def test_watchdog_is_socket_only_read_only_and_credential_isolated():

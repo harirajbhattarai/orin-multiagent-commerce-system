@@ -60,6 +60,13 @@ credentials and requires the configured OpenClaw runtime UID (`1000` on the
 current VPS). Other UIDs and any other request bytes are rejected without
 calling PostgreSQL. Database errors are redacted to a stable blocked response.
 
+The sidecar classifies database failures without logging SQL, parameters,
+credentials, or exception messages. Policy/configuration rejections fail
+closed without retry. Connection, serialization, and failover errors receive
+one immediate retry; this is safe because the database function is idempotent
+on the immutable London-date source key. If both attempts fail, the client
+receives only a stable availability code.
+
 ## Deployment state
 
 The Compose service is profile-gated as `scheduler-trigger`, has no port, runs
@@ -68,6 +75,10 @@ a read-only root filesystem, drops all capabilities, and mounts only:
 
 - its file-backed scheduler database URL;
 - the private Unix-socket directory.
+
+Its container health check verifies the actual `orin_scheduler` database role
+and the Unix socket every 60 seconds. A socket-only check is insufficient:
+database loss must mark the bridge unhealthy before a scheduled request.
 
 It does not mount the OpenClaw workspace, worker evidence, Shopify credential,
 writer credential, or Docker socket.
