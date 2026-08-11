@@ -61,7 +61,11 @@ receipt to manufacture a fresh test.
    auto-scheduled flow run with no parameters and no retry.
 8. Require `replayed=false`, the exact normal daily source key, and one
    automatic ORIN worker terminal job/run/attempt with zero Shopify creates,
-   no publication, no queue change, and no reconciliation.
+   no publication, no queue change, and no reconciliation. Verify revisions
+   at their component boundaries: the Prefect deployment must match the
+   reviewed scheduler revision, while `runs.code_version` must match the
+   separately pinned ORIN worker image revision. Do not require a scheduler
+   commit SHA to appear as the worker's `code_version`.
 9. Immediately close all database gates, deactivate and remove the one-shot
    schedule, pause the recurring schedule/deployment/pool, stop and remove the
    owner worker, return the role to `NOLOGIN`, and delete its credential.
