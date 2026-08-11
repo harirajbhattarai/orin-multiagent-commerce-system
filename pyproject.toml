@@ -44,6 +44,7 @@ packages = [
   "src/orin_watchdog",
   "src/orin_evidence_sync",
   "src/orin_prefect_shadow",
+  "src/orin_prefect_owner",
 ]
 
 [tool.pytest.ini_options]

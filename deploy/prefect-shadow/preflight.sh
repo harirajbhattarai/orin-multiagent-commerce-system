@@ -2,12 +2,19 @@
 set -euo pipefail
 
 require_shadow_secret=false
-if [[ "${1:-}" == "--require-shadow-secret" ]]; then
-  require_shadow_secret=true
-elif [[ $# -ne 0 ]]; then
-  echo "usage: $0 [--require-shadow-secret]" >&2
-  exit 2
-fi
+require_owner_secret=false
+allow_running_server=false
+for argument in "$@"; do
+  case "${argument}" in
+    --require-shadow-secret) require_shadow_secret=true ;;
+    --require-owner-secret) require_owner_secret=true ;;
+    --allow-running-server) allow_running_server=true ;;
+    *)
+      echo "usage: $0 [--require-shadow-secret] [--require-owner-secret] [--allow-running-server]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 : "${ORIN_PREFECT_DEPLOY_SHA:?set ORIN_PREFECT_DEPLOY_SHA}"
 : "${ORIN_PREFECT_PROJECT_ROOT:?set ORIN_PREFECT_PROJECT_ROOT}"
@@ -32,8 +39,17 @@ if [[ "${actual_sha}" != "${ORIN_PREFECT_DEPLOY_SHA}" ]]; then
   exit 1
 fi
 if ss -H -ltn "sport = :${ORIN_PREFECT_UI_PORT}" | grep -q .; then
-  echo "loopback Prefect port ${ORIN_PREFECT_UI_PORT} is already in use" >&2
-  exit 1
+  if [[ "${allow_running_server}" != true ]]; then
+    echo "loopback Prefect port ${ORIN_PREFECT_UI_PORT} is already in use" >&2
+    exit 1
+  fi
+  running_health="$(docker inspect orin-prefect-shadow-prefect-server-1 \
+    --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \
+    2>/dev/null || true)"
+  if [[ "${running_health}" != "healthy" ]]; then
+    echo "existing Prefect server is not healthy" >&2
+    exit 1
+  fi
 fi
 
 compose_file="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compose.yml"
@@ -48,6 +64,7 @@ declare -A expected_uid=(
   [prefect_server_database_password]=10004
   [prefect_api_auth]=10004
   [shadow_database_url]=10004
+  [owner_database_url]=10004
 )
 secret_names=(
   prefect_postgres_password
@@ -56,6 +73,9 @@ secret_names=(
 )
 if [[ "${require_shadow_secret}" == true ]]; then
   secret_names+=(shadow_database_url)
+fi
+if [[ "${require_owner_secret}" == true ]]; then
+  secret_names+=(owner_database_url)
 fi
 for name in "${secret_names[@]}"; do
   path="${ORIN_PREFECT_SECRETS_DIR}/${name}"

@@ -107,7 +107,7 @@ jobs:
             --tag orin-prefect-shadow:ci \
             .
           docker run --rm --entrypoint python orin-prefect-shadow:ci \
-            -c "import prefect; from orin_prefect_shadow.flow import hbstore_shadow_flow; assert prefect.__version__ == '3.8.1'; print(hbstore_shadow_flow.name)"
+            -c "import prefect; from orin_prefect_shadow.flow import hbstore_shadow_flow; from orin_prefect_owner.flow import hbstore_owner_commissioning_flow; assert prefect.__version__ == '3.8.1'; print(hbstore_shadow_flow.name, hbstore_owner_commissioning_flow.name)"
           test "$(docker image inspect orin-prefect-shadow:ci --format '{{.Config.User}}')" = "10004:10004"
       - name: Validate disabled VPS deployment contract
         run: |
@@ -153,6 +153,7 @@ jobs:
           bash -n deploy/prefect-shadow/entrypoint.sh
           bash -n deploy/prefect-shadow/install_server_secrets.sh
           bash -n deploy/prefect-shadow/install_shadow_db_secret.sh
+          bash -n deploy/prefect-shadow/install_owner_db_secret.sh
           bash -n deploy/prefect-shadow/preflight.sh
           prefect_tmp="$(mktemp -d)"
           mkdir -p "${prefect_tmp}/secrets"
@@ -160,7 +161,8 @@ jobs:
             "${prefect_tmp}/secrets/prefect_postgres_password" \
             "${prefect_tmp}/secrets/prefect_server_database_password" \
             "${prefect_tmp}/secrets/prefect_api_auth" \
-            "${prefect_tmp}/secrets/shadow_database_url"
+            "${prefect_tmp}/secrets/shadow_database_url" \
+            "${prefect_tmp}/secrets/owner_database_url"
           ORIN_PREFECT_DEPLOY_SHA="${GITHUB_SHA}" \
           ORIN_PREFECT_PROJECT_ROOT="${GITHUB_WORKSPACE}" \
           ORIN_PREFECT_SECRETS_DIR="${prefect_tmp}/secrets" \
