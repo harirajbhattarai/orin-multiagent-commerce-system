@@ -34,8 +34,17 @@ case "${mode}" in
       --no-create-pool-if-not-found \
       --install-policy never
     ;;
+  owner-worker)
+    export PREFECT_API_AUTH_STRING="${api_auth}"
+    exec prefect worker start \
+      --pool orin-owner-process \
+      --name orin-hbstore-owner-commissioning-1 \
+      --limit 1 \
+      --no-create-pool-if-not-found \
+      --install-policy never
+    ;;
   *)
-    echo "usage: entrypoint.sh {server|bootstrap|worker}" >&2
+    echo "usage: entrypoint.sh {server|bootstrap|worker|owner-worker}" >&2
     exit 2
     ;;
 esac

@@ -13,11 +13,15 @@ from prefect.client.schemas.objects import (
 )
 from prefect.types.entrypoint import EntrypointType
 
+from orin_prefect_owner.flow import hbstore_owner_commissioning_flow
+
 from .flow import hbstore_shadow_flow
 
 
 WORK_POOL_NAME = "orin-shadow-process"
 DEPLOYMENT_NAME = "orin-hbstore-shadow"
+OWNER_WORK_POOL_NAME = "orin-owner-process"
+OWNER_DEPLOYMENT_NAME = "orin-hbstore-owner-commissioning"
 
 
 async def _verify() -> None:
@@ -32,6 +36,16 @@ async def _verify() -> None:
             raise RuntimeError("shadow deployment must remain paused")
         if deployment.schedules:
             raise RuntimeError("shadow deployment must not have a schedule")
+        owner_pool = await client.read_work_pool(OWNER_WORK_POOL_NAME)
+        if not owner_pool.is_paused or owner_pool.concurrency_limit != 1:
+            raise RuntimeError("owner work pool must be paused with concurrency one")
+        owner_deployment = await client.read_deployment_by_name(
+            f"orin-hbstore-owner-commissioning/{OWNER_DEPLOYMENT_NAME}"
+        )
+        if owner_deployment.paused is not True:
+            raise RuntimeError("owner deployment must remain paused")
+        if owner_deployment.schedules:
+            raise RuntimeError("owner deployment must not have a schedule")
 
 
 def main() -> None:
@@ -45,6 +59,29 @@ def main() -> None:
             "--paused",
             "--overwrite",
             WORK_POOL_NAME,
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "prefect",
+            "work-pool",
+            "create",
+            "--type",
+            "process",
+            "--paused",
+            "--overwrite",
+            OWNER_WORK_POOL_NAME,
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "prefect",
+            "work-pool",
+            "set-concurrency-limit",
+            OWNER_WORK_POOL_NAME,
+            "1",
         ],
         check=True,
     )
@@ -74,7 +111,31 @@ def main() -> None:
         job_variables={"working_dir": "/app"},
     )
     deployment.apply()
+    owner_deployment = hbstore_owner_commissioning_flow.to_deployment(
+        name=OWNER_DEPLOYMENT_NAME,
+        paused=True,
+        schedules=[],
+        concurrency_limit=ConcurrencyLimitConfig(
+            limit=1,
+            collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW,
+        ),
+        tags=[
+            "orin",
+            "commissioning",
+            "hoverboard_store",
+            "dry-run-only",
+            "no-shopify-credentials",
+        ],
+        version=os.environ.get("ORIN_CODE_VERSION", "dev"),
+        work_pool_name=OWNER_WORK_POOL_NAME,
+        entrypoint_type=EntrypointType.MODULE_PATH,
+        job_variables={"working_dir": "/app"},
+    )
+    owner_deployment.apply()
     subprocess.run(["prefect", "work-pool", "pause", WORK_POOL_NAME], check=True)
+    subprocess.run(
+        ["prefect", "work-pool", "pause", OWNER_WORK_POOL_NAME], check=True
+    )
     asyncio.run(_verify())
     print("ORIN_PREFECT_SHADOW_BOOTSTRAP_OK")
 

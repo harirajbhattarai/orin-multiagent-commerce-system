@@ -6,6 +6,9 @@ ENTRYPOINT = Path("deploy/prefect-shadow/entrypoint.sh").read_text(encoding="utf
 MIGRATION = Path(
     "supabase/migrations/20260804153033_phase7_prefect_shadow_role.sql"
 ).read_text(encoding="utf-8")
+OWNER_MIGRATION = Path(
+    "supabase/migrations/20260811002121_phase7_prefect_ownership_commissioning.sql"
+).read_text(encoding="utf-8")
 
 
 def service(name: str, next_name: str | None) -> str:
@@ -16,7 +19,7 @@ def service(name: str, next_name: str | None) -> str:
 
 
 def test_every_prefect_service_is_disabled_by_default_and_pinned():
-    assert COMPOSE.count("profiles:") == 4
+    assert COMPOSE.count("profiles:") == 5
     assert ":latest" not in COMPOSE
     assert "prefecthq/prefect:3.8.1" not in COMPOSE
     assert "postgres:16.10-bookworm@sha256:" in COMPOSE
@@ -40,7 +43,7 @@ def test_server_is_loopback_only_and_has_no_traefik_or_docker_socket():
 
 
 def test_shadow_worker_has_only_its_read_only_database_secret():
-    worker = service("prefect-shadow-worker", None).split("\nsecrets:", 1)[0]
+    worker = service("prefect-shadow-worker", "prefect-owner-worker")
     assert "shadow_database_url" in worker
     assert "prefect_api_auth" in worker
     assert "shopify" not in worker.lower()
@@ -55,13 +58,31 @@ def test_shadow_worker_has_only_its_read_only_database_secret():
     assert "--install-policy never" in ENTRYPOINT
 
 
+def test_owner_worker_has_only_its_fixed_commissioning_secret():
+    worker = service("prefect-owner-worker", None).split("\nsecrets:", 1)[0]
+    assert "owner_database_url" in worker
+    assert "prefect_api_auth" in worker
+    assert "shopify" not in worker.lower()
+    assert "shadow_database_url" not in worker
+    assert "worker_database_url" not in worker
+    assert "scheduler_database_url" not in worker
+    assert "control_database_url" not in worker
+    assert "writer_api_key" not in worker
+    assert 'restart: "no"' in worker
+    assert 'PREFECT_RUNNER_PROCESS_LIMIT: "1"' in worker
+    assert "--pool orin-owner-process" in ENTRYPOINT
+
+
 def test_bootstrap_and_worker_do_not_receive_prefect_database_password():
     bootstrap = service("prefect-bootstrap", "prefect-shadow-worker")
-    worker = service("prefect-shadow-worker", None).split("\nsecrets:", 1)[0]
+    worker = service("prefect-shadow-worker", "prefect-owner-worker")
+    owner = service("prefect-owner-worker", None).split("\nsecrets:", 1)[0]
     assert "prefect_server_database_password" not in bootstrap
     assert "prefect_postgres_password" not in bootstrap
     assert "prefect_server_database_password" not in worker
     assert "prefect_postgres_password" not in worker
+    assert "prefect_server_database_password" not in owner
+    assert "prefect_postgres_password" not in owner
 
 
 def test_database_role_has_one_function_and_no_direct_table_grants():
@@ -71,3 +92,16 @@ def test_database_role_has_one_function_and_no_direct_table_grants():
     assert "claim_next_job" not in MIGRATION
     assert "complete_job" not in MIGRATION
     assert "p_client_id is distinct from 'hoverboard_store'" in MIGRATION
+
+
+def test_owner_role_is_separate_and_dry_run_only():
+    assert "create role orin_prefect_scheduler" in OWNER_MIGRATION
+    assert "grant select" not in OWNER_MIGRATION.lower()
+    assert (
+        "grant execute on function "
+        "orin_private.enqueue_hoverboard_prefect_commissioning_job()"
+    ) in OWNER_MIGRATION
+    assert "v_access.allowed_mode <> 'dry-run'" in OWNER_MIGRATION
+    assert "v_access.shopify_writes_enabled" in OWNER_MIGRATION
+    assert "prefect:orin-hbstore-prod" in OWNER_MIGRATION
+    assert "pg_advisory_xact_lock" in OWNER_MIGRATION

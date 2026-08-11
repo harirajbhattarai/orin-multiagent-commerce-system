@@ -89,3 +89,7 @@ Promotion requires several same-date `match` receipts against the existing
 OpenClaw dry-run owner. A future controlled live Prefect run is a separate
 change: it requires review, retry/reconciliation proof, and an explicit
 ownership transfer. Shopify writes stay disabled throughout this foundation.
+
+The separately isolated one-shot ownership proof is specified in
+`docs/PREFECT_OWNERSHIP_COMMISSIONING.md`. It does not widen the read-only
+shadow role or add a recurring schedule.
