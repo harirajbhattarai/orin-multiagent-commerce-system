@@ -9,6 +9,12 @@ MIGRATION = Path(
 OWNER_MIGRATION = Path(
     "supabase/migrations/20260811002121_phase7_prefect_ownership_commissioning.sql"
 ).read_text(encoding="utf-8")
+SCHEDULER_MIGRATION = Path(
+    "supabase/migrations/20260811082754_phase7_prefect_recurring_dry_run.sql"
+).read_text(encoding="utf-8")
+BOOTSTRAP = Path("src/orin_prefect_shadow/bootstrap.py").read_text(
+    encoding="utf-8"
+)
 
 
 def service(name: str, next_name: str | None) -> str:
@@ -71,6 +77,7 @@ def test_owner_worker_has_only_its_fixed_commissioning_secret():
     assert 'restart: "no"' in worker
     assert 'PREFECT_RUNNER_PROCESS_LIMIT: "1"' in worker
     assert "--pool orin-owner-process" in ENTRYPOINT
+    assert "--name orin-hbstore-prefect-scheduler-1" in ENTRYPOINT
 
 
 def test_bootstrap_and_worker_do_not_receive_prefect_database_password():
@@ -105,3 +112,29 @@ def test_owner_role_is_separate_and_dry_run_only():
     assert "v_access.shopify_writes_enabled" in OWNER_MIGRATION
     assert "prefect:orin-hbstore-prod" in OWNER_MIGRATION
     assert "pg_advisory_xact_lock" in OWNER_MIGRATION
+
+
+def test_daily_prefect_boundary_replaces_commissioning_access_safely():
+    assert "enqueue_hoverboard_prefect_scheduled_job()" in SCHEDULER_MIGRATION
+    assert "revoke all on all tables" in SCHEDULER_MIGRATION
+    assert "grant select" not in SCHEDULER_MIGRATION.lower()
+    assert "v_access.allowed_mode <> 'dry-run'" in SCHEDULER_MIGRATION
+    assert "v_access.shopify_writes_enabled" in SCHEDULER_MIGRATION
+    assert "prefect:orin-hbstore-prod" in SCHEDULER_MIGRATION
+    assert "pg_advisory_xact_lock" in SCHEDULER_MIGRATION
+    assert "orin-scheduler-v1:" in SCHEDULER_MIGRATION
+    assert (
+        "revoke all on function "
+        "orin_private.enqueue_hoverboard_prefect_commissioning_job()"
+        in SCHEDULER_MIGRATION
+    )
+
+
+def test_daily_prefect_schedule_is_exact_and_disabled_by_default():
+    assert 'SCHEDULER_CRON = "0 11 * * *"' in BOOTSTRAP
+    assert 'SCHEDULER_TIMEZONE = "Europe/London"' in BOOTSTRAP
+    assert 'SCHEDULER_SLUG = "hbstore-daily-dry-run"' in BOOTSTRAP
+    assert "hbstore_daily_scheduler_flow.to_deployment" in BOOTSTRAP
+    assert "paused=True" in BOOTSTRAP
+    assert "active=False" in BOOTSTRAP
+    assert "CANCEL_NEW" in BOOTSTRAP

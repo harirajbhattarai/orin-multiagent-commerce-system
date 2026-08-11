@@ -107,7 +107,7 @@ jobs:
             --tag orin-prefect-shadow:ci \
             .
           docker run --rm --entrypoint python orin-prefect-shadow:ci \
-            -c "import prefect; from orin_prefect_shadow.flow import hbstore_shadow_flow; from orin_prefect_owner.flow import hbstore_owner_commissioning_flow; assert prefect.__version__ == '3.8.1'; print(hbstore_shadow_flow.name, hbstore_owner_commissioning_flow.name)"
+            -c "import prefect; from orin_prefect_shadow.flow import hbstore_shadow_flow; from orin_prefect_owner.flow import hbstore_daily_scheduler_flow, hbstore_owner_commissioning_flow; assert prefect.__version__ == '3.8.1'; print(hbstore_shadow_flow.name, hbstore_owner_commissioning_flow.name, hbstore_daily_scheduler_flow.name)"
           test "$(docker image inspect orin-prefect-shadow:ci --format '{{.Config.User}}')" = "10004:10004"
       - name: Validate disabled VPS deployment contract
         run: |

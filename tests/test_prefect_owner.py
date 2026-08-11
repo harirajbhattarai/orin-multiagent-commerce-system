@@ -98,3 +98,40 @@ def test_owner_repository_rejects_an_empty_secret(tmp_path):
         repository.OwnerRepository(
             secret, expected_role="orin_prefect_scheduler"
         ).enqueue()
+
+
+def test_daily_owner_repository_uses_fixed_zero_argument_function(
+    monkeypatch, tmp_path
+):
+    secret = tmp_path / "owner_database_url"
+    secret.write_text("postgresql://orin_prefect_scheduler:secret@example/db\n")
+    cursor = FakeCursor(
+        [
+            ("orin_prefect_scheduler",),
+            (
+                UUID("33333333-3333-5333-8333-333333333333"),
+                "hoverboard_store",
+                UUID("44444444-4444-5444-8444-444444444444"),
+                "dry-run",
+                "queued",
+                datetime(2026, 8, 12, tzinfo=UTC),
+                datetime(2026, 8, 12, tzinfo=UTC),
+                False,
+            ),
+        ]
+    )
+    monkeypatch.setattr(
+        repository.psycopg,
+        "connect",
+        lambda url, autocommit: FakeConnection(cursor),
+    )
+
+    receipt = repository.DailyOwnerRepository(
+        secret, expected_role="orin_prefect_scheduler"
+    ).enqueue()
+
+    assert receipt.requested_mode == "dry-run"
+    assert receipt.replayed is False
+    assert "enqueue_hoverboard_prefect_scheduled_job()" in cursor.queries[1]
+    assert "commissioning" not in cursor.queries[1]
+    assert "%s" not in cursor.queries[1]

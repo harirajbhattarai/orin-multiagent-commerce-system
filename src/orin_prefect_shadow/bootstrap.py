@@ -11,9 +11,13 @@ from prefect.client.schemas.objects import (
     ConcurrencyLimitConfig,
     ConcurrencyLimitStrategy,
 )
+from prefect.schedules import Cron
 from prefect.types.entrypoint import EntrypointType
 
-from orin_prefect_owner.flow import hbstore_owner_commissioning_flow
+from orin_prefect_owner.flow import (
+    hbstore_daily_scheduler_flow,
+    hbstore_owner_commissioning_flow,
+)
 
 from .flow import hbstore_shadow_flow
 
@@ -22,6 +26,10 @@ WORK_POOL_NAME = "orin-shadow-process"
 DEPLOYMENT_NAME = "orin-hbstore-shadow"
 OWNER_WORK_POOL_NAME = "orin-owner-process"
 OWNER_DEPLOYMENT_NAME = "orin-hbstore-owner-commissioning"
+SCHEDULER_DEPLOYMENT_NAME = "orin-hbstore-prefect-scheduler"
+SCHEDULER_CRON = "0 11 * * *"
+SCHEDULER_TIMEZONE = "Europe/London"
+SCHEDULER_SLUG = "hbstore-daily-dry-run"
 
 
 async def _verify() -> None:
@@ -46,6 +54,22 @@ async def _verify() -> None:
             raise RuntimeError("owner deployment must remain paused")
         if owner_deployment.schedules:
             raise RuntimeError("owner deployment must not have a schedule")
+        scheduler_deployment = await client.read_deployment_by_name(
+            f"orin-hbstore-prefect-scheduler/{SCHEDULER_DEPLOYMENT_NAME}"
+        )
+        if scheduler_deployment.paused is not True:
+            raise RuntimeError("Prefect scheduler deployment must remain paused")
+        if len(scheduler_deployment.schedules) != 1:
+            raise RuntimeError("Prefect scheduler must have exactly one schedule")
+        scheduler = scheduler_deployment.schedules[0]
+        if scheduler.active:
+            raise RuntimeError("Prefect scheduler schedule must remain inactive")
+        if scheduler.slug != SCHEDULER_SLUG:
+            raise RuntimeError("Prefect scheduler schedule slug is invalid")
+        if scheduler.schedule.cron != SCHEDULER_CRON:
+            raise RuntimeError("Prefect scheduler cron is invalid")
+        if scheduler.schedule.timezone != SCHEDULER_TIMEZONE:
+            raise RuntimeError("Prefect scheduler timezone is invalid")
 
 
 def main() -> None:
@@ -132,6 +156,35 @@ def main() -> None:
         job_variables={"working_dir": "/app"},
     )
     owner_deployment.apply()
+    scheduler_deployment = hbstore_daily_scheduler_flow.to_deployment(
+        name=SCHEDULER_DEPLOYMENT_NAME,
+        paused=True,
+        schedules=[
+            Cron(
+                SCHEDULER_CRON,
+                timezone=SCHEDULER_TIMEZONE,
+                active=False,
+                slug=SCHEDULER_SLUG,
+            )
+        ],
+        concurrency_limit=ConcurrencyLimitConfig(
+            limit=1,
+            collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW,
+        ),
+        tags=[
+            "orin",
+            "scheduler",
+            "hoverboard_store",
+            "dry-run-only",
+            "no-shopify-credentials",
+            "disabled-by-default",
+        ],
+        version=os.environ.get("ORIN_CODE_VERSION", "dev"),
+        work_pool_name=OWNER_WORK_POOL_NAME,
+        entrypoint_type=EntrypointType.MODULE_PATH,
+        job_variables={"working_dir": "/app"},
+    )
+    scheduler_deployment.apply()
     subprocess.run(["prefect", "work-pool", "pause", WORK_POOL_NAME], check=True)
     subprocess.run(
         ["prefect", "work-pool", "pause", OWNER_WORK_POOL_NAME], check=True

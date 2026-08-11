@@ -38,7 +38,7 @@ case "${mode}" in
     export PREFECT_API_AUTH_STRING="${api_auth}"
     exec prefect worker start \
       --pool orin-owner-process \
-      --name orin-hbstore-owner-commissioning-1 \
+      --name orin-hbstore-prefect-scheduler-1 \
       --limit 1 \
       --no-create-pool-if-not-found \
       --install-policy never

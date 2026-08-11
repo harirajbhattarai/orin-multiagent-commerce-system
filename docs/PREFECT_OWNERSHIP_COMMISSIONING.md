@@ -50,4 +50,4 @@ uses `restart: "no"`.
 
 Any failed invariant triggers step 7 before investigation. Passing this proof
 does not enable a Prefect schedule or Shopify writes; recurring ownership is a
-separate reviewed promotion.
+separate reviewed promotion documented in `docs/PREFECT_RECURRING_DRY_RUN.md`.
