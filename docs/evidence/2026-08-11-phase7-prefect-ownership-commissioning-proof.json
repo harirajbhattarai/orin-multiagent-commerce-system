@@ -1,0 +1,152 @@
+{
+  "schema": "orin.phase7-prefect-ownership-commissioning-proof/v1",
+  "observed_at": "2026-08-11T01:34:05Z",
+  "status": "passed_with_recovered_setup_errors",
+  "reviewed_change": {
+    "pull_request": 97,
+    "merged_revision": "2ce3859b4f6775f3e5f37173b45d734185cb473e",
+    "github_ci": {
+      "dashboard": "passed",
+      "database": "passed",
+      "test": "passed"
+    },
+    "database_migration": "20260811003129_phase7_prefect_ownership_commissioning"
+  },
+  "deployed_components": {
+    "prefect_image": "local/orin-prefect-shadow:2ce3859b4f6775f3e5f37173b45d734185cb473e",
+    "prefect_image_id": "sha256:62f764fdd0347d05855594762d42358d7c774558d579140f2608c6506ed6a8dd",
+    "prefect_revision": "2ce3859b4f6775f3e5f37173b45d734185cb473e",
+    "prefect_server_health": "healthy",
+    "prefect_server_restart_count": 0,
+    "orin_worker_revision": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+    "orin_worker_restart_count": 0,
+    "scheduler_trigger_revision": "96cc33c34a8288090846060e430c69bf01eb76b7",
+    "scheduler_trigger_health": "healthy",
+    "scheduler_trigger_restart_count": 0
+  },
+  "database_boundary": {
+    "role": "orin_prefect_scheduler",
+    "login_enabled_before_test": true,
+    "login_enabled_after_test": false,
+    "direct_content_job_select": false,
+    "direct_content_job_insert": false,
+    "can_execute_commissioning_function": true,
+    "can_execute_openclaw_function": false,
+    "can_execute_shadow_function": false,
+    "closed_gate_probe": "ORIN_PREFECT_OWNER_CLOSED_GATE_BLOCKED",
+    "closed_gate_sqlstate": "42501",
+    "credential_present_after_cleanup": false
+  },
+  "prefect": {
+    "flow_run_id": "44559044-dab9-4bb3-8563-eba7ba55ce88",
+    "flow_run_name": "phase7-prefect-owner-commissioning-20260811",
+    "state": "Completed",
+    "run_count": 1,
+    "max_retries": 0,
+    "parameters": {},
+    "auto_scheduled": false,
+    "deployment_id": "4527142d-a461-40ef-ad57-56c3f0219e6d",
+    "deployment_version": "2ce3859b4f6775f3e5f37173b45d734185cb473e",
+    "deployment_paused_after": true,
+    "deployment_schedules_after": [],
+    "deployment_concurrency": 1,
+    "deployment_active_slots_after": 0,
+    "deployment_collision_strategy": "CANCEL_NEW",
+    "work_pool_id": "82f413e1-94ae-4170-87b9-77a7ec1c294d",
+    "work_pool_name": "orin-owner-process",
+    "work_pool_paused_after": true,
+    "work_pool_concurrency": 1,
+    "work_pool_active_slots_after": 0,
+    "owner_worker_present_after": false,
+    "receipt": {
+      "schema": "orin.prefect-owner-commissioning/v1",
+      "status": "accepted",
+      "replayed": false,
+      "job_id": "c87fc3e2-d18a-4f05-8d3a-21306848c50a",
+      "request_id": "7b08eeec-6728-54b2-8f5a-d44ce0f55623",
+      "requested_mode": "dry-run",
+      "job_status_at_enqueue": "queued"
+    }
+  },
+  "orin_execution": {
+    "source_job_key": "scheduler:orin-hbstore-prod:prefect-commissioning-v1",
+    "source_job_count": 1,
+    "job_count": 1,
+    "run_count": 1,
+    "attempt_count": 1,
+    "job_id": "c87fc3e2-d18a-4f05-8d3a-21306848c50a",
+    "request_id": "7b08eeec-6728-54b2-8f5a-d44ce0f55623",
+    "run_id": "hb_20260811T005721Z_47de955c",
+    "requested_mode": "dry-run",
+    "job_status": "completed",
+    "run_status": "completed",
+    "decision": "no_job_due",
+    "code_version": "d257e94271a916c13f736f74e8831c9d0cc1cde6",
+    "shopify_create_count": 0,
+    "shopify_published": false,
+    "queue_changed": false,
+    "reconciliation_status": "not_required",
+    "error_code": null,
+    "started_at": "2026-08-11T00:57:21.356821Z",
+    "finished_at": "2026-08-11T00:57:22.117517Z"
+  },
+  "durable_evidence": {
+    "directory": "/docker/orin/evidence/hb_20260811T005721Z_47de955c",
+    "directory_mode": "0700",
+    "generated_files_mode": "0600",
+    "final_result_sha256": "d1fb2ef4f3e61ad795860efd1393f4233dc38f35a568e3a07bb65d9a4048685b",
+    "events_sha256": "d7ef48787464e61f80dbef9255b1cbddc0fc528c484a779331c9163921c8d097"
+  },
+  "cleanup": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "owner_role_login": false,
+    "owner_secret_removed": true,
+    "owner_worker_removed": true,
+    "openclaw_schedules_enabled": 0,
+    "openclaw_next_wake_at_ms": null
+  },
+  "recovered_setup_events": [
+    {
+      "event": "initial owner URL installation received EOF",
+      "impact": "The generated URL contained no password; the role-only probe failed before the commissioning function was called and while all gates were closed.",
+      "recovery": "The invalid file was quarantined, the password was rotated, a no-echo TTY installer was used, and both URL structure and current_user were verified."
+    },
+    {
+      "event": "first owner pool resume command returned Prefect 401",
+      "impact": "The API credential was shell-quoted incorrectly; the pool remained paused and no database gate or run changed.",
+      "recovery": "The previously verified authenticated command form resumed and inspected the pool successfully."
+    },
+    {
+      "event": "CLI watcher remained open after terminal event",
+      "impact": "The flow had already reached Completed and emitted its artifact.",
+      "recovery": "Only the watcher process was interrupted; Prefect API state and database receipts were verified independently."
+    },
+    {
+      "event": "first credential cleanup command had a shell quoting error",
+      "impact": "The role was already NOLOGIN, all gates were closed, the pool was paused, and the worker was removed; credential files remained temporarily unusable on disk.",
+      "recovery": "Both exact credential paths were deleted and their absence was verified."
+    }
+  ],
+  "advisors": {
+    "new_migration_findings": 0,
+    "existing_security_warning": "auth_leaked_password_protection",
+    "security_remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection",
+    "performance_notices": "existing unused-index informational notices"
+  },
+  "phase7_progress": {
+    "shadow_matches": 3,
+    "controlled_prefect_ownership_proof": "passed",
+    "recurring_prefect_schedule_enabled": false,
+    "production_scheduler_owner_active": false,
+    "shopify_writes_enabled": false,
+    "next_action": "Review and commission a disabled-by-default recurring Prefect dry-run schedule, then require one fresh-date automatic Prefect trigger plus automatic ORIN worker proof before retiring the disabled OpenClaw path."
+  }
+}
