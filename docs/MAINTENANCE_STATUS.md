@@ -1258,3 +1258,51 @@ commissioned.
 
 Durable details are in
 `docs/evidence/2026-08-11-scheduler-trigger-reliability-deployment.json`.
+
+## Phase 7 controlled Prefect ownership proof — 2026-08-11
+
+The controlled Prefect ownership proof passed at reviewed revision
+`2ce3859b4f6775f3e5f37173b45d734185cb473e`. PR #97 passed dashboard,
+database, and test CI, including 12 new pgTAP assertions, schema lint, the full
+Python suite, Compose contracts, and an immutable Prefect image build. The
+production migration created a separate `NOLOGIN` role with no direct table
+access and one zero-argument, fixed-client, dry-run-only commissioning
+function. The existing read-only shadow role was not widened.
+
+The private Prefect server and both paused deployments were upgraded to the
+exact merged revision. The new owner pool and deployment had concurrency one,
+zero active slots, `CANCEL_NEW`, no parameters, and no schedules. A real
+closed-gate call using the temporary owner credential was rejected with
+SQLSTATE `42501` and created no job. Only after that proof passed were the
+short commissioning gates opened with Shopify writes still disabled.
+
+Ad-hoc Prefect flow run `44559044-dab9-4bb3-8563-eba7ba55ce88` completed once
+with no retries or parameters. Its durable receipt was accepted with
+`replayed=false` and created source key
+`scheduler:orin-hbstore-prod:prefect-commissioning-v1` exactly once. The
+existing automatic ORIN worker then completed one job, one run, and one attempt
+as run `hb_20260811T005721Z_47de955c`, decision `no_job_due`, at worker
+revision `d257e94271a916c13f736f74e8831c9d0cc1cde6`. It recorded zero Shopify
+creates, no publication, no queue change, reconciliation not required, and no
+error.
+
+Cleanup is complete. Maintenance mode is restored; intake and automation are
+off; Shopify writes are off; allowed mode remains `dry-run`; scheduler state is
+disabled with no owner; and there are zero active jobs or incidents. The owner
+pool and deployment are paused with no schedules, the owner worker is removed,
+the database role is back to `NOLOGIN`, and both owner credential files were
+deleted. All three OpenClaw schedules remain disabled with `nextWakeAtMs=null`.
+
+Several setup commands had recoverable shell/TTY issues before or after the
+actual proof. They did not create extra work or expose credentials and are
+recorded in the evidence. The proof itself produced one clean Prefect receipt
+and one clean ORIN terminal execution.
+
+Phase 7 has now passed three shadow comparisons and one controlled Prefect
+ownership proof. Recurring scheduler ownership is not active yet. The next
+step is a separate reviewed recurring Prefect dry-run schedule, followed by
+one fresh-date automatic Prefect trigger plus automatic ORIN worker proof.
+Shopify writes remain disabled.
+
+Durable details are in
+`docs/evidence/2026-08-11-phase7-prefect-ownership-commissioning-proof.json`.
