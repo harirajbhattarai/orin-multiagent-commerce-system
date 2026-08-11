@@ -1306,3 +1306,44 @@ Shopify writes remain disabled.
 
 Durable details are in
 `docs/evidence/2026-08-11-phase7-prefect-ownership-commissioning-proof.json`.
+
+## Phase 7 automatic recurring Prefect proof — 2026-08-12
+
+The fresh-date automatic Prefect path completed successfully using the
+disabled-by-default scheduler implementation from PR #99 at exact revision
+`8b0223d8621cfd7ec8cecf09b8250769b878c4e0`. The proof used a temporary
+one-shot schedule for 00:02 Europe/London. The normal `0 11 * * *` schedule
+remained inactive, all three OpenClaw schedules remained disabled, and no flow
+run was created manually.
+
+Prefect created exactly one auto-scheduled flow run,
+`019ff30d-433b-7148-82f6-1e020b1ef197`, with no parameters, one run, and zero
+retries. It completed and returned an accepted, non-replayed receipt for
+`scheduler:orin-hbstore-prod:2026-08-12`. The existing automatic ORIN worker
+then claimed and terminalized exactly one database job, run, and attempt as
+`hb_20260811T230211Z_41663ea2`. The dry run selected content-plan item 34 and
+recorded `READY_TO_CREATE_SELECTED_JOB_DRAFT`, zero Shopify creates, no
+publication, no queue change, `shopify_write_state=not_attempted`, no
+reconciliation, and no error.
+
+The commissioning checklist initially compared `runs.code_version` with the
+Prefect scheduler revision. That conflated two independently deployed
+components. The Prefect control plane correctly ran revision
+`8b0223d8621cfd7ec8cecf09b8250769b878c4e0`; the ORIN data-plane run correctly
+recorded its separately pinned worker image revision
+`d257e94271a916c13f736f74e8831c9d0cc1cde6`. This change clarifies the runbook
+so future proofs verify each revision at its own boundary. Formal acceptance
+of the automatic proof remains pending review and CI for this clarification;
+the live evidence itself does not require a rerun.
+
+Cleanup completed immediately after terminalization. The client is in
+maintenance; intake and automation are off; Shopify writes are off; dry-run is
+the only allowed mode; scheduler state is disabled with no owner; and there
+are zero active jobs or incidents. The owner role is `NOLOGIN`, the owner pool
+and deployment are paused, the temporary schedule and owner worker were
+removed, and the temporary owner credential was securely deleted. The normal
+Prefect schedule remains inactive. All OpenClaw schedules remain disabled and
+`nextWakeAtMs` is null.
+
+Durable details are in
+`docs/evidence/2026-08-12-phase7-prefect-recurring-automatic-proof.json`.
