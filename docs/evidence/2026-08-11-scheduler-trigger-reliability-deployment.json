@@ -1,0 +1,96 @@
+{
+  "schema": "orin.scheduler-trigger-reliability-deployment/v1",
+  "observed_at": "2026-08-11T00:06:21Z",
+  "status": "passed",
+  "source": {
+    "pull_request": 95,
+    "merged_revision": "96cc33c34a8288090846060e430c69bf01eb76b7",
+    "release_materialization": "local git archive of the exact merged revision",
+    "vps_release_directory": "/docker/orin/releases/96cc33c34a8288090846060e430c69bf01eb76b7"
+  },
+  "validation": {
+    "targeted_tests_passed": 21,
+    "full_python_tests_passed": 244,
+    "compileall_passed": true,
+    "diff_check_passed": true,
+    "github_ci": {
+      "dashboard": "passed",
+      "database": "passed",
+      "test": "passed"
+    }
+  },
+  "deployment": {
+    "service": "scheduler-trigger",
+    "image": "local/orin-scheduler-trigger:96cc33c34a8288090846060e430c69bf01eb76b7",
+    "image_id": "sha256:98f41ebfba980b2fa13acf27c450b155bed399943463b823a8ab5bc36c22b9e6",
+    "image_revision": "96cc33c34a8288090846060e430c69bf01eb76b7",
+    "restart_count": 0,
+    "health": "healthy",
+    "health_output": "ORIN_SCHEDULER_TRIGGER_HEALTHY",
+    "database_role_checked": "orin_scheduler",
+    "socket_checked": true,
+    "rollback_image_retained": {
+      "image": "local/orin-scheduler-trigger:d257e94271a916c13f736f74e8831c9d0cc1cde6",
+      "image_id": "sha256:f418770d3b9af5bd2d90cb43e3c07c020c386820ed32d09668c6446486385f5d"
+    }
+  },
+  "production_probe": {
+    "invocation": "existing fixed OpenClaw command as runtime UID 1000",
+    "status": "accepted",
+    "exit_code": 0,
+    "replayed": true,
+    "client_id": "hoverboard_store",
+    "source_job_key": "scheduler:orin-hbstore-prod:2026-08-11",
+    "job_id": "17b0495b-9197-4333-b5e5-00334fceae3b",
+    "request_id": "20442b0a-2f3b-55f2-81ea-9b984a119fc3",
+    "requested_mode": "dry-run",
+    "job_status": "completed",
+    "source_job_count_before": 1,
+    "source_job_count_after": 1,
+    "source_run_count_after": 1,
+    "shopify_create_count": 0,
+    "new_job_created": false,
+    "note": "The current business-date key already existed, so the safe production probe exercised idempotent replay. Policy-error classification and the no-retry policy path are covered by automated tests; no database fault was injected into production."
+  },
+  "unchanged_services": {
+    "worker": {
+      "image": "local/orin-worker:d257e94271a916c13f736f74e8831c9d0cc1cde6",
+      "restart_count": 0,
+      "status": "running"
+    },
+    "watchdog": {
+      "image": "local/orin-watchdog:6d4b108b0471ffe314a370ad555793ef2f12c6aa",
+      "restart_count": 0,
+      "health": "healthy"
+    },
+    "prefect_server": {
+      "image": "local/orin-prefect-shadow:5bdc759ddedb22105a8c8b00a77774d9aac0431e",
+      "restart_count": 0,
+      "health": "healthy"
+    }
+  },
+  "closed_state": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0
+  },
+  "schedules": {
+    "legacy_enabled": false,
+    "dedicated_enabled": false,
+    "watchdog_enabled": false,
+    "dedicated_cron": "0 11 * * * Europe/London",
+    "watchdog_cron": "15 11 * * * Europe/London",
+    "next_wake_at_ms": null
+  },
+  "next_action": {
+    "description": "Design and review one controlled Prefect ownership-transfer test with Shopify writes disabled.",
+    "prefect_schedule_must_remain_disabled": true,
+    "shopify_writes_must_remain_disabled": true
+  }
+}
