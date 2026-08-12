@@ -1390,3 +1390,39 @@ equivalent proof before activation.
 
 Durable details are in
 `docs/evidence/2026-08-12-phase7-prefect-production-activation.json`.
+
+## Job 34 exact-reviewed hidden-draft proof — 2026-08-12
+
+The first controlled content promotion after Prefect dry-run ownership
+activation passed without changing the recurring Prefect scheduler. The
+dashboard owner approved version 2 of Job 34, “Solid vs Air-Filled Electric
+Scooter Tyres: A Parent's Guide.” The approval was bound to immutable draft
+`b9dd2a02-bbd2-499f-a5f9-69edfa16a430`, its 1,945-word body, and SHA-256
+`5dded6849d7f7d3720f51e167115df04b84c1e635a6ebadb9d58ffc4def5d0b6`.
+
+The duplicate preflight found no existing Shopify article with the exact
+title. Only the hidden-draft mode and Shopify-write gate were opened; maximum
+concurrency remained one. The existing automatic ORIN worker consumed one
+approval, created one job, and completed one run and one attempt as
+`hb_20260812T112653Z_471a4bab` at worker revision
+`d257e94271a916c13f736f74e8831c9d0cc1cde6`. The terminal decision was
+`APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED` with one Shopify create,
+no publication, no queue mutation, and reconciliation complete.
+
+An independent Shopify GraphQL query found exactly one matching article,
+`1007420408156`, handle `solid-vs-air-filled-electric-scooter-tyres`, in the
+Journal Insights blog. It remains unpublished with `publishedAt=null`.
+The fetched body matched the approved body after the narrowly defined
+Shopify list-whitespace canonicalization, and the database contains exactly
+one durable ownership record for the article.
+
+The write gate was closed immediately after terminalization. The client is
+again active in dry-run-only mode with Shopify writes disabled, Prefect remains
+the healthy scheduler owner, and there are zero active jobs or incidents. The
+normal recurring Prefect schedule and read-only OpenClaw watchdog are
+unchanged; both legacy OpenClaw production schedulers remain disabled. All
+worker, Prefect, trigger, and watchdog containers are healthy with zero
+restarts.
+
+Durable details are in
+`docs/evidence/2026-08-12-job34-exact-reviewed-hidden-draft-proof.json`.
