@@ -273,6 +273,27 @@ def blocked_claims_in_text(content: str, claims_to_avoid: list[str]) -> list[str
     return blocked
 
 
+def faq_questions_from_html(content: str) -> list[str]:
+    """Extract normalized visible questions from canonical FAQ blocks."""
+    matches = re.findall(
+        r'<div\s+class="[^"]*\bhs-faq-q\b[^"]*"[^>]*>(.*?)</div>',
+        content,
+        re.DOTALL | re.IGNORECASE,
+    )
+    return [
+        re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", item))).strip()
+        for item in matches
+    ]
+
+
+def faq_questions_match_plan(content: str, faq_plan: list[dict]) -> bool:
+    expected = [
+        re.sub(r"\s+", " ", str(item.get("question", ""))).strip()
+        for item in faq_plan
+    ]
+    return faq_questions_from_html(content) == expected
+
+
 def topic_word_overlap(local_title: str, other_title: str) -> float:
     """
     Return fraction of non-generic local words that appear in other_title.
@@ -948,6 +969,10 @@ def review_selected_job_draft(
     structure["faq_count"] = len(faq_items_in_draft)
     structure["faq_expected_count"] = len(faq_plan)
     structure["faq_matches_plan"] = len(faq_items_in_draft) == len(faq_plan)
+    structure["faq_questions_match_plan"] = faq_questions_match_plan(
+        content,
+        faq_plan,
+    )
 
     # Canonical Hoverboard Store byline requirement (from html_quality_check.py):
     # Visible article text must contain "By Hoverboard Store".
@@ -1084,6 +1109,9 @@ def review_selected_job_draft(
             f"draft has {structure['faq_count']} FAQ items, "
             f"expected exactly {structure['faq_expected_count']}"
         )
+
+    if structure["faq_required"] and not structure["faq_questions_match_plan"]:
+        blockers.append("faq_question_mismatch: rendered FAQ questions differ from plan")
 
     # Identity failures
     if not identity["h1_present"]:

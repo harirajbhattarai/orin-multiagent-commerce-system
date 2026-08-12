@@ -305,6 +305,29 @@ class ContentQualityGateTests(unittest.TestCase):
         self.assertNotIn("hoverboard-laws", links_text)
         self.assertIn("electric scooter", plan["reader_persona"].lower())
 
+    def test_electric_scooter_range_plan_does_not_reuse_brake_faqs(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-08-12")
+        job_context = {
+            "job_number": "37",
+            "job_label": "Job 37",
+            "topic": "Electric Scooter Battery Range Claims: What UK Buyers Should Check",
+            "target_keyword": "electric scooter range claims",
+            "target_date": "2026-09-04",
+            "expected_draft_date": "2026-08-21",
+            "queue_status": "planned",
+            "file_path": "",
+            "shopify_handle": None,
+        }
+
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        faq_text = repr(plan["faq_plan"]).lower()
+
+        self.assertIn("range", faq_text)
+        self.assertIn("battery", faq_text)
+        self.assertNotIn("brake lever", faq_text)
+        self.assertNotIn("braking", faq_text)
+
     def test_thin_template_is_blocked_with_machine_readable_codes(self):
         html = f"""<!--
 Meta Title: Hoverboard Charger Not Working: Safe Checks
