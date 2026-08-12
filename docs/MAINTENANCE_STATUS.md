@@ -1426,3 +1426,44 @@ restarts.
 
 Durable details are in
 `docs/evidence/2026-08-12-job34-exact-reviewed-hidden-draft-proof.json`.
+
+## Job 35 approval-only reconciliation proof — 2026-08-12
+
+The dashboard owner approved version 4 of Job 35, “How to Store a Kids
+Electric Scooter Between Rides.” The approval was bound to immutable draft
+`c0f0b2c0-6ae4-4e5d-939c-cc515aed4d3e`, its 2,093-word body, and SHA-256
+`60c689f1c6c373a475596fab51ec94792b9b0f0a1c2a9cfe7530eef1cb9bf2d1`.
+Shopify created exactly one unpublished article, `1007422767452`, but decoded
+seven numeric apostrophe entities to literal apostrophes. The original
+fail-closed verifier did not recognize that render-equivalent serialization,
+so three automatic attempts correctly stopped with unknown write state and
+opened one critical reconciliation incident. No retry created a duplicate.
+
+PR #106 added only the observed Shopify-safe apostrophe serialization to the
+existing narrow body canonicalizer. It remains fail-closed for all other
+entity, whitespace, element, attribute, and text differences. Dashboard,
+database, focused reconciliation, and full Python CI passed before merge at
+`25d4159f528dd6a1faa422e0b272b70bcbe26bce`. The automatic worker was then
+rebuilt from that exact clean release and replaced with zero restarts while
+the approval-only gate remained closed.
+
+A fresh read-only marker scan found exactly one matching article, with
+`publishedAt=null`. One guarded fourth attempt was allowed for the exact
+failed job. Run `hb_20260812T144745Z_5ab834da` found the existing article
+before any create call and completed with decision
+`APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED`, reconciliation status
+`reconciled`, article-observed state, one request-owned Shopify article, no
+publication, and no queue mutation. The fetched and approved canonical body
+hashes both equal
+`9ed03c16e697b322497a75575ec8de4b18213b02b833c4d1ce31b651a834fab2`.
+
+The incident was resolved against the successful run. Job 35 is
+`draft_created`, its source key exists exactly once, there are zero active jobs
+and zero open incidents, and the approval-only draft gate is enabled. Broad
+Shopify writes remain disabled, dry-run remains the only scheduler mode, and
+the dashboard still has no live-publish capability. Prefect remains the
+healthy recurring scheduler owner; both OpenClaw production schedulers remain
+disabled and the read-only watchdog remains healthy.
+
+Durable details are in
+`docs/evidence/2026-08-12-job35-approval-only-reconciliation-proof.json`.
