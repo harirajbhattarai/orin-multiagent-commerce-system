@@ -167,6 +167,8 @@ Required output contract:
   "fits all hoverboards". Do not emit them or close grammatical variants.
   Rephrase with neutral, model-specific guidance without making comparisons.
 - Use at least ten useful paragraphs and five approved internal links.
+- Every href must exactly match a URL supplied in internal_link_plan or
+  cta_plan.button_href. Do not invent, shorten, expand, or guess URLs.
 - Use the exact target keyword naturally 4-8 times, including the H1/opening,
   and never more than 12 times. Use natural synonyms elsewhere instead of
   repeating the exact phrase in every section heading or the CTA.
@@ -188,6 +190,9 @@ Required output contract:
 - Do not provide medical advice or tell the reader to contact a GP. When health
   or ability could affect suitability, use neutral wording that recommends
   seeking appropriate professional guidance before use.
+- For electric scooters, describe riding locations only as suitable private
+  land used with the landowner's permission. Do not present roads, pavements,
+  car parks, or other public-access places as approved examples.
 - Do not make generic predictions about how weather, water, temperature, or
   storage conditions change brake feel or stopping distance. Effects vary by
   model and brake system; defer to the exact manual and recommend stopping use
