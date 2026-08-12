@@ -1,0 +1,60 @@
+{
+  "schema": "orin.maintenance-proof/v1",
+  "recorded_at": "2026-08-12T17:36:50.150999+00:00",
+  "client_id": "hoverboard_store",
+  "content_item": {
+    "item_number": 37,
+    "content_item_id": "e044f14a-07e6-46a6-b94e-64f175af3bb2",
+    "status": "draft_created",
+    "version": 10,
+    "title": "Electric Scooter Battery Range Claims: What UK Buyers Should Check",
+    "shopify_article_id": "1007424700764",
+    "shopify_handle": "electric-scooter-battery-range-claims"
+  },
+  "approval": {
+    "decision_id": "bbab1928-5630-4307-a450-12c3d3097573",
+    "decision": "approve_hidden_draft",
+    "processing_status": "consumed",
+    "content_job_id": "1ee1de52-95a6-40a5-891e-0a1fdeba9374",
+    "approved_draft_id": "ca4fd109-a83c-4e29-bbfe-0c5f0a85d93b",
+    "approved_content_item_version": 9,
+    "approved_body_sha256": "e3c8810b369648a9e77903126a4ac61c4147bd3ca1e12e7f2672f45241ef87c4"
+  },
+  "failure": {
+    "error_code": "ORIN_SHOPIFY_RECONCILIATION_FAILED",
+    "attempts": 3,
+    "reason": "Shopify inserted render-equivalent newlines before leading anchors in list items",
+    "fail_closed": true,
+    "duplicate_create_attempted": false,
+    "shopify_published": false
+  },
+  "fix": {
+    "pull_request": 115,
+    "merge_revision": "20142585fd2319a38fab5fb4994fa05a30613d70",
+    "canonicalization": "shopify-safe-html-serialization/v3",
+    "scope": "Ignore only whitespace inserted directly after li before a leading a or strong inline element"
+  },
+  "recovery": {
+    "run_id": "hb_20260812T173606Z_dec5473e",
+    "job_attempt": 4,
+    "status": "completed",
+    "decision": "APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED",
+    "replay_disposition": "terminal",
+    "shopify_write_state": "article_observed",
+    "reconciliation_status": "reconciled",
+    "shopify_article_id": "1007424700764",
+    "marker_match_count": 1,
+    "observed_create_count": 1,
+    "shopify_published": false,
+    "queue_changed": false,
+    "error_code": null
+  },
+  "postconditions": {
+    "worker_image": "local/orin-worker:20142585fd2319a38fab5fb4994fa05a30613d70",
+    "worker_restart_count": 0,
+    "active_or_queued_jobs": 0,
+    "open_incidents": 0,
+    "shopify_marker_match_count": 1,
+    "live_publishing_enabled": false
+  }
+}
