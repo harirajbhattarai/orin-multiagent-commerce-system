@@ -21,6 +21,7 @@ import re
 import json
 import sys
 import json
+from html import unescape
 from pathlib import Path
 from typing import Optional
 
@@ -222,6 +223,54 @@ def unapproved_internal_hrefs(content: str, writer_plan: dict) -> list[str]:
     if cta_href:
         approved.add(cta_href)
     return sorted(hrefs - approved)
+
+
+def blocked_claims_in_text(content: str, claims_to_avoid: list[str]) -> list[str]:
+    """Return prohibited claims used affirmatively in visible draft text.
+
+    Every occurrence is evaluated independently. Clearly cautionary language,
+    such as "rather than an everyday guarantee", is not treated as making the
+    prohibited claim.
+    """
+    visible_text = unescape(re.sub(r"<[^>]+>", " ", content))
+    visible_text = re.sub(r"\s+", " ", visible_text)
+    blocked: list[str] = []
+
+    for raw_claim in claims_to_avoid:
+        claim = raw_claim.strip()
+        if not claim:
+            continue
+
+        escaped_claim = re.escape(claim)
+        claim_pattern = re.compile(rf"\b{escaped_claim}\b", re.IGNORECASE)
+        has_affirmative_use = False
+
+        for match in claim_pattern.finditer(visible_text):
+            prefix = visible_text[max(0, match.start() - 180):match.start()]
+            prefix = re.split(r"[.!?;:]", prefix)[-1]
+            caution_patterns = (
+                rf"\b(?:no|never|without|rather\s+than)\b"
+                rf"(?:\W+\w+){{0,8}}\W*$",
+                rf"\b(?:does|do|is|are|will|can)\s+not\b"
+                rf"(?:\W+\w+){{0,8}}\W*$",
+                rf"\bcannot\b(?:\W+\w+){{0,8}}\W*$",
+                rf"\bnot\b(?:\W+\w+){{0,8}}\W*$",
+            )
+            is_cautionary = any(
+                re.search(pattern, prefix, re.IGNORECASE)
+                for pattern in caution_patterns
+            )
+            if re.search(r"\bnot\s+only\b", prefix, re.IGNORECASE):
+                is_cautionary = False
+
+            if not is_cautionary:
+                has_affirmative_use = True
+                break
+
+        if has_affirmative_use:
+            blocked.append(claim)
+
+    return blocked
 
 
 def topic_word_overlap(local_title: str, other_title: str) -> float:
@@ -823,25 +872,7 @@ def review_selected_job_draft(
     # Use word-boundary regex to avoid substring false positives
     # (e.g. "guarantee" should not match "guarantees" or "No...guarantee")
     claims_to_avoid = writer_plan.get("claims_to_avoid", [])
-    blocked_found_in_draft = []
-    for claim in claims_to_avoid:
-        if not claim.strip():
-            continue
-        # Word-boundary match (whole word/phrase)
-        pattern = r"\b" + re.escape(claim) + r"\b"
-        if re.search(pattern, content, re.IGNORECASE):
-            # Check if it's negated: "no ... {claim}" or "never ... {claim}"
-            # Use raw f-string to safely inject the escaped claim into the regex
-            escaped_claim = re.escape(claim)
-            negated_pattern = re.compile(
-                rf"(no|never|doesn't|does not|dont|do not|is not|are not)"  
-                rf"\s+\w+(?:\s+\w+){{0,30}}\s+{escaped_claim}",
-                re.IGNORECASE
-            )
-            if negated_pattern.search(content):
-                # Negated mention is not a violation
-                continue
-            blocked_found_in_draft.append(claim)
+    blocked_found_in_draft = blocked_claims_in_text(content, claims_to_avoid)
     compliance["claims_to_avoid_found"] = blocked_found_in_draft
     compliance["claims_to_avoid_clean"] = len(blocked_found_in_draft) == 0
 
