@@ -10,7 +10,7 @@ ORIN_TOOLS = (
 )
 sys.path.insert(0, str(ORIN_TOOLS))
 
-from review_agent import unapproved_internal_hrefs  # noqa: E402
+from review_agent import blocked_claims_in_text, unapproved_internal_hrefs  # noqa: E402
 
 
 def test_unapproved_internal_hrefs_rejects_invented_model_url():
@@ -36,3 +36,26 @@ def test_unapproved_internal_hrefs_rejects_invented_model_url():
         "https://hoverboardstore.co.uk/browse-electric-scooters"
     ]
 
+
+def test_blocked_claims_accepts_cautionary_range_language():
+    html = (
+        "<p>Treat the headline range as an upper estimate rather than an "
+        "everyday guarantee.</p>"
+    )
+
+    assert blocked_claims_in_text(html, ["guarantee"]) == []
+
+
+def test_blocked_claims_rejects_affirmative_guarantee():
+    html = "<p>This range guarantee applies to every everyday journey.</p>"
+
+    assert blocked_claims_in_text(html, ["guarantee"]) == ["guarantee"]
+
+
+def test_blocked_claims_checks_each_occurrence_independently():
+    html = (
+        "<p>This is not a guarantee.</p>"
+        "<p>Our range guarantee applies to every journey.</p>"
+    )
+
+    assert blocked_claims_in_text(html, ["guarantee"]) == ["guarantee"]
