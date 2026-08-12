@@ -1467,3 +1467,41 @@ disabled and the read-only watchdog remains healthy.
 
 Durable details are in
 `docs/evidence/2026-08-12-job35-approval-only-reconciliation-proof.json`.
+
+## Job 36 quality-gated hidden-draft proof — 2026-08-12
+
+Job 36, “Kids Electric Scooter Brake Checks Before Every Ride,” completed the
+full dashboard concept-review, controlled drafting, quality-review, and
+approval-only Shopify workflow. Human review rejected three earlier drafts for
+topic drift, unsupported safety wording, incomplete metadata, an invented
+internal link, and an unsuitable public-car-park example. Those failures were
+converted into reusable model and post-write gates in PRs #108, #109, and
+#110; all application, dashboard, and database CI passed before the final
+worker deployment.
+
+The final 1,925-word review draft was generated and checked at exact worker
+revision `c2ed28902327d08bfefcc5906a1725670a4b7877`. It contains finished SEO
+metadata, scooter-specific FAQs, private-land guidance, and only the five
+approved Hoverboard Store URLs. It contains no invented URL, public-car-park
+example, or unsupported weather-performance prediction. The dashboard owner
+approved immutable draft `b544d288-55fc-4f23-b559-f4becdf3d65d`, version 13,
+with body SHA-256
+`407500b4b05189eaed27e308e4f5a95b4bda5f429ec9651263714b51e61215ca`.
+
+The automatic worker consumed exactly one approval, job, run, and attempt.
+Run `hb_20260812T155801Z_38b0169c` completed with decision
+`APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED`, one request-owned Shopify
+create, no publication, no queue mutation, and successful reconciliation.
+An independent read-only Shopify GraphQL query verified article
+`1007424012636`, handle
+`kids-electric-scooter-brake-checks-before-every-ride`, with
+`publishedAt=null`, the expected idempotency marker, and a body hash exactly
+matching the approved dashboard draft.
+
+Broad Shopify writes remain disabled. The narrow approval-only draft gate is
+enabled, the recurring scheduler remains dry-run-only under Prefect ownership,
+both OpenClaw production schedulers remain disabled, and the read-only
+watchdog remains healthy. There are zero active jobs and zero open incidents.
+
+Durable details are in
+`docs/evidence/2026-08-12-job36-quality-gated-hidden-draft-proof.json`.
