@@ -109,6 +109,10 @@ class ModelWriterTests(unittest.TestCase):
             payload["messages"][1]["content"],
         )
         self.assertIn(
+            'exact <div class="hs-cta">...</div> wrapper',
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
             '"blocked_topic_terms": [',
             payload["messages"][1]["content"],
         )
@@ -162,6 +166,62 @@ class ModelWriterTests(unittest.TestCase):
         self.assertEqual(
             extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}"),
             expected,
+        )
+
+    def test_wraps_unambiguous_sibling_cta_structure(self):
+        article = (
+            '<div class="hs-article"><div class="hs-container">'
+            '<h2 id="cta">Explore Electric Scooters</h2>'
+            '<p>Compare the approved listings.</p>'
+            '<p><a class="hs-button" href="https://example.com/collection">'
+            'Shop Electric Scooters</a></p>'
+            '<section class="hs-related-guides"><h3>Related guides</h3>'
+            '</section></div></div>'
+        )
+        expected = (
+            '<div class="hs-article"><div class="hs-container">'
+            '<div class="hs-cta">\n'
+            '<h2 id="cta">Explore Electric Scooters</h2>'
+            '<p>Compare the approved listings.</p>'
+            '<p><a class="hs-button" href="https://example.com/collection">'
+            'Shop Electric Scooters</a></p>\n'
+            '</div>\n\n'
+            '<section class="hs-related-guides"><h3>Related guides</h3>'
+            '</section></div></div>'
+        )
+
+        self.assertEqual(
+            extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}"),
+            expected,
+        )
+
+    def test_preserves_existing_cta_wrapper(self):
+        article = (
+            '<div class="hs-article"><div class="hs-container">'
+            '<div class="hs-cta"><h2 id="cta">Explore Electric Scooters</h2>'
+            '<p><a class="hs-button" href="https://example.com/collection">'
+            'Shop Electric Scooters</a></p></div>'
+            '<section class="hs-related-guides"><h3>Related guides</h3>'
+            '</section></div></div>'
+        )
+
+        self.assertEqual(
+            extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}"),
+            article,
+        )
+
+    def test_does_not_wrap_incomplete_cta_without_button(self):
+        article = (
+            '<div class="hs-article"><div class="hs-container">'
+            '<h2 id="cta">Explore Electric Scooters</h2>'
+            '<p>No approved next-step button was generated.</p>'
+            '<section class="hs-related-guides"><h3>Related guides</h3>'
+            '</section></div></div>'
+        )
+
+        self.assertEqual(
+            extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}"),
+            article,
         )
 
     def test_rejects_unsafe_ids(self):

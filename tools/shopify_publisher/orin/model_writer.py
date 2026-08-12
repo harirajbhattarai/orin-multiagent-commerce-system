@@ -145,6 +145,9 @@ Required output contract:
 - Include div.hs-quick-answer, div.hs-highlights, developed H2 sections,
   section.hs-faq with div.hs-faq-item/div.hs-faq-q/div.hs-faq-a, div.hs-cta,
   and a related-guides section.
+- Put the CTA H2, every CTA paragraph, and the single a.hs-button inside one
+  exact <div class="hs-cta">...</div> wrapper immediately before the related-
+  guides section. A heading id="cta" does not replace the required wrapper.
 - Render exactly the questions supplied in faq_plan, in order. Do not add,
   remove, merge, or invent FAQ questions or answers.
 - Do not place an H2 inside div.hs-highlights. It is a short summary block, not
@@ -254,6 +257,22 @@ _ID_ATTRIBUTE_RE = re.compile(
     r'''\s+id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)''',
     re.IGNORECASE,
 )
+_CTA_WRAPPER_RE = re.compile(
+    r'''<(?:div|section)\b[^>]*\bclass\s*=\s*(["'])[^"']*\bhs-cta\b[^"']*\1[^>]*>''',
+    re.IGNORECASE,
+)
+_CTA_HEADING_RE = re.compile(
+    r'''<h2\b(?=[^>]*\bid\s*=\s*(["'])cta\1)[^>]*>''',
+    re.IGNORECASE,
+)
+_CTA_BUTTON_RE = re.compile(
+    r'''<a\b[^>]*\bclass\s*=\s*(["'])[^"']*\bhs-button\b[^"']*\1[^>]*>''',
+    re.IGNORECASE,
+)
+_RELATED_GUIDES_RE = re.compile(
+    r'''<(?:div|section)\b[^>]*\bclass\s*=\s*(["'])[^"']*\bhs-related-guides\b[^"']*\1[^>]*>''',
+    re.IGNORECASE,
+)
 
 
 class _ArticleHTMLPolicy(HTMLParser):
@@ -341,6 +360,41 @@ def _canonicalize_non_h2_anchors(article: str) -> str:
     return _ALLOWED_START_TAG_RE.sub(replace, article)
 
 
+def _canonicalize_cta_wrapper(article: str) -> str:
+    """Repair only the observed, unambiguous CTA wrapper omission.
+
+    MiniMax can emit the exact approved CTA heading, links, and button as
+    top-level siblings while omitting only the required ``hs-cta`` container.
+    Add that structural wrapper only when there is one ``h2#cta``, one later
+    related-guides container, and an ``a.hs-button`` between them. Ambiguous or
+    incomplete output remains untouched so the downstream quality gate blocks
+    it normally.
+    """
+    if _CTA_WRAPPER_RE.search(article):
+        return article
+
+    headings = list(_CTA_HEADING_RE.finditer(article))
+    related_sections = list(_RELATED_GUIDES_RE.finditer(article))
+    if len(headings) != 1 or len(related_sections) != 1:
+        return article
+
+    heading = headings[0]
+    related = related_sections[0]
+    if heading.start() >= related.start():
+        return article
+    cta_fragment = article[heading.start():related.start()]
+    if not _CTA_BUTTON_RE.search(cta_fragment):
+        return article
+
+    return (
+        article[:heading.start()]
+        + '<div class="hs-cta">\n'
+        + cta_fragment.rstrip()
+        + "\n</div>\n\n"
+        + article[related.start():]
+    )
+
+
 def extract_article_html(content: str) -> str:
     if not isinstance(content, str):
         raise ModelWriterError("model response content is not text")
@@ -364,6 +418,7 @@ def extract_article_html(content: str) -> str:
     # that harmless contract drift while preserving approved H2 anchors.
     _validate_article_html(article, allow_safe_non_h2_ids=True)
     article = _canonicalize_non_h2_anchors(article)
+    article = _canonicalize_cta_wrapper(article)
     _validate_article_html(article)
     return article
 
