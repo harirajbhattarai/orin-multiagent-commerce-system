@@ -668,38 +668,109 @@ class WriterAgent:
         Returns list of {question, answer_template} dicts.
         """
         if self._is_electric_scooter_topic(topic, target_keyword):
+            topic_text = f"{topic} {target_keyword}".lower()
+            if "range" in topic_text:
+                return [
+                    {
+                        "question": "What conditions sit behind an electric scooter range figure?",
+                        "answer_template": (
+                            "Check the exact product listing, manual, and manufacturer notes for "
+                            "the rider weight, speed or mode, surface, temperature, and other test "
+                            "conditions used for that model."
+                        ),
+                    },
+                    {
+                        "question": "Why can real-world electric scooter range differ from the listing?",
+                        "answer_template": (
+                            "Real use varies with the rider, terrain, speed or mode, temperature, "
+                            "tyre condition, charging, and storage. Avoid a generic prediction and "
+                            "use the model-specific manufacturer guidance."
+                        ),
+                    },
+                    {
+                        "question": "How should I compare range claims between scooter models?",
+                        "answer_template": (
+                            "Compare the stated test conditions as well as the headline distance. "
+                            "Ask the seller or manufacturer when a listing does not explain how "
+                            "the figure was measured."
+                        ),
+                    },
+                    {
+                        "question": "Where should I check battery charging and storage guidance?",
+                        "answer_template": (
+                            "Use the manual and manufacturer guidance for the exact scooter and "
+                            "battery. Follow their charging, storage, inspection, and replacement "
+                            "instructions rather than general advice."
+                        ),
+                    },
+                ]
+
+            if "brake" in topic_text:
+                return [
+                    {
+                        "question": "What should I check before a child rides an electric scooter?",
+                        "answer_template": (
+                            "Check the brake lever or control, visible cable or hose, foot brake, "
+                            "wheels, and tyres against the manual for that exact scooter. Stop use "
+                            "if anything is loose, damaged, worn, or behaves differently from the "
+                            "previous ride."
+                        ),
+                    },
+                    {
+                        "question": "What should I do if the brake lever feels different?",
+                        "answer_template": (
+                            "Do not ride the scooter until the cause is understood. Check the manual "
+                            "for the model and ask the manufacturer, seller, or a qualified technician "
+                            "to inspect or adjust the brake when needed."
+                        ),
+                    },
+                    {
+                        "question": "Should I test the brake after the visual checks?",
+                        "answer_template": (
+                            "Follow the model's manual. If it permits a functional check, an adult can "
+                            "supervise a gentle walking-pace test in a suitable private space after the "
+                            "visual checks pass. Stop immediately if braking feels inconsistent."
+                        ),
+                    },
+                    {
+                        "question": "How often should electric scooter brakes be checked?",
+                        "answer_template": (
+                            "Use a short visual and feel-based check before each ride, then follow the "
+                            "manufacturer's maintenance and service intervals for deeper inspection. "
+                            "Check again after a knock, wet ride, unusual noise, or change in feel."
+                        ),
+                    },
+                ]
+
             return [
                 {
-                    "question": "What should I check before a child rides an electric scooter?",
+                    "question": "Which product details should I verify before choosing an electric scooter?",
                     "answer_template": (
-                        "Check the brake lever or control, visible cable or hose, foot brake, "
-                        "wheels, and tyres against the manual for that exact scooter. Stop use "
-                        "if anything is loose, damaged, worn, or behaves differently from the "
-                        "previous ride."
+                        "Check the exact listing, label, manual, and manufacturer guidance for "
+                        "the intended rider and use. Do not infer suitability from appearance or "
+                        "from a different scooter model."
                     ),
                 },
                 {
-                    "question": "What should I do if the brake lever feels different?",
+                    "question": "Where can I find model-specific electric scooter guidance?",
                     "answer_template": (
-                        "Do not ride the scooter until the cause is understood. Check the manual "
-                        "for the model and ask the manufacturer, seller, or a qualified technician "
-                        "to inspect or adjust the brake when needed."
+                        "Start with the manual and manufacturer documentation for the exact model. "
+                        "Ask the seller or manufacturer when a specification or instruction is unclear."
                     ),
                 },
                 {
-                    "question": "Should I test the brake after the visual checks?",
+                    "question": "What should I ask the seller before I buy?",
                     "answer_template": (
-                        "Follow the model's manual. If it permits a functional check, an adult can "
-                        "supervise a gentle walking-pace test in a suitable private space after the "
-                        "visual checks pass. Stop immediately if braking feels inconsistent."
+                        "Ask for the exact model specification, manual, manufacturer guidance, and "
+                        "any product-specific limits that matter to the intended rider and use."
                     ),
                 },
                 {
-                    "question": "How often should electric scooter brakes be checked?",
+                    "question": "What UK use rules should I check for an electric scooter?",
                     "answer_template": (
-                        "Use a short visual and feel-based check before each ride, then follow the "
-                        "manufacturer's maintenance and service intervals for deeper inspection. "
-                        "Check again after a knock, wet ride, unusual noise, or change in feel."
+                        "Check current official UK guidance for the rider and location before use. "
+                        "Use suitable private land with the landowner's permission and follow the "
+                        "manual and manufacturer guidance."
                     ),
                 },
             ]

@@ -10,7 +10,11 @@ ORIN_TOOLS = (
 )
 sys.path.insert(0, str(ORIN_TOOLS))
 
-from review_agent import blocked_claims_in_text, unapproved_internal_hrefs  # noqa: E402
+from review_agent import (  # noqa: E402
+    blocked_claims_in_text,
+    faq_questions_match_plan,
+    unapproved_internal_hrefs,
+)
 
 
 def test_unapproved_internal_hrefs_rejects_invented_model_url():
@@ -59,3 +63,21 @@ def test_blocked_claims_checks_each_occurrence_independently():
     )
 
     assert blocked_claims_in_text(html, ["guarantee"]) == ["guarantee"]
+
+
+def test_faq_questions_must_match_the_approved_plan_in_order():
+    plan = [
+        {"question": "What affects electric scooter range?"},
+        {"question": "Where should I check battery guidance?"},
+    ]
+    matching_html = (
+        '<div class="hs-faq-q">What affects electric scooter range?</div>'
+        '<div class="hs-faq-q">Where should I check battery guidance?</div>'
+    )
+    stale_html = (
+        '<div class="hs-faq-q">What should I check before riding?</div>'
+        '<div class="hs-faq-q">Where should I check battery guidance?</div>'
+    )
+
+    assert faq_questions_match_plan(matching_html, plan)
+    assert not faq_questions_match_plan(stale_html, plan)
