@@ -1,6 +1,6 @@
 # ORIN maintenance status
 
-Last updated: 2026-08-04
+Last updated: 2026-08-12
 
 ## Current phase
 
@@ -12,22 +12,21 @@ Shopify drafts. Job 33 completed through the version-bound dashboard approval,
 automatic worker, marker-first Shopify reconciliation, narrow body
 canonicalization, and durable article-handle persistence path.
 
-Phase 7 Prefect shadow foundation is now being implemented. The fixed design
-uses Prefect 3.8.1, one private PostgreSQL 16 database, one paused process work
-pool with concurrency one, and one paused deployment with no schedule. Prefect
-will initially observe and predict only; OpenClaw does not transfer ownership.
-The shadow worker has no Shopify, writer, ORIN worker, scheduler, control API,
-OpenClaw, Docker, or evidence credential. Its new `orin_prefect_shadow` role
-has no direct table privileges and can call only a sanitized, fixed-HBStore
-snapshot function. Existing production gates and schedules remain unchanged by
-the Phase 7 foundation.
+Phase 7 Prefect dry-run production ownership is active for Hoverboard Store.
+The reviewed Prefect server, scheduler deployment, owner worker, and watchdog
+policy run at revision `4b96b85e1e5f64a564ba4554a9471c436dc3a4af`.
+Prefect owns the fixed daily `0 11 * * *` Europe/London request boundary; the
+legacy and dedicated OpenClaw production schedulers remain disabled. The
+OpenClaw read-only watchdog is active at `15 11 * * *` Europe/London with no
+delivery.
 
 The current safe state supersedes the older chronological operating-state
-notes below: the client is in maintenance; request intake, automation, Shopify
-writes, scheduler ownership, and all OpenClaw schedules are disabled. The
-worker remains running at concurrency one and reports `no_job_due`; the
-scheduler-trigger and read-only watchdog are healthy. There are zero active
-jobs and zero open incidents. Live publishing was never enabled.
+notes below: the client is active, request intake and automation are enabled,
+maximum concurrency is one, allowed mode is `dry-run`, and scheduler owner is
+`prefect:orin-hbstore-prod`. Shopify writes remain disabled. The Prefect owner
+worker, Prefect server, automatic ORIN worker, scheduler-trigger, and watchdog
+are healthy with zero restarts; there are zero active jobs and zero open
+incidents. Live publishing was never enabled.
 
 Phase 3 manual verification is complete. Phase 4 automatic
 trigger-plus-worker commissioning passed on the fresh London-date source key
@@ -1347,3 +1346,47 @@ Prefect schedule remains inactive. All OpenClaw schedules remain disabled and
 
 Durable details are in
 `docs/evidence/2026-08-12-phase7-prefect-recurring-automatic-proof.json`.
+
+## Phase 7 Prefect production ownership activation — 2026-08-12
+
+Recurring Prefect dry-run ownership is active at reviewed revision
+`4b96b85e1e5f64a564ba4554a9471c436dc3a4af`. The Prefect server, scheduler
+deployment, owner worker, and read-only watchdog policy use that exact clean
+release. The owner worker and server are healthy with zero restarts. The owner
+pool is active at concurrency one, the scheduler deployment is unpaused, and
+its only active schedule is `hbstore-daily-dry-run` at `0 11 * * *`
+Europe/London.
+
+The first normal production flow run,
+`019ff533-2b7a-7930-9dc4-431f99a61aa4`, was created automatically by schedule
+`d08b9809-e5cb-4ad4-b9bb-0716193f1393`. It completed once with no parameters
+and zero retries. Because the successful midnight proof already owned source
+key `scheduler:orin-hbstore-prod:2026-08-12`, the fixed daily boundary returned
+`accepted` with `replayed=true`. The database still contains exactly one job,
+one run, and one attempt for the source key. No duplicate execution occurred.
+
+The retained terminal run records zero Shopify creates, no publication, no
+queue mutation, `shopify_write_state=not_attempted`, reconciliation not
+required, and no error. The client is active with intake and automation on,
+maximum concurrency one, dry-run as the only allowed mode, Shopify writes off,
+and scheduler owner `prefect:orin-hbstore-prod`. There are zero active jobs and
+zero open incidents.
+
+The narrowly scoped `orin_prefect_scheduler` role is login-enabled for the
+unattended worker but remains non-superuser and cannot bypass RLS. It has no
+direct content-job table access and can execute only the fixed zero-argument
+daily enqueue function. Its credential is a regular non-empty file owned by
+`10004:10004` with mode `0400`; no credential value was printed or recorded.
+
+The legacy and dedicated OpenClaw production schedulers remain disabled. The
+only enabled OpenClaw job is the read-only watchdog at `15 11 * * *`
+Europe/London with delivery disabled. Its 11:15 automatic run exited zero and
+returned `ORIN_SCHEDULED_RUN_OBSERVED` with healthy status.
+
+Phase 7 production ownership is therefore complete in dry-run mode. Shopify
+writes remain disabled. Additional clients remain a separate Phase 8 rollout
+and must receive independent credentials, policies, queues, evidence, and an
+equivalent proof before activation.
+
+Durable details are in
+`docs/evidence/2026-08-12-phase7-prefect-production-activation.json`.
