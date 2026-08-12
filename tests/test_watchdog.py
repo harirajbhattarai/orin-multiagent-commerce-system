@@ -23,7 +23,7 @@ def healthy_snapshot() -> WatchdogSnapshot:
         max_concurrency=1,
         allowed_mode="dry-run",
         scheduler_state="healthy",
-        scheduler_owner="openclaw:orin-hbstore-prod",
+        scheduler_owner="prefect:orin-hbstore-prod",
         job_id=UUID("11111111-1111-4111-8111-111111111111"),
         request_id=UUID("22222222-2222-4222-8222-222222222222"),
         job_status="completed",
@@ -136,6 +136,19 @@ def test_closed_scheduler_after_deadline_emits_configuration_alert():
             automation_enabled=False,
             scheduler_state="disabled",
             scheduler_owner=None,
+        ),
+        now=AFTER_DEADLINE,
+    )
+
+    assert result.status == "alert"
+    assert result.code == "ORIN_SCHEDULER_NOT_ACTIVE"
+
+
+def test_retired_openclaw_owner_is_rejected_after_prefect_handoff():
+    result = evaluate(
+        replace(
+            healthy_snapshot(),
+            scheduler_owner="openclaw:orin-hbstore-prod",
         ),
         now=AFTER_DEADLINE,
     )

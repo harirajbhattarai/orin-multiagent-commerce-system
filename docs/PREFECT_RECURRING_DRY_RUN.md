@@ -35,10 +35,12 @@ Bootstrap installs `orin-hbstore-prefect-scheduler` on
 - deployment collision strategy `CANCEL_NEW`;
 - zero retries and no parameters.
 
-The owner worker is disabled by its Compose profile, uses `restart: "no"`,
-and receives only Prefect API authentication plus the isolated owner database
-URL. It receives no Shopify, writer, shadow, OpenClaw, ORIN worker, control
-API, evidence, or Docker credential.
+The owner worker is disabled by its Compose profile until production
+activation. Once explicitly activated it uses `restart: unless-stopped` and a
+container-local Prefect polling health check. It receives only Prefect API
+authentication plus the isolated owner database URL. It receives no Shopify,
+writer, shadow, OpenClaw, ORIN worker, control API, evidence, or Docker
+credential.
 
 ## Automatic ownership proof
 
@@ -75,3 +77,41 @@ receipt to manufacture a fresh test.
 Any failed invariant triggers step 9 before investigation. The normal
 recurring schedule is enabled only in a later, explicit production activation
 after this automatic proof passes. Shopify writes remain disabled.
+
+## Explicit production activation
+
+Activation is allowed only after the fresh-date automatic proof and its
+component-scoped revision review have passed. During an approved production
+ownership period, `orin_prefect_scheduler` is a `LOGIN` role and its unique
+session-pooler URL remains installed as UID/GID `10004:10004`, mode `0400`.
+This is the minimum persistent credential required for an unattended daily
+worker. The role still has no table privileges and may execute only the
+fixed-client, zero-argument, dry-run enqueue function.
+
+Activate in this order:
+
+1. deploy one exact reviewed Prefect image and verify the clean release,
+   image label, server health, and zero restarts;
+2. verify zero active jobs and incidents, no same-date source key, all
+   OpenClaw production schedulers disabled, and Shopify writes disabled;
+3. enable login for only `orin_prefect_scheduler`, install and validate its
+   unique session-pooler credential without printing it;
+4. start the owner worker while its pool, deployment, and schedule are still
+   paused, then require the container health check and current-user probe;
+5. resume the owner pool, unpause the deployment, and activate only
+   `hbstore-daily-dry-run` at `0 11 * * *` Europe/London;
+6. set the client active, intake and automation enabled, concurrency one,
+   `allowed_mode=dry-run`, Shopify writes disabled, and scheduler owner
+   `prefect:orin-hbstore-prod`;
+7. enable the read-only 11:15 watchdog after its expected-owner policy is
+   deployed at the same reviewed revision; keep legacy and dedicated
+   OpenClaw production schedules disabled;
+8. verify the owner worker is healthy with restart count zero, the normal
+   Prefect schedule is the only active production schedule, and no run was
+   created by the activation itself.
+
+Rollback closes intake and automation, disables scheduler ownership, keeps
+Shopify writes disabled, deactivates the Prefect schedule, pauses the
+deployment and pool, stops the owner worker, returns the role to `NOLOGIN`,
+and removes the owner credential. The read-only watchdog is disabled after
+the production schedule is closed.

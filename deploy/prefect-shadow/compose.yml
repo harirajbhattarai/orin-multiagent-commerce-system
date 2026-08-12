@@ -175,7 +175,7 @@ services:
     pids_limit: 128
     mem_limit: 512m
     cpus: 0.50
-    restart: "no"
+    restart: unless-stopped
     stop_grace_period: 60s
     depends_on:
       prefect-server:
@@ -184,6 +184,7 @@ services:
       PREFECT_API_URL: http://prefect-server:4200/api
       PREFECT_SERVER_ANALYTICS_ENABLED: "false"
       PREFECT_RUNNER_PROCESS_LIMIT: "1"
+      PREFECT_WORKER_WEBSERVER_HOST: 127.0.0.1
       ORIN_PREFECT_OWNER_DATABASE_URL_FILE: /run/secrets/owner_database_url
       ORIN_PREFECT_OWNER_DATABASE_ROLE: orin_prefect_scheduler
       DO_NOT_TRACK: "1"
@@ -191,6 +192,12 @@ services:
       - prefect_api_auth
       - owner_database_url
     command: ["owner-worker"]
+    healthcheck:
+      test: ["CMD", "python", "/app/deploy/prefect-shadow/worker_healthcheck.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     logging:
       driver: json-file
       options:
