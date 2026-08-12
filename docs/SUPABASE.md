@@ -120,6 +120,14 @@ local artifact paths, and the execution queue are not customer-readable.
 `auth.uid()`, the current content item version, tenant membership, and a unique
 request ID. A decision cannot enqueue a job or invoke Shopify.
 
+The approval-only promotion migration adds
+`approved_draft_writes_enabled`. It is mutually exclusive with the broad
+Shopify switch and can be enabled only while `allowed_mode='dry-run'`. The
+worker can then consume and claim only a hidden-draft job whose consumed human
+decision, item, content version, immutable draft row, and body SHA-256 all
+match. This leaves Prefect's daily scheduler dry-run-only and makes direct or
+forged hidden-draft jobs unclaimable.
+
 Scheduler health is refreshed in the same database transaction that inserts a
 scheduler-owned run. The watchdog remains read-only. Portable evidence is
 uploaded separately by the isolated one-shot sync described in

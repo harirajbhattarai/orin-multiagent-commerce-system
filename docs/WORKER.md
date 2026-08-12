@@ -15,8 +15,14 @@ authoritative `runs` ledger.
 - The `orin_worker` role has no direct table privileges.
 - It can execute only `claim_next_job`, `renew_job_lease`, `defer_job`, and
   `complete_job` in the non-exposed `orin_private` schema.
-- Claims require an active client, automation enabled, Shopify writes disabled,
-  concurrency one, allowed mode `dry-run`, and an empty dry-run job.
+- Claims require an active client, open request intake, automation enabled,
+  concurrency one, and an empty job payload. Daily jobs additionally require
+  broad Shopify writes disabled and allowed mode `dry-run`.
+- A hidden-draft claim is a separate approval-only capability. It requires the
+  broad Shopify switch to remain off, allowed mode to remain `dry-run`, the
+  narrow `approved_draft_writes_enabled` gate, and a consumed human decision
+  bound to the exact item, version, stored draft, and SHA-256. A direct or
+  scheduler-created hidden-draft job is never claimable.
 - A unique partial index allows only one leased/running job per client.
 - Dry-run run rows cannot record an article, Shopify creation, publication, or
   queue mutation.
@@ -81,8 +87,8 @@ grace period.
 The Compose service is behind the explicit `automatic-worker` profile and is
 disabled until Phase 4 commissioning. Its restart policy is
 `unless-stopped`, but database maintenance, request-intake, automation, mode,
-and concurrency gates remain authoritative. Starting the container cannot
-create a job or bypass a closed gate.
+approval, and concurrency gates remain authoritative. Starting the container
+cannot create a job or bypass a closed gate.
 
 The disabled-by-default VPS sequence and private Shopify token handoff are
 documented in `deploy/vps/README.md`.

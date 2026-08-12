@@ -23,11 +23,17 @@ function formatMoment(value, options) {
   return new Intl.DateTimeFormat("en-GB", options).format(date);
 }
 
-function normalizeSnapshot(snapshot) {
+function normalizeSnapshot(snapshot, runtime) {
   return {
     ...snapshot,
     operations: {
       ...snapshot.operations,
+      shopifyWrites: runtime?.shopify_writes_enabled
+        ? "Broad hidden drafts"
+        : runtime?.approved_draft_writes_enabled
+          ? "Approved drafts only"
+          : "Disabled",
+      approvedDraftWritesEnabled: runtime?.approved_draft_writes_enabled === true,
       lastChecked: `Checked ${formatMoment(snapshot.operations?.lastChecked, {
         day: "numeric",
         month: "short",
@@ -64,22 +70,39 @@ export async function loadDashboardData() {
     return { data: null, source: "auth", error: null, requiresAuth: true };
   }
 
-  const { data, error } = await supabase
-    .from("client_dashboard_snapshot")
-    .select("snapshot")
-    .eq("client_id", dashboardData.client.id)
-    .maybeSingle();
+  const [snapshotResult, runtimeResult] = await Promise.all([
+    supabase
+      .from("client_dashboard_snapshot")
+      .select("snapshot")
+      .eq("client_id", dashboardData.client.id)
+      .maybeSingle(),
+    supabase
+      .from("client_runtime_settings")
+      .select("shopify_writes_enabled,approved_draft_writes_enabled")
+      .eq("client_id", dashboardData.client.id)
+      .maybeSingle(),
+  ]);
 
-  if (error || !data?.snapshot) {
+  const { data, error } = snapshotResult;
+  const runtime = runtimeResult.data;
+
+  if (error || runtimeResult.error || !data?.snapshot || !runtime) {
     return {
       data: null,
       source: "error",
-      error: error?.message ?? "Your account is not connected to a client workspace yet.",
+      error: error?.message
+        ?? runtimeResult.error?.message
+        ?? "Your account is not connected to a client workspace yet.",
       requiresAuth: false,
     };
   }
 
-  return { data: normalizeSnapshot(data.snapshot), source: "supabase", error: null, requiresAuth: false };
+  return {
+    data: normalizeSnapshot(data.snapshot, runtime),
+    source: "supabase",
+    error: null,
+    requiresAuth: false,
+  };
 }
 
 export async function loadReviewItem(clientId, itemNumber) {

@@ -83,7 +83,8 @@ set status = 'active'
 where client_id = 'hoverboard_store';
 
 update public.client_runtime_settings
-set automation_enabled = true,
+set request_intake_enabled = true,
+    automation_enabled = true,
     allowed_mode = 'hidden-draft',
     shopify_writes_enabled = false
 where client_id = 'hoverboard_store';
@@ -129,9 +130,22 @@ reset role;
 
 select is(
   (select count(*) from hidden_claims),
-  1::bigint,
-  'explicit active automation and write gates allow one hidden-draft claim'
+  0::bigint,
+  'the legacy broad write gate cannot claim an unapproved hidden-draft job'
 );
+
+with claimed as (
+  update public.content_jobs job
+  set status = 'leased',
+      attempt_count = 1,
+      lock_owner = 'worker:hidden:one',
+      locked_at = statement_timestamp(),
+      lease_expires_at = statement_timestamp() + interval '20 minutes'
+  where job.request_id = '66666666-6666-4666-8666-666666666666'
+  returning job_id, client_id, request_id, requested_mode, attempt_count,
+            payload, lease_expires_at
+)
+insert into hidden_claims select * from claimed;
 
 select is(
   (select requested_mode from hidden_claims limit 1),
@@ -300,10 +314,18 @@ insert into public.content_jobs (
   '{}'::jsonb
 );
 
-set local role orin_worker;
-insert into hidden_claims
-select * from orin_private.claim_next_job('worker:hidden:two', 1200);
-reset role;
+with claimed as (
+  update public.content_jobs job
+  set status = 'leased',
+      attempt_count = 1,
+      lock_owner = 'worker:hidden:two',
+      locked_at = statement_timestamp(),
+      lease_expires_at = statement_timestamp() + interval '20 minutes'
+  where job.request_id = '77777777-7777-4777-8777-777777777777'
+  returning job_id, client_id, request_id, requested_mode, attempt_count,
+            payload, lease_expires_at
+)
+insert into hidden_claims select * from claimed;
 
 insert into hidden_payloads values (
   '77777777-7777-4777-8777-777777777777',
@@ -390,10 +412,18 @@ insert into public.content_jobs (
   '{}'::jsonb
 );
 
-set local role orin_worker;
-insert into hidden_claims
-select * from orin_private.claim_next_job('worker:hidden:three', 1200);
-reset role;
+with claimed as (
+  update public.content_jobs job
+  set status = 'leased',
+      attempt_count = 1,
+      lock_owner = 'worker:hidden:three',
+      locked_at = statement_timestamp(),
+      lease_expires_at = statement_timestamp() + interval '20 minutes'
+  where job.request_id = '88888888-8888-4888-8888-888888888888'
+  returning job_id, client_id, request_id, requested_mode, attempt_count,
+            payload, lease_expires_at
+)
+insert into hidden_claims select * from claimed;
 
 insert into hidden_payloads values (
   '88888888-8888-4888-8888-888888888888',

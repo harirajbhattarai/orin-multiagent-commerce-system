@@ -23,9 +23,10 @@ leaked-password protection warning must also be cleared before public access.
 The current hosted login is temporarily blocked by the project email sender's
 rate limit after repeated commissioning links; do not bypass that control.
 
-Shopify writes remain disabled. Browser decisions never call Shopify or change
-runtime gates. The narrow worker may materialize an eligible decision only
-when the separately managed runtime gates already permit that exact stage.
+Broad Shopify writes remain disabled. Browser decisions never call Shopify or
+change runtime gates. The narrow worker may promote a reviewed article only
+through the independent approval-only capability and the exact version/hash
+binding described below.
 
 ## Database contract
 
@@ -50,9 +51,18 @@ review stages and adds:
 - `client_content_review_items`, a tenant-safe `security_invoker` projection
   containing the full review HTML but no private filesystem path;
 - `approve_concept`, which can materialize only a `dry-run` drafting job;
-- `approve_hidden_draft`, which requires the exact stored draft version and
-  all existing hidden-draft write gates;
+- `approve_hidden_draft`, which requires the exact stored draft version;
 - a worker-only decision consumer and atomic dry-run draft capture.
+
+Migration `20260812115007_approved_draft_promotion_gate.sql` removes the need
+to switch the global scheduler into hidden-draft mode. Its narrow capability:
+
+- can be enabled only with `allowed_mode='dry-run'` and broad Shopify writes
+  disabled;
+- materializes only a recorded human `approve_hidden_draft` decision;
+- leases only a `decision:` job whose decision, item, version, immutable draft,
+  and body SHA-256 all agree;
+- skips direct, scheduler-created, incomplete, or forged hidden-draft jobs.
 
 The browser cannot execute the consumer, modify runtime settings, create a
 job directly, or publish. Change requests move the exact version to human
@@ -126,7 +136,6 @@ docker compose --env-file /docker/orin/deployment.env \
 9. Re-run the Supabase security advisor.
 
 Phase 6 is complete only after all nine checks pass and one controlled
-concept-to-full-preview pilot proves the durable review bridge. The first
-hidden-draft approval remains a separate controlled test and must retain the
-existing runtime and Shopify write gates. Live publishing is outside this
-workflow.
+concept-to-full-preview pilot proves the durable review bridge. Approval-only
+hidden-draft promotion is commissioned separately and never enables live
+publishing, the broad Shopify switch, or Prefect hidden-draft scheduling.

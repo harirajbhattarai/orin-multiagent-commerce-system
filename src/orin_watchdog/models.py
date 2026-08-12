@@ -14,6 +14,7 @@ class WatchdogSnapshot:
     request_intake_enabled: bool
     automation_enabled: bool
     shopify_writes_enabled: bool
+    approved_draft_writes_enabled: bool
     max_concurrency: int
     allowed_mode: str
     scheduler_state: str
