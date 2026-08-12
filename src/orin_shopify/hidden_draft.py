@@ -16,9 +16,11 @@ MARKER_NAMESPACE = "orin_control"
 MARKER_KEY = "idempotency_key"
 MARKER_TYPE = "single_line_text_field"
 MARKER_PREFIX = "orin-v1:"
-BODY_CANONICALIZATION = "shopify-safe-html-serialization/v2"
+BODY_CANONICALIZATION = "shopify-safe-html-serialization/v3"
 _GRAPHQL_ID = re.compile(r"^gid://shopify/Article/([0-9]+)$")
-_SHOPIFY_LIST_LEADING_STRONG_WHITESPACE = re.compile(r"(<li>)[\t\r\n ]+(<strong>)")
+_SHOPIFY_LIST_LEADING_INLINE_WHITESPACE = re.compile(
+    r"(<li>)[\t\r\n ]+(<(?:a|strong)(?:\s|>))"
+)
 _SHOPIFY_APOSTROPHE_ENTITY = re.compile(r"&#39;")
 
 
@@ -129,11 +131,12 @@ def canonicalize_shopify_body(body_html: str) -> str:
     """Ignore only observed, render-equivalent Shopify serialization changes.
 
     Shopify inserts a newline between a list item's opening ``li`` tag and a
-    leading ``strong`` tag and decodes the numeric apostrophe entity ``&#39;``
-    to the literal apostrophe. Neither change alters rendered text. No other
-    entity, whitespace, element, attribute, or text difference is ignored.
+    leading ``a`` or ``strong`` inline tag and decodes the numeric apostrophe
+    entity ``&#39;`` to the literal apostrophe. Neither change alters rendered
+    text. No other entity, whitespace, element, attribute, or text difference
+    is ignored.
     """
-    canonical = _SHOPIFY_LIST_LEADING_STRONG_WHITESPACE.sub(r"\1\2", body_html)
+    canonical = _SHOPIFY_LIST_LEADING_INLINE_WHITESPACE.sub(r"\1\2", body_html)
     return _SHOPIFY_APOSTROPHE_ENTITY.sub("'", canonical)
 
 
