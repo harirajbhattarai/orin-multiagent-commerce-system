@@ -1,5 +1,26 @@
 const REVIEWABLE_STAGES = new Set(["Planned", "Review"]);
 
+export function isReviewableQueueItem(item) {
+  return Boolean(
+    item
+    && REVIEWABLE_STAGES.has(item.stage)
+    && Number.isSafeInteger(Number(item.id))
+    && item.contentItemId
+    && Number.isInteger(item.version),
+  );
+}
+
+export function nextPlannedJobId(data) {
+  const preferredId = Number(data?.nextArticle?.id);
+  const preferred = (data?.queue ?? []).find(
+    (item) => Number(item.id) === preferredId && item.stage === "Planned",
+  );
+  if (isReviewableQueueItem(preferred)) return preferredId;
+
+  const fallback = (data?.queue ?? []).find((item) => item.stage === "Planned");
+  return isReviewableQueueItem(fallback) ? Number(fallback.id) : null;
+}
+
 export function reviewJobIdFromPath(pathname) {
   const match = /^\/review\/([1-9]\d*)\/?$/.exec(pathname ?? "");
   if (!match) return null;
@@ -19,7 +40,7 @@ export function selectRouteBoundReviewArticle(data, jobId, loadedReview = null) 
   if (!Number.isSafeInteger(jobId)) return null;
 
   const item = (data?.queue ?? []).find((candidate) => Number(candidate.id) === jobId);
-  if (!item || !item.contentItemId || !Number.isInteger(item.version)) return null;
+  if (!isReviewableQueueItem(item)) return null;
 
   const isNextArticle = Number(data?.nextArticle?.id) === jobId;
   if (!REVIEWABLE_STAGES.has(item.stage) && !isNextArticle) return null;

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isReviewableQueueItem,
+  nextPlannedJobId,
   reviewJobIdFromPath,
   selectRouteBoundReviewArticle,
 } from "../src/reviewArticle.js";
@@ -52,6 +54,25 @@ test("parses only exact positive-integer review routes", () => {
   assert.equal(reviewJobIdFromPath("/review/33/"), 33);
   assert.equal(reviewJobIdFromPath("/review/3-extra"), null);
   assert.equal(reviewJobIdFromPath("/queue"), null);
+});
+
+test("selects the preferred planned article for the primary queue action", () => {
+  assert.equal(nextPlannedJobId(data), 33);
+  assert.equal(nextPlannedJobId({
+    nextArticle: { id: 999 },
+    queue: [
+      { id: 35, contentItemId: "item-35", version: 1, stage: "Planned" },
+      { id: 36, contentItemId: "item-36", version: 1, stage: "Planned" },
+    ],
+  }), 35);
+  assert.equal(nextPlannedJobId({ queue: [] }), null);
+});
+
+test("allows only fully bound planned or review queue items to open", () => {
+  assert.equal(isReviewableQueueItem(data.queue[0]), true);
+  assert.equal(isReviewableQueueItem(data.queue[1]), true);
+  assert.equal(isReviewableQueueItem(data.queue[2]), false);
+  assert.equal(isReviewableQueueItem({ id: 35, stage: "Planned" }), false);
 });
 
 test("binds /review/3 to Job 3 instead of the snapshot's Job 33 article", () => {

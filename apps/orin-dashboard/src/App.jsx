@@ -34,7 +34,12 @@ import {
   signOutDashboard,
   subscribeToAuthChanges,
 } from "./lib/dashboardClient.js";
-import { reviewJobIdFromPath, selectRouteBoundReviewArticle } from "./reviewArticle.js";
+import {
+  isReviewableQueueItem,
+  nextPlannedJobId,
+  reviewJobIdFromPath,
+  selectRouteBoundReviewArticle,
+} from "./reviewArticle.js";
 
 function readPath(path = window.location.pathname) {
   if (path.startsWith("/review/")) return "review";
@@ -348,6 +353,7 @@ const stages = ["Planned", "Research", "Drafting", "Review", "Approved"];
 function Queue({ data, navigate }) {
   const [activeFilter, setActiveFilter] = useState("All");
   const [query, setQuery] = useState("");
+  const plannedJobId = nextPlannedJobId(data);
   const filtered = useMemo(() => {
     return data.queue.filter((item) => {
       const matchesFilter = activeFilter === "All" || item.stage === activeFilter;
@@ -362,7 +368,16 @@ function Queue({ data, navigate }) {
         eyebrow="CONTENT OPERATIONS"
         title="Content flightboard"
         description="Follow every article from approved concept to Shopify draft."
-        action={<button className="primary-button" type="button"><Sparkle size={17} weight="fill" /> Plan next article</button>}
+        action={(
+          <button
+            className="primary-button"
+            type="button"
+            disabled={plannedJobId == null}
+            onClick={() => plannedJobId != null && navigate(`/review/${plannedJobId}`)}
+          >
+            <Sparkle size={17} weight="fill" /> Plan next article
+          </button>
+        )}
       />
 
       <section className="stage-board">
@@ -390,15 +405,18 @@ function Queue({ data, navigate }) {
           </div>
           <div className="queue-list">
             <div className="queue-header"><span>Article</span><span>Stage</span><span>Priority</span><span>Due</span><span /></div>
-            {filtered.map((item) => (
-              <button type="button" className={`queue-row ${item.stage === "Review" ? "attention" : ""}`} key={item.id} onClick={() => item.stage === "Review" && navigate(`/review/${item.id}`)}>
-                <span className="queue-article"><small>JOB {item.id}</small><strong>{item.title}</strong><em>{item.keyword}</em></span>
-                <span><StatusPill tone={item.stage === "Review" ? "orange" : item.stage === "Drafting" ? "blue" : "neutral"}>{item.stage}</StatusPill></span>
-                <span className="priority-cell"><i className={item.priority === "High" ? "high" : ""} />{item.priority}</span>
-                <span className="due-cell">{item.due}</span>
-                <span>{item.stage === "Review" ? <ArrowRight size={17} /> : <span className="more-button">•••</span>}</span>
-              </button>
-            ))}
+            {filtered.map((item) => {
+              const reviewable = isReviewableQueueItem(item);
+              return (
+                <button type="button" className={`queue-row ${item.stage === "Review" ? "attention" : ""}`} key={item.id} onClick={() => reviewable && navigate(`/review/${item.id}`)}>
+                  <span className="queue-article"><small>JOB {item.id}</small><strong>{item.title}</strong><em>{item.keyword}</em></span>
+                  <span><StatusPill tone={item.stage === "Review" ? "orange" : item.stage === "Drafting" ? "blue" : "neutral"}>{item.stage}</StatusPill></span>
+                  <span className="priority-cell"><i className={item.priority === "High" ? "high" : ""} />{item.priority}</span>
+                  <span className="due-cell">{item.due}</span>
+                  <span>{reviewable ? <ArrowRight size={17} /> : <span className="more-button">•••</span>}</span>
+                </button>
+              );
+            })}
             {filtered.length === 0 && <div className="empty-state"><MagnifyingGlass size={26} /><strong>No matching articles</strong><span>Try a different keyword or stage.</span></div>}
           </div>
         </div>
