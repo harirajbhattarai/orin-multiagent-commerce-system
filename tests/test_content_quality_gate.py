@@ -265,6 +265,46 @@ class ContentQualityGateTests(unittest.TestCase):
         self.assertIn("hoverkart", plan["blocked_topic_terms"])
         self.assertGreaterEqual(len(plan["internal_link_plan"]), 5)
 
+    def test_electric_scooter_plan_keeps_faq_cta_and_links_topic_relevant(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-08-12")
+        job_context = {
+            "job_number": "36",
+            "job_label": "Job 36",
+            "topic": "Kids Electric Scooter Brake Checks Before Every Ride",
+            "target_keyword": "kids electric scooter brake checks",
+            "target_date": "2026-09-01",
+            "expected_draft_date": "2026-08-18",
+            "queue_status": "planned",
+            "file_path": "",
+            "shopify_handle": None,
+        }
+
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        cta_heading = next(
+            item["h2"] for item in plan["h2_outline"] if item["id"] == "cta"
+        )
+        faq_text = repr(plan["faq_plan"]).lower()
+        cta_text = repr(plan["cta_plan"]).lower()
+        links = plan["internal_link_plan"]
+        links_text = repr(links).lower()
+
+        self.assertEqual(cta_heading, plan["cta_plan"]["heading"])
+        self.assertEqual(
+            plan["cta_plan"]["button_href"],
+            "https://hoverboardstore.co.uk/collections/electric-scooters",
+        )
+        self.assertIn("electric scooter", faq_text)
+        self.assertNotIn("hoverboard setup", faq_text)
+        self.assertNotIn("hoverboard model", faq_text)
+        self.assertIn("electric scooter", cta_text)
+        self.assertNotIn("shop hoverboards", cta_text)
+        self.assertEqual(len(links), 5)
+        self.assertIn("/collections/electric-scooters", links_text)
+        self.assertNotIn("/collections/hoverboards", links_text)
+        self.assertNotIn("hoverboard-laws", links_text)
+        self.assertIn("electric scooter", plan["reader_persona"].lower())
+
     def test_thin_template_is_blocked_with_machine_readable_codes(self):
         html = f"""<!--
 Meta Title: Hoverboard Charger Not Working: Safe Checks
