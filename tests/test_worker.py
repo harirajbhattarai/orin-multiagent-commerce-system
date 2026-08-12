@@ -363,7 +363,13 @@ def test_current_run_draft_capture_is_version_bound_and_private(tmp_path):
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     draft = run_dir / "writer_output.html"
-    draft.write_text("<article><h1>Safe guide</h1><p>Useful parent advice.</p></article>")
+    draft.write_text(
+        "<!--\n"
+        "Meta Title: Safe Scooter Brake Checks for Parents\n"
+        "Meta Description: Use this practical pre-ride checklist to inspect a child's electric scooter brakes and know when to stop and seek model-specific support.\n"
+        "-->\n"
+        "<article><h1>Safe guide</h1><p>Useful parent advice.</p></article>"
+    )
     (run_dir / "pipeline_preview.json").write_text(
         '{"writer_output_path": "' + str(draft) + '", "selected_topic": "Safe guide"}'
     )
@@ -389,6 +395,8 @@ def test_current_run_draft_capture_is_version_bound_and_private(tmp_path):
     assert captured["content_item_version"] == 4
     assert captured["title"] == "Safe guide"
     assert captured["word_count"] == 5
+    assert captured["meta_title"] == "Safe Scooter Brake Checks for Parents"
+    assert captured["meta_description"].startswith("Use this practical pre-ride checklist")
     assert len(str(captured["body_sha256"])) == 64
 
 

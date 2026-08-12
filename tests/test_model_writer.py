@@ -89,6 +89,14 @@ class ModelWriterTests(unittest.TestCase):
             payload["messages"][1]["content"],
         )
         self.assertIn(
+            "Render exactly the questions supplied in faq_plan",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            "Do not make generic predictions about how weather",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
             "Use every h2_outline[].h2 value verbatim",
             payload["messages"][1]["content"],
         )
