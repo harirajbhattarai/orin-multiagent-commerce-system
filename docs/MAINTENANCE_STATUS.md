@@ -7,10 +7,22 @@ Last updated: 2026-08-12
 Phase 6 exact-reviewed hidden-draft proof is complete for Hoverboard Store.
 Supabase owns the 60-item plan, execution jobs bind to plan items through a
 lease-checked worker capability, and the legacy Markdown format is generated
-only as private run input. Jobs 28-33 are reconciled to their verified hidden
+only as private run input. Jobs 28-37 are reconciled to their verified hidden
 Shopify drafts. Job 33 completed through the version-bound dashboard approval,
 automatic worker, marker-first Shopify reconciliation, narrow body
 canonicalization, and durable article-handle persistence path.
+
+Job 37 completed through the approval-only dashboard path on 2026-08-12. Its
+first reconciliation attempts found the one marker-owned, unpublished Shopify
+article but failed closed because Shopify inserted render-equivalent newlines
+before leading anchors in the Related Guides list. PR 115 extended the narrow
+body canonicalizer to that observed serialization only. The exact failed job
+was reopened for one recovery attempt at merged worker revision
+`20142585fd2319a38fab5fb4994fa05a30613d70`; run
+`hb_20260812T173606Z_dec5473e` reconciled article `1007424700764` without a
+second create, persisted the canonical handle, published nothing, left the
+queue unchanged, and resolved the recovery incident. Durable evidence is in
+`docs/evidence/2026-08-12-job37-anchor-reconciliation-proof.json`.
 
 Phase 7 Prefect dry-run production ownership is active for Hoverboard Store.
 The reviewed Prefect server, scheduler deployment, owner worker, and watchdog
