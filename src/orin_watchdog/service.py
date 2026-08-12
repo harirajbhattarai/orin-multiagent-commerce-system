@@ -9,7 +9,7 @@ from orin_watchdog.models import WatchdogResult, WatchdogSnapshot
 
 
 CLIENT_ID = "hoverboard_store"
-SCHEDULER_OWNER = "openclaw:orin-hbstore-prod"
+SCHEDULER_OWNER = "prefect:orin-hbstore-prod"
 SCHEDULE_NAME = "orin-hbstore-prod"
 LONDON = ZoneInfo("Europe/London")
 EXPECTED_LOCAL_TIME = time(hour=11)

@@ -40,6 +40,7 @@ case "${mode}" in
       --pool orin-owner-process \
       --name orin-hbstore-prefect-scheduler-1 \
       --limit 1 \
+      --with-healthcheck \
       --no-create-pool-if-not-found \
       --install-policy never
     ;;

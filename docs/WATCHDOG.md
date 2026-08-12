@@ -11,7 +11,7 @@ ownership is proven.
 The watchdog accepts no client, schedule, mode, or command arguments. It checks:
 
 - client `hoverboard_store`;
-- scheduler owner `openclaw:orin-hbstore-prod`;
+- scheduler owner `prefect:orin-hbstore-prod`;
 - source key `scheduler:orin-hbstore-prod:<London date>`;
 - expected daily schedule `11:00 Europe/London`;
 - a 15-minute grace period.

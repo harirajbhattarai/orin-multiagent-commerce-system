@@ -64,7 +64,7 @@ def test_shadow_worker_has_only_its_read_only_database_secret():
     assert "--install-policy never" in ENTRYPOINT
 
 
-def test_owner_worker_has_only_its_fixed_commissioning_secret():
+def test_owner_worker_has_only_its_fixed_scheduler_secret_and_is_resilient():
     worker = service("prefect-owner-worker", None).split("\nsecrets:", 1)[0]
     assert "owner_database_url" in worker
     assert "prefect_api_auth" in worker
@@ -74,10 +74,13 @@ def test_owner_worker_has_only_its_fixed_commissioning_secret():
     assert "scheduler_database_url" not in worker
     assert "control_database_url" not in worker
     assert "writer_api_key" not in worker
-    assert 'restart: "no"' in worker
+    assert "restart: unless-stopped" in worker
     assert 'PREFECT_RUNNER_PROCESS_LIMIT: "1"' in worker
+    assert "PREFECT_WORKER_WEBSERVER_HOST: 127.0.0.1" in worker
+    assert "worker_healthcheck.py" in worker
     assert "--pool orin-owner-process" in ENTRYPOINT
     assert "--name orin-hbstore-prefect-scheduler-1" in ENTRYPOINT
+    assert "--with-healthcheck" in ENTRYPOINT
 
 
 def test_bootstrap_and_worker_do_not_receive_prefect_database_password():
