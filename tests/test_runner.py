@@ -591,7 +591,7 @@ def test_database_hidden_draft_uses_exact_reviewed_html_without_pipeline(
     assert evidence["fetched_body_sha256"] == body_sha256
     assert evidence["approved_canonical_body_sha256"] == body_sha256
     assert evidence["fetched_canonical_body_sha256"] == body_sha256
-    assert evidence["body_canonicalization"] == "shopify-list-leading-strong-whitespace/v1"
+    assert evidence["body_canonicalization"] == "shopify-safe-html-serialization/v2"
 
 
 def test_database_hidden_draft_rejects_tampered_review_body_before_shopify(
