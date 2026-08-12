@@ -20,6 +20,7 @@ def healthy_snapshot() -> WatchdogSnapshot:
         request_intake_enabled=True,
         automation_enabled=True,
         shopify_writes_enabled=False,
+        approved_draft_writes_enabled=True,
         max_concurrency=1,
         allowed_mode="dry-run",
         scheduler_state="healthy",

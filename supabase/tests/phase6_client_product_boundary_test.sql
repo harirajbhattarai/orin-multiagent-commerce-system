@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(20);
 
 select has_table('public', 'content_decisions', 'decision ledger exists');
 
@@ -49,6 +49,21 @@ select ok(
 select ok(
   not has_table_privilege('authenticated', 'public.content_jobs', 'SELECT'),
   'raw execution queue is not customer-readable'
+);
+
+select ok(
+  has_column_privilege(
+    'authenticated',
+    'public.client_runtime_settings',
+    'approved_draft_writes_enabled',
+    'SELECT'
+  )
+  and not has_table_privilege(
+    'authenticated',
+    'public.client_runtime_settings',
+    'UPDATE'
+  ),
+  'dashboard members can observe but never change the approval-only capability'
 );
 
 insert into auth.users (id)

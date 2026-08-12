@@ -306,7 +306,7 @@ function Overview({ data, navigate }) {
           <div className="operations-list">
             <div><span><Clock size={18} /> Daily schedule</span><StatusPill tone="green">{data.operations.scheduler}</StatusPill></div>
             <div><span><Robot size={18} /> Content worker</span><StatusPill tone="green">{data.operations.worker}</StatusPill></div>
-            <div><span><ShieldCheck size={18} /> Shopify publishing</span><StatusPill tone="blue">{data.operations.shopifyWrites}</StatusPill></div>
+            <div><span><ShieldCheck size={18} /> Shopify draft access</span><StatusPill tone="blue">{data.operations.shopifyWrites}</StatusPill></div>
           </div>
           <div className="operations-footer">
             <CloudCheck size={19} weight="duotone" />

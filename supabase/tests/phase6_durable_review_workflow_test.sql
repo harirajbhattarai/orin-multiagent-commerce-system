@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(27);
 
 select has_table('public', 'content_drafts', 'versioned review draft table exists');
 select ok(
@@ -204,9 +204,23 @@ select is(
   'hidden-draft approval waits while Shopify write gates are closed'
 );
 
+select throws_ok(
+  $$
+    update public.client_runtime_settings
+    set approved_draft_writes_enabled = true,
+        shopify_writes_enabled = true,
+        allowed_mode = 'hidden-draft'
+    where client_id = 'hoverboard_store'
+  $$,
+  '23514',
+  null,
+  'the narrow approval capability cannot coexist with the broad write gate'
+);
+
 update public.client_runtime_settings
-set shopify_writes_enabled = true,
-    allowed_mode = 'hidden-draft'
+set approved_draft_writes_enabled = true,
+    shopify_writes_enabled = false,
+    allowed_mode = 'dry-run'
 where client_id = 'hoverboard_store';
 
 set local role orin_worker;
@@ -217,7 +231,28 @@ select is(
   (select processing_status from public.content_decisions
    where request_id = 'efefefef-efef-4fef-8fef-efefefefefef'),
   'consumed',
-  'open write gates consume the exact version-bound hidden-draft approval'
+  'the narrow approval gate consumes the exact version-bound hidden-draft approval'
+);
+select ok(
+  not (select shopify_writes_enabled from public.client_runtime_settings
+       where client_id = 'hoverboard_store')
+  and (select allowed_mode = 'dry-run' from public.client_runtime_settings
+       where client_id = 'hoverboard_store'),
+  'approval materialization leaves the scheduler dry-run-only and broad writes disabled'
+);
+select ok(
+  (select approved_draft_writes_enabled from public.client_runtime_settings
+   where client_id = 'hoverboard_store'),
+  'the independent approval-only draft capability is explicit'
+);
+
+insert into public.content_jobs (
+  client_id, source_job_key, request_id, requested_mode,
+  status, scheduled_for, payload
+) values (
+  'hoverboard_store', 'forged-hidden-draft',
+  '12121212-1212-4212-8212-121212121212', 'hidden-draft',
+  'queued', statement_timestamp(), '{}'::jsonb
 );
 select results_eq(
   $$ select job.approved_draft_id, job.approved_content_item_version,
@@ -237,13 +272,16 @@ select is(
   'reviewed HTML is never copied into the public job payload'
 );
 
-update public.content_jobs
-set status = 'leased',
-    attempt_count = 1,
-    lock_owner = 'worker:exact-review',
-    locked_at = statement_timestamp(),
-    lease_expires_at = statement_timestamp() + interval '20 minutes'
-where request_id = 'efefefef-efef-4fef-8fef-efefefefefef';
+set local role orin_worker;
+select * from orin_private.claim_next_job('worker:exact-review', 1200);
+reset role;
+
+select is(
+  (select status from public.content_jobs
+   where request_id = '12121212-1212-4212-8212-121212121212'),
+  'queued',
+  'the worker skips a hidden-draft job without an exact consumed approval binding'
+);
 
 create temporary table phase6_exact_snapshot as
 select orin_private.get_content_plan_snapshot(

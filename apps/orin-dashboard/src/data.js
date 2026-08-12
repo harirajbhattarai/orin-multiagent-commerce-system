@@ -27,6 +27,7 @@ export const dashboardData = {
     scheduler: "Healthy",
     worker: "Online",
     shopifyWrites: "Approval only",
+    approvedDraftWritesEnabled: true,
     lastChecked: "Checked moments ago",
   },
   counts: {

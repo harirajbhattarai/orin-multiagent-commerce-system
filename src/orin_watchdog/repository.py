@@ -28,6 +28,7 @@ class WatchdogRepository:
                       settings.request_intake_enabled,
                       settings.automation_enabled,
                       settings.shopify_writes_enabled,
+                      settings.approved_draft_writes_enabled,
                       settings.max_concurrency,
                       settings.allowed_mode,
                       health.state as scheduler_state,
