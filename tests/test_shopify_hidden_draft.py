@@ -205,6 +205,28 @@ def test_shopify_list_serializer_newline_reconciles_without_duplicate():
     assert transport.create_calls == []
 
 
+def test_shopify_apostrophe_entity_decoding_reconciles_without_duplicate():
+    approved = "<p>Follow the manufacturer&#39;s instructions.</p>"
+    serialized = "<p>Follow the manufacturer's instructions.</p>"
+    expected = spec()
+    expected = DraftSpec(
+        blog_id=expected.blog_id,
+        title=expected.title,
+        body_html=approved,
+        handle=expected.handle,
+        author_name=expected.author_name,
+        idempotency_key=expected.idempotency_key,
+    )
+    transport = FakeTransport([article(43, body=serialized)])
+
+    result = HiddenDraftGateway(transport).ensure(expected)
+
+    assert result.numeric_article_id == 43
+    assert result.body_sha256 == hashlib.sha256(serialized.encode()).hexdigest()
+    assert result.canonical_body_sha256 == canonical_shopify_body_sha256(approved)
+    assert transport.create_calls == []
+
+
 def test_canonicalization_does_not_ignore_inline_or_text_changes():
     transport = FakeTransport([article(42, body="<p>Safe <strong>body</strong></p>")])
 
