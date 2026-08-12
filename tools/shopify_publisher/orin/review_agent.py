@@ -901,6 +901,8 @@ def review_selected_job_draft(
     structure["faq_required"] = len(faq_plan) > 0
     structure["faq_present_in_draft"] = len(faq_items_in_draft) > 0
     structure["faq_count"] = len(faq_items_in_draft)
+    structure["faq_expected_count"] = len(faq_plan)
+    structure["faq_matches_plan"] = len(faq_items_in_draft) == len(faq_plan)
 
     # Canonical Hoverboard Store byline requirement (from html_quality_check.py):
     # Visible article text must contain "By Hoverboard Store".
@@ -1012,6 +1014,13 @@ def review_selected_job_draft(
     # Dangerous phrases found
     if dangerous_found:
         blockers.append(f"dangerous_phrases: {[d[0] for d in dangerous_found]}")
+
+    if structure["faq_required"] and not structure["faq_matches_plan"]:
+        blockers.append(
+            "faq_plan_mismatch: "
+            f"draft has {structure['faq_count']} FAQ items, "
+            f"expected exactly {structure['faq_expected_count']}"
+        )
 
     # Identity failures
     if not identity["h1_present"]:

@@ -877,6 +877,9 @@ class WriterAgent:
             + (
                 "Do not generalise hoverboard-specific guidance to electric scooters. "
                 "Use model-specific electric scooter wording and advise checking current UK rules. "
+                "Do not predict how wet, cold, or damp conditions change brake feel or stopping "
+                "distance across models; effects vary by brake system. Do not recommend adjustment, "
+                "powered testing, or electronic diagnostics unless the exact model manual permits it. "
                 if is_electric_scooter_topic
                 else "Hoverboards are for private land use only in England. "
             )
@@ -904,6 +907,14 @@ class WriterAgent:
             "safe for public use",
             "certified safe",
         ]
+        if is_electric_scooter_topic:
+            claims_to_avoid.extend(
+                [
+                    "expect the lever to feel firmer",
+                    "stopping distances to be longer",
+                    "normal responses to conditions",
+                ]
+            )
 
         # ── Recommended word count ───────────────────────────────────────
         if self.is_hcs:

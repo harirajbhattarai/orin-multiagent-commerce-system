@@ -26,6 +26,26 @@ from orin_worker.service import WorkOutcome, work_forever, work_once
 MAX_REVIEW_DRAFT_BYTES = 500_000
 
 
+def _review_metadata(body_html: str) -> dict[str, str]:
+    """Extract the validated SEO metadata comment for durable review."""
+    comments = re.findall(r"<!--(.*?)-->", body_html, flags=re.DOTALL)
+    labels = {
+        "SEO Title": "seo_title",
+        "Meta Title": "meta_title",
+        "Meta Description": "meta_description",
+    }
+    metadata: dict[str, str] = {}
+    for comment in comments:
+        for line in comment.splitlines():
+            if ":" not in line:
+                continue
+            label, value = line.split(":", 1)
+            key = labels.get(label.strip())
+            if key and key not in metadata:
+                metadata[key] = value.strip()
+    return metadata
+
+
 def _capture_review_draft(
     result: dict[str, object], content_plan_snapshot: dict[str, object]
 ) -> dict[str, object] | None:
@@ -69,6 +89,7 @@ def _capture_review_draft(
     word_count = len(re.findall(r"\b[\w'-]+\b", plain_text))
     if word_count < 1:
         raise RuntimeError("current-run writer draft has no readable words")
+    metadata = _review_metadata(body_html)
 
     return {
         "content_item_id": selected.get("content_item_id"),
@@ -77,8 +98,8 @@ def _capture_review_draft(
         "body_html": body_html,
         "body_sha256": hashlib.sha256(raw).hexdigest(),
         "word_count": word_count,
-        "meta_title": "",
-        "meta_description": "",
+        "meta_title": metadata.get("meta_title") or metadata.get("seo_title", ""),
+        "meta_description": metadata.get("meta_description", ""),
         "quality_score": None,
         "checks": [
             "Current-run draft identity verified",

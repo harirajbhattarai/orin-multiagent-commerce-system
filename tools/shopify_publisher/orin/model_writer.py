@@ -145,6 +145,8 @@ Required output contract:
 - Include div.hs-quick-answer, div.hs-highlights, developed H2 sections,
   section.hs-faq with div.hs-faq-item/div.hs-faq-q/div.hs-faq-a, div.hs-cta,
   and a related-guides section.
+- Render exactly the questions supplied in faq_plan, in order. Do not add,
+  remove, merge, or invent FAQ questions or answers.
 - Do not place an H2 inside div.hs-highlights. It is a short summary block, not
   a substantive article section.
 - Write at least 1,500 visible words. Do not count metadata or HTML tags.
@@ -186,6 +188,15 @@ Required output contract:
 - Do not provide medical advice or tell the reader to contact a GP. When health
   or ability could affect suitability, use neutral wording that recommends
   seeking appropriate professional guidance before use.
+- Do not make generic predictions about how weather, water, temperature, or
+  storage conditions change brake feel or stopping distance. Effects vary by
+  model and brake system; defer to the exact manual and recommend stopping use
+  when braking changes unexpectedly.
+- Do not recommend adjustment, powered testing, electronic diagnostics, or
+  component removal unless the supplied plan explicitly says the exact model
+  manual permits that action.
+- Proofread the opening, headings, FAQs, CTA, and metadata for complete grammar
+  before returning the final HTML fragment.
 - Use only claims supported by the plan or safe general guidance. If a precise
   product fact is unavailable, advise checking the product label, manual,
   manufacturer, seller, or a qualified technician instead of guessing.
