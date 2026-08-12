@@ -1,0 +1,144 @@
+{
+  "schema": "orin.quality-gated-hidden-draft-proof/v1",
+  "verified_at": "2026-08-12T16:00:13Z",
+  "status": "passed",
+  "client_id": "hoverboard_store",
+  "content_item": {
+    "content_item_id": "d3e563a5-6c24-4e4f-8433-bf317e7fc67a",
+    "item_number": 36,
+    "topic": "Kids Electric Scooter Brake Checks Before Every Ride",
+    "target_keyword": "kids electric scooter brake checks",
+    "status_after": "draft_created",
+    "version_after": 14,
+    "shopify_article_id": "1007424012636",
+    "shopify_handle": "kids-electric-scooter-brake-checks-before-every-ride",
+    "last_run_id": "hb_20260812T155801Z_38b0169c"
+  },
+  "quality_iterations": {
+    "rejected_draft_versions": [
+      4,
+      7,
+      10
+    ],
+    "rejection_reasons": [
+      "Hoverboard-specific FAQ, call-to-action, and link drift in an electric-scooter article.",
+      "Unsupported weather and braking claims, a grammar defect, and incomplete metadata.",
+      "An invented internal URL and a public-car-park riding example."
+    ],
+    "reusable_guard_revisions": [
+      "51653294e2ac31feed7dfee7414b2762552a3e90",
+      "16c43631fddf45c2a64dafe2fbbae8620b2495b5",
+      "c2ed28902327d08bfefcc5906a1725670a4b7877"
+    ],
+    "final_approved_urls": [
+      "https://hoverboardstore.co.uk/blogs/journal-insights",
+      "https://hoverboardstore.co.uk/collections/electric-scooters",
+      "https://hoverboardstore.co.uk/pages/contact",
+      "https://hoverboardstore.co.uk/pages/faqs",
+      "https://hoverboardstore.co.uk/pages/safety-responsible-use"
+    ],
+    "unapproved_url_count": 0,
+    "invented_url_present": false,
+    "public_car_park_example_present": false,
+    "weather_performance_prediction_present": false,
+    "human_review_passed": true
+  },
+  "approved_draft": {
+    "draft_id": "b544d288-55fc-4f23-b559-f4becdf3d65d",
+    "content_item_version": 13,
+    "source_run_id": "hb_20260812T155457Z_32b4de5d",
+    "source_code_version": "c2ed28902327d08bfefcc5906a1725670a4b7877",
+    "word_count": 1925,
+    "title": "Kids Electric Scooter Brake Checks Before Every Ride",
+    "meta_title": "Kids Electric Scooter Brake Checks Before Every Ride",
+    "meta_description": "Practical UK guidance on kids electric scooter brake checks before every ride. Use this checklist, then contact Hoverboard Store for model-specific support.",
+    "body_sha256": "407500b4b05189eaed27e308e4f5a95b4bda5f429ec9651263714b51e61215ca"
+  },
+  "approval": {
+    "decision_id": "ea4ea82c-fbd2-4a47-b6cd-e8a96d6078d9",
+    "request_id": "ed7f395b-aebf-40bd-bc38-03a2beb1d4d8",
+    "decision": "approve_hidden_draft",
+    "processing_status": "consumed",
+    "dashboard_live_publish_capability": false,
+    "outcome": "Exact reviewed HTML frozen for approval-only unpublished Shopify-draft replay."
+  },
+  "execution": {
+    "source_job_key": "decision:ea4ea82c-fbd2-4a47-b6cd-e8a96d6078d9",
+    "source_job_key_count": 1,
+    "job_id": "f1fb23cb-728d-409a-848a-dcf8fdd05e34",
+    "request_id": "ed7f395b-aebf-40bd-bc38-03a2beb1d4d8",
+    "requested_mode": "hidden-draft",
+    "effective_mode": "hidden-draft",
+    "job_count": 1,
+    "run_count": 1,
+    "attempt_count": 1,
+    "run_id": "hb_20260812T155801Z_38b0169c",
+    "code_version": "c2ed28902327d08bfefcc5906a1725670a4b7877",
+    "status": "completed",
+    "decision": "APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED",
+    "error_code": null,
+    "pipeline_exit_code": 0,
+    "replay_disposition": "terminal",
+    "shopify_write_state": "article_observed",
+    "shopify_create_count": 1,
+    "shopify_published": false,
+    "queue_changed": false,
+    "reconciliation_status": "reconciled"
+  },
+  "shopify": {
+    "verification_mode": "read_only_graphql_exact_article_query",
+    "article_gid": "gid://shopify/Article/1007424012636",
+    "article_id": "1007424012636",
+    "handle": "kids-electric-scooter-brake-checks-before-every-ride",
+    "title": "Kids Electric Scooter Brake Checks Before Every Ride",
+    "published_at": null,
+    "shopify_published": false,
+    "idempotency_marker_present": true,
+    "raw_body_sha256": "407500b4b05189eaed27e308e4f5a95b4bda5f429ec9651263714b51e61215ca",
+    "canonical_body_sha256": "407500b4b05189eaed27e308e4f5a95b4bda5f429ec9651263714b51e61215ca",
+    "approved_body_matches": true
+  },
+  "deployment": {
+    "checkout_clean": true,
+    "checkout_revision": "c2ed28902327d08bfefcc5906a1725670a4b7877",
+    "worker_image_revision": "c2ed28902327d08bfefcc5906a1725670a4b7877",
+    "worker_restart_count": 0,
+    "scheduler_trigger_image_revision": "96cc33c34a8288090846060e430c69bf01eb76b7",
+    "scheduler_trigger_restart_count": 0,
+    "scheduler_trigger_healthy": true,
+    "prefect_image_revision": "4b96b85e1e5f64a564ba4554a9471c436dc3a4af",
+    "prefect_owner_worker_restart_count": 0,
+    "prefect_owner_worker_healthy": true,
+    "prefect_server_restart_count": 0,
+    "prefect_server_healthy": true,
+    "prefect_postgres_restart_count": 0,
+    "prefect_postgres_healthy": true,
+    "watchdog_image_revision": "41e4c9161864dcd39af6b3ead240ae61ddd48068",
+    "watchdog_restart_count": 0,
+    "watchdog_healthy": true
+  },
+  "production_state": {
+    "client_status": "active",
+    "request_intake_enabled": true,
+    "automation_enabled": true,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": true,
+    "allowed_mode": "dry-run",
+    "max_concurrency": 1,
+    "scheduler_state": "healthy",
+    "scheduler_owner": "prefect:orin-hbstore-prod",
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "normal_prefect_schedule": "0 11 * * * Europe/London",
+    "openclaw_watchdog_schedule": "15 11 * * * Europe/London",
+    "watchdog_last_result": "ORIN_SCHEDULED_RUN_OBSERVED",
+    "legacy_openclaw_scheduler_enabled": false,
+    "dedicated_openclaw_scheduler_enabled": false
+  },
+  "private_evidence": {
+    "directory": "/docker/orin/evidence/hb_20260812T155801Z_38b0169c",
+    "directory_mode": "0700",
+    "files_mode": "0600",
+    "transaction_file": "/docker/orin/evidence/hb_20260812T155801Z_38b0169c/reviewed_draft_transaction.json"
+  }
+}
