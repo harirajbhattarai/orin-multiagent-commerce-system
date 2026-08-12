@@ -1,0 +1,129 @@
+{
+  "schema": "orin.approval-only-reconciliation-proof/v1",
+  "verified_at": "2026-08-12T14:50:41Z",
+  "status": "passed",
+  "client_id": "hoverboard_store",
+  "content_item": {
+    "content_item_id": "9123749c-3020-42c5-9b62-24473dad0e5d",
+    "item_number": 35,
+    "topic": "How to Store a Kids Electric Scooter Between Rides",
+    "target_keyword": "store a kids electric scooter",
+    "status_after": "draft_created",
+    "version_after": 5,
+    "shopify_article_id": "1007422767452",
+    "shopify_handle": "store-kids-electric-scooter-between-rides",
+    "last_run_id": "hb_20260812T144745Z_5ab834da"
+  },
+  "approved_draft": {
+    "draft_id": "c0f0b2c0-6ae4-4e5d-939c-cc515aed4d3e",
+    "content_item_version": 4,
+    "source_run_id": "hb_20260812T130837Z_30fcb9e4",
+    "word_count": 2093,
+    "body_sha256": "60c689f1c6c373a475596fab51ec94792b9b0f0a1c2a9cfe7530eef1cb9bf2d1"
+  },
+  "approval": {
+    "decision_id": "3f51948a-0b38-4151-83bd-045e64bb2c02",
+    "request_id": "795b9d08-c193-43e2-a3d9-b93e0cd32686",
+    "decision": "approve_hidden_draft",
+    "processing_status": "consumed",
+    "dashboard_live_publish_capability": false,
+    "outcome": "Exact reviewed HTML frozen for approval-only unpublished Shopify-draft replay."
+  },
+  "execution": {
+    "source_job_key": "decision:3f51948a-0b38-4151-83bd-045e64bb2c02",
+    "source_job_key_count": 1,
+    "job_id": "ea1ebc4b-0e2e-4530-84c6-abf50a542b1f",
+    "request_id": "795b9d08-c193-43e2-a3d9-b93e0cd32686",
+    "requested_mode": "hidden-draft",
+    "job_status": "completed",
+    "attempt_count": 4,
+    "run_count": 1,
+    "failed_closed_attempts": [
+      "hb_20260812T142532Z_650d86b8",
+      "hb_20260812T142634Z_873f7b5c",
+      "hb_20260812T142736Z_577c93ea"
+    ],
+    "successful_run_id": "hb_20260812T144745Z_5ab834da",
+    "code_version": "25d4159f528dd6a1faa422e0b272b70bcbe26bce",
+    "status": "completed",
+    "decision": "APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED",
+    "error_code": null,
+    "replay_disposition": "terminal",
+    "shopify_write_state": "article_observed",
+    "shopify_create_count": 1,
+    "shopify_published": false,
+    "queue_changed": false,
+    "reconciliation_status": "reconciled"
+  },
+  "shopify": {
+    "verification_mode": "read_only_graphql_idempotency_marker_scan",
+    "marker_match_count": 1,
+    "article_gid": "gid://shopify/Article/1007422767452",
+    "article_id": "1007422767452",
+    "handle": "store-kids-electric-scooter-between-rides",
+    "title": "How to Store a Kids Electric Scooter Between Rides",
+    "published_at": null,
+    "shopify_published": false,
+    "durable_article_ownership_count": 1,
+    "idempotency_marker": "orin-v1:hoverboard_store:795b9d08-c193-43e2-a3d9-b93e0cd32686"
+  },
+  "body_verification": {
+    "approved_raw_body_sha256": "60c689f1c6c373a475596fab51ec94792b9b0f0a1c2a9cfe7530eef1cb9bf2d1",
+    "fetched_raw_body_sha256": "9ed03c16e697b322497a75575ec8de4b18213b02b833c4d1ce31b651a834fab2",
+    "canonicalization": "shopify-safe-html-serialization/v2",
+    "observed_difference": "Shopify decoded seven exact &#39; numeric apostrophe entities to literal apostrophes.",
+    "approved_canonical_body_sha256": "9ed03c16e697b322497a75575ec8de4b18213b02b833c4d1ce31b651a834fab2",
+    "fetched_canonical_body_sha256": "9ed03c16e697b322497a75575ec8de4b18213b02b833c4d1ce31b651a834fab2",
+    "canonical_hashes_match": true
+  },
+  "incident": {
+    "incident_id": "c65cc5ef-4d50-4957-b218-a3262fd7d69b",
+    "code": "ORIN_RECONCILIATION_ATTEMPTS_EXHAUSTED",
+    "opened_at": "2026-08-12T14:27:36.298358Z",
+    "resolved_at": "2026-08-12T14:48:38.766066Z",
+    "status": "resolved",
+    "resolution": "reconciled_existing_unpublished_shopify_draft",
+    "duplicate_articles": false
+  },
+  "deployment": {
+    "checkout_clean": true,
+    "checkout_revision": "25d4159f528dd6a1faa422e0b272b70bcbe26bce",
+    "worker_image_revision": "25d4159f528dd6a1faa422e0b272b70bcbe26bce",
+    "worker_restart_count": 0,
+    "scheduler_trigger_image_revision": "96cc33c34a8288090846060e430c69bf01eb76b7",
+    "scheduler_trigger_restart_count": 0,
+    "scheduler_trigger_healthy": true,
+    "prefect_image_revision": "4b96b85e1e5f64a564ba4554a9471c436dc3a4af",
+    "prefect_owner_worker_restart_count": 0,
+    "prefect_owner_worker_healthy": true,
+    "prefect_server_restart_count": 0,
+    "prefect_server_healthy": true,
+    "prefect_postgres_restart_count": 0,
+    "prefect_postgres_healthy": true
+  },
+  "production_state": {
+    "client_status": "active",
+    "request_intake_enabled": true,
+    "automation_enabled": true,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": true,
+    "allowed_mode": "dry-run",
+    "max_concurrency": 1,
+    "scheduler_state": "healthy",
+    "scheduler_owner": "prefect:orin-hbstore-prod",
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "normal_prefect_schedule": "0 11 * * * Europe/London",
+    "openclaw_watchdog_schedule": "15 11 * * * Europe/London",
+    "legacy_openclaw_scheduler_enabled": false,
+    "dedicated_openclaw_scheduler_enabled": false
+  },
+  "private_evidence": {
+    "failed_attempt_directories": [
+      "/docker/orin/evidence/hb_20260812T142532Z_650d86b8",
+      "/docker/orin/evidence/hb_20260812T142634Z_873f7b5c",
+      "/docker/orin/evidence/hb_20260812T142736Z_577c93ea"
+    ],
+    "successful_run_directory": "/docker/orin/evidence/hb_20260812T144745Z_5ab834da"
+  }
+}
