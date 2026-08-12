@@ -210,6 +210,20 @@ def normalise(s: str) -> str:
     return re.sub(r'[^\w\s]', '', s.lower())
 
 
+def unapproved_internal_hrefs(content: str, writer_plan: dict) -> list[str]:
+    """Return absolute article links that were not approved in the plan."""
+    hrefs = set(re.findall(r'href="(http[^"]+)"', content))
+    approved = {
+        str(item.get("url", "")).strip()
+        for item in writer_plan.get("internal_link_plan", [])
+        if str(item.get("url", "")).strip()
+    }
+    cta_href = str(writer_plan.get("cta_plan", {}).get("button_href", "")).strip()
+    if cta_href:
+        approved.add(cta_href)
+    return sorted(hrefs - approved)
+
+
 def topic_word_overlap(local_title: str, other_title: str) -> float:
     """
     Return fraction of non-generic local words that appear in other_title.
@@ -930,6 +944,18 @@ def review_selected_job_draft(
     hrefs = re.findall(r'href="(http[^"]+)"', content)
     links["external_href_count"] = len(hrefs)
 
+    approved_hrefs = {
+        str(item.get("url", "")).strip()
+        for item in writer_plan.get("internal_link_plan", [])
+        if str(item.get("url", "")).strip()
+    }
+    cta_href = str(writer_plan.get("cta_plan", {}).get("button_href", "")).strip()
+    if cta_href:
+        approved_hrefs.add(cta_href)
+    links["approved_hrefs"] = sorted(approved_hrefs)
+    links["unapproved_hrefs"] = unapproved_internal_hrefs(content, writer_plan)
+    links["approved_href_only"] = not links["unapproved_hrefs"]
+
     # Check for placeholder/broken href patterns
     broken_patterns = ["#", "http://example.com", "https://example.com", "YOUR_URL"]
     broken_hrefs = [h for h in hrefs if any(p in h for p in broken_patterns)]
@@ -1014,6 +1040,12 @@ def review_selected_job_draft(
     # Dangerous phrases found
     if dangerous_found:
         blockers.append(f"dangerous_phrases: {[d[0] for d in dangerous_found]}")
+
+    if not links["approved_href_only"]:
+        blockers.append(
+            "unapproved_internal_links: "
+            f"{links['unapproved_hrefs']}"
+        )
 
     if structure["faq_required"] and not structure["faq_matches_plan"]:
         blockers.append(

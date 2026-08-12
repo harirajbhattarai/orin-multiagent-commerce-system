@@ -97,6 +97,14 @@ class ModelWriterTests(unittest.TestCase):
             payload["messages"][1]["content"],
         )
         self.assertIn(
+            "Every href must exactly match a URL supplied",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            "Do not present roads, pavements,\n  car parks",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
             "Use every h2_outline[].h2 value verbatim",
             payload["messages"][1]["content"],
         )
