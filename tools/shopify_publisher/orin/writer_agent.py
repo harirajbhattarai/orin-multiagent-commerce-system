@@ -383,6 +383,11 @@ class WriterAgent:
         }
         return cluster_angles.get(cluster, f"A practical guide on {target_keyword}. No safety guarantees.")
 
+    @staticmethod
+    def _is_electric_scooter_topic(topic, target_keyword):
+        """Return whether the approved subject is specifically about scooters."""
+        return "scooter" in f"{topic} {target_keyword}".lower()
+
     def _generate_h2_outline(self, topic, target_keyword, cluster):
         """
         Generate H2 outline from topic and cluster.
@@ -456,10 +461,15 @@ class WriterAgent:
             {"id": "faq", "h2": "Frequently Asked Questions", "label": "FAQs"},
         ])
 
+        closing_heading = (
+            "Explore Electric Scooters at Hoverboard Store"
+            if self._is_electric_scooter_topic(topic, target_keyword)
+            else "Find the Right Hoverboard Setup at Hoverboard Store"
+        )
         closing = [
             {
                 "id": "cta",
-                "h2": "Find the Right Hoverboard Setup at Hoverboard Store",
+                "h2": closing_heading,
                 "label": "Shop now",
             },
         ]
@@ -472,6 +482,40 @@ class WriterAgent:
         Returns list of dicts with anchor_text, reason, and collection/blog URL.
         """
         links = []
+
+        if self._is_electric_scooter_topic(topic, target_keyword) and not self.is_hcs:
+            return [
+                {
+                    "anchor_text": "browse electric scooters",
+                    "url": f"{self.site_url}/collections/electric-scooters",
+                    "reason": "Primary electric scooter collection",
+                    "type": "collection",
+                },
+                {
+                    "anchor_text": "responsible use and safety guidance",
+                    "url": f"{self.site_url}/pages/safety-responsible-use",
+                    "reason": "Store safety and responsible-use guidance",
+                    "type": "page",
+                },
+                {
+                    "anchor_text": "electric scooter support FAQs",
+                    "url": f"{self.site_url}/pages/faqs",
+                    "reason": "Store support and frequently asked questions",
+                    "type": "page",
+                },
+                {
+                    "anchor_text": "contact the Hoverboard Store team",
+                    "url": f"{self.site_url}/pages/contact",
+                    "reason": "Model-specific support contact",
+                    "type": "page",
+                },
+                {
+                    "anchor_text": "read more practical riding guides",
+                    "url": f"{self.site_url}/blogs/{self.blog_handle}",
+                    "reason": "Primary advice and support blog",
+                    "type": "blog",
+                },
+            ]
 
         # Collection links (always relevant)
         collection_links = {
@@ -623,6 +667,43 @@ class WriterAgent:
         Generate FAQ plan from topic and cluster.
         Returns list of {question, answer_template} dicts.
         """
+        if self._is_electric_scooter_topic(topic, target_keyword):
+            return [
+                {
+                    "question": "What should I check before a child rides an electric scooter?",
+                    "answer_template": (
+                        "Check the brake lever or control, visible cable or hose, foot brake, "
+                        "wheels, and tyres against the manual for that exact scooter. Stop use "
+                        "if anything is loose, damaged, worn, or behaves differently from the "
+                        "previous ride."
+                    ),
+                },
+                {
+                    "question": "What should I do if the brake lever feels different?",
+                    "answer_template": (
+                        "Do not ride the scooter until the cause is understood. Check the manual "
+                        "for the model and ask the manufacturer, seller, or a qualified technician "
+                        "to inspect or adjust the brake when needed."
+                    ),
+                },
+                {
+                    "question": "Should I test the brake after the visual checks?",
+                    "answer_template": (
+                        "Follow the model's manual. If it permits a functional check, an adult can "
+                        "supervise a gentle walking-pace test in a suitable private space after the "
+                        "visual checks pass. Stop immediately if braking feels inconsistent."
+                    ),
+                },
+                {
+                    "question": "How often should electric scooter brakes be checked?",
+                    "answer_template": (
+                        "Use a short visual and feel-based check before each ride, then follow the "
+                        "manufacturer's maintenance and service intervals for deeper inspection. "
+                        "Check again after a knock, wet ride, unusual noise, or change in feel."
+                    ),
+                },
+            ]
+
         faq_templates = {
             "Hoverkart": [
                 {
@@ -766,12 +847,23 @@ class WriterAgent:
         )
 
         # ── Reader persona ────────────────────────────────────────────────
+        is_electric_scooter_topic = self._is_electric_scooter_topic(
+            topic, target_keyword
+        )
         reader_persona = (
-            "UK parent or guardian buying a hoverboard setup for a child, "
-            "or an adult evaluating hoverboard accessories for themselves. "
-            "They want practical safety guidance, honest advice, "
-            "and clarity on what to check before spending money. "
-            "They value safety over performance claims."
+            (
+                "UK parent or guardian choosing, maintaining, or supervising a child-sized "
+                "electric scooter. They want practical, model-specific checks, honest advice, "
+                "and clear stop-use guidance without performance or safety promises."
+            )
+            if is_electric_scooter_topic
+            else (
+                "UK parent or guardian buying a hoverboard setup for a child, "
+                "or an adult evaluating hoverboard accessories for themselves. "
+                "They want practical safety guidance, honest advice, "
+                "and clarity on what to check before spending money. "
+                "They value safety over performance claims."
+            )
         )
 
         # ── Article angle ────────────────────────────────────────────────
@@ -782,8 +874,13 @@ class WriterAgent:
             f"Hoverboard Store article on {topic}. "
             "UK-focused. No road-use claims. No safety guarantees. "
             "No medical claims. No legal permission claims. "
-            "Hoverboards are for private land use only in England. "
-            "All product feature claims must be plausible and widely accepted. "
+            + (
+                "Do not generalise hoverboard-specific guidance to electric scooters. "
+                "Use model-specific electric scooter wording and advise checking current UK rules. "
+                if is_electric_scooter_topic
+                else "Hoverboards are for private land use only in England. "
+            )
+            + "All product feature claims must be plausible and widely accepted. "
             "Consult manufacturer guidance for all technical specifications."
         )
 
@@ -835,7 +932,20 @@ class WriterAgent:
         faq_plan = self._generate_faq_plan(topic, target_keyword, cluster)
 
         # ── CTA plan — cluster-gated ───────────────────────────────────────
-        if cluster == "Hoverkart":
+        if is_electric_scooter_topic:
+            cta_plan = {
+                "heading": "Explore Electric Scooters at Hoverboard Store",
+                "body": (
+                    "Browse the electric scooter collection and compare the exact product "
+                    "listing, manual, and manufacturer guidance for the rider and intended use. "
+                    "Contact the Hoverboard Store team when model-specific support is needed."
+                ),
+                "button_text": "Shop Electric Scooters",
+                "button_href": "https://hoverboardstore.co.uk/collections/electric-scooters",
+                "cta_class": "hs-button",
+                "placement": "End of article, inside hs-cta section",
+            }
+        elif cluster == "Hoverkart":
             cta_plan = {
                 "heading": "Find the Right Hoverboard Setup at Hoverboard Store",
                 "body": (
