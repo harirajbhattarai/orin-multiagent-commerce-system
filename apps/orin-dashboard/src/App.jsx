@@ -53,22 +53,27 @@ function readPath(path = window.location.pathname) {
 }
 
 function useRoute() {
-  const [path, setPath] = useState(() => window.location.pathname);
+  const [location, setLocation] = useState(() => `${window.location.pathname}${window.location.search}`);
+  const path = location.split("?")[0];
   const route = readPath(path);
 
   useEffect(() => {
-    const onPopState = () => setPath(window.location.pathname);
+    const onPopState = () => setLocation(`${window.location.pathname}${window.location.search}`);
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
   const navigate = (path) => {
-    window.history.pushState({}, "", path);
-    setPath(window.location.pathname);
+    const currentClient = new URLSearchParams(window.location.search).get("client");
+    const destination = currentClient && !path.includes("?")
+      ? `${path}?client=${encodeURIComponent(currentClient)}`
+      : path;
+    window.history.pushState({}, "", destination);
+    setLocation(`${window.location.pathname}${window.location.search}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  return { route, path, navigate };
+  return { route, path, navigate, location };
 }
 
 function dashboardHeading(value) {
@@ -101,22 +106,30 @@ function Brand() {
   );
 }
 
-function StoreBadge({ compact = false }) {
+function StoreBadge({ client, workspaces = [], onChange, compact = false }) {
+  const hasChoices = workspaces.length > 1 && !compact;
   return (
-    <div className={`store-badge ${compact ? "compact" : ""}`}>
+    <div className={`store-badge ${compact ? "compact" : ""} ${hasChoices ? "switchable" : ""}`}>
       <span className="store-icon"><Storefront size={18} weight="duotone" /></span>
       {!compact && (
         <span className="store-copy">
-          <strong>Hoverboard Store</strong>
-          <small>Pilot workspace</small>
+          <strong>{client.name}</strong>
+          <small>{client.plan ?? "Client workspace"}</small>
         </span>
       )}
-      {!compact && <CaretDown size={14} weight="bold" />}
+      {hasChoices && (
+        <>
+          <CaretDown size={14} weight="bold" />
+          <select aria-label="Switch client workspace" value={client.id} onChange={(event) => onChange(event.target.value)}>
+            {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
+          </select>
+        </>
+      )}
     </div>
   );
 }
 
-function AppShell({ route, navigate, children, dataSource, operations, queueCount, onSignOut, operatorAccess }) {
+function AppShell({ route, navigate, children, dataSource, operations, queueCount, onSignOut, operatorAccess, client, workspaces, onWorkspaceChange }) {
   const navItems = [
     { id: "overview", label: "Overview", icon: House, path: "/" },
     { id: "queue", label: "Content queue", icon: ListChecks, path: "/queue" },
@@ -131,7 +144,7 @@ function AppShell({ route, navigate, children, dataSource, operations, queueCoun
       <aside className="side-nav">
         <div className="side-nav-top">
           <Brand />
-          <StoreBadge />
+          <StoreBadge client={client} workspaces={workspaces} onChange={onWorkspaceChange} />
           <nav aria-label="Primary navigation">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -179,7 +192,7 @@ function AppShell({ route, navigate, children, dataSource, operations, queueCoun
               <Bell size={20} />
               <span />
             </button>
-            <StoreBadge compact />
+            <StoreBadge client={client} compact />
           </div>
         </header>
         <main className="page-content">
@@ -310,7 +323,7 @@ function Overview({ data, navigate }) {
       />
 
       <section className="overview-grid">
-        <article className="next-article-card">
+        {data.nextArticle ? <article className="next-article-card">
           <div className="card-heading-row">
             <div>
               <span className="section-kicker">NEXT ARTICLE</span>
@@ -337,7 +350,14 @@ function Overview({ data, navigate }) {
             </button>
             <span><Clock size={16} /> {data.nextArticle.readingTime}</span>
           </div>
-        </article>
+        </article> : <article className="next-article-card empty-workspace-card">
+          <div>
+            <span className="section-kicker">SAFE WORKSPACE</span>
+            <h2>No content plan has been commissioned yet</h2>
+            <p>This client is visible and isolated. ORIN will add its first concepts only after the read-only audit and dry-run checks pass.</p>
+          </div>
+          <ShieldCheck size={42} weight="duotone" />
+        </article>}
 
         <article className="operations-card">
           <div className="card-heading-row compact">
@@ -646,32 +666,37 @@ function Review({ data, jobId, navigate, dataSource }) {
 }
 
 export function App() {
-  const { route, path, navigate } = useRoute();
+  const { route, path, navigate, location } = useRoute();
   const [state, setState] = useState({ data: null, source: "loading", error: null, requiresAuth: false });
   const [operatorAccess, setOperatorAccess] = useState(false);
 
   const reload = () => {
     setState((current) => ({ ...current, source: "loading", error: null }));
-    loadDashboardData().then(setState);
+    loadDashboardData(new URLSearchParams(window.location.search).get("client")).then(setState);
+  };
+
+  const switchWorkspace = (clientId) => {
+    navigate(`/?client=${encodeURIComponent(clientId)}`);
   };
 
   useEffect(() => {
     let active = true;
-    Promise.all([loadDashboardData(), loadOnboardingAccess()]).then(([result, access]) => {
+    const requestedClientId = new URLSearchParams(window.location.search).get("client");
+    Promise.all([loadDashboardData(requestedClientId), loadOnboardingAccess()]).then(([result, access]) => {
       if (!active) return;
       setState(result);
       setOperatorAccess(access.allowed);
     });
     const unsubscribe = subscribeToAuthChanges(() => {
       if (!active) return;
-      Promise.all([loadDashboardData(), loadOnboardingAccess()]).then(([result, access]) => {
+      Promise.all([loadDashboardData(new URLSearchParams(window.location.search).get("client")), loadOnboardingAccess()]).then(([result, access]) => {
         if (!active) return;
         setState(result);
         setOperatorAccess(access.allowed);
       });
     });
     return () => { active = false; unsubscribe(); };
-  }, []);
+  }, [location]);
 
   if (state.requiresAuth) return <AuthScreen />;
   if (state.source === "error") return <ErrorScreen message={state.error} onRetry={reload} />;
@@ -680,12 +705,12 @@ export function App() {
   }
 
   return (
-    <AppShell route={route} navigate={navigate} dataSource={state.source} operations={state.data.operations} queueCount={state.data.counts.review} onSignOut={signOutDashboard} operatorAccess={operatorAccess}>
+    <AppShell route={route} navigate={navigate} dataSource={state.source} operations={state.data.operations} queueCount={state.data.counts.review} onSignOut={signOutDashboard} operatorAccess={operatorAccess} client={state.data.client} workspaces={state.workspaces ?? []} onWorkspaceChange={switchWorkspace}>
       {route === "overview" && <Overview data={state.data} navigate={navigate} />}
       {route === "queue" && <Queue data={state.data} navigate={navigate} />}
       {route === "review" && <Review data={state.data} jobId={reviewJobIdFromPath(path)} navigate={navigate} dataSource={state.source} />}
       {route === "onboarding" && (operatorAccess
-        ? <Onboarding />
+        ? <Onboarding onOpenWorkspace={switchWorkspace} />
         : <div className="empty-state"><WarningCircle size={26} /><strong>Platform operator access required</strong><span>This route cannot create or view onboarding records for your account.</span></div>)}
     </AppShell>
   );
