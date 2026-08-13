@@ -4,12 +4,44 @@ Last updated: 2026-08-13
 
 ## Current phase
 
-HBStore completed a full reliability checkpoint after Job 41 on 2026-08-13.
-Content execution is intentionally paused: the client is in maintenance,
-request intake and automation are off, broad and approval-only Shopify writes
-are off, the scheduler has no owner, the Prefect deployment/schedule/owner
-pool are paused, and all OpenClaw schedules are disabled with no next wake.
-There are zero active jobs, zero open incidents, and zero recorded decisions.
+HBStore completed its controlled reactivation proof on 2026-08-13. The client
+is active with request intake and dry-run automation enabled, concurrency one,
+and Prefect retaining scheduler ownership. Broad Shopify writes remain off.
+The approval-only draft gate is also closed except for the brief,
+version-bound transaction window after a human reviews an exact local draft.
+The legacy and dedicated OpenClaw content schedules remain disabled; only the
+read-only 11:15 watchdog is enabled. There are zero active jobs, zero open
+incidents, and zero recorded decisions.
+
+The proof exposed and corrected three content-quality defects before any
+Shopify transaction. PR #127 made model-generated meta descriptions complete
+sentences. PR #128 hardened accessory plans with grammatical headings,
+topic-specific FAQs, closed-footwear guidance, and fail-closed footpad/sensor
+instructions. PR #129 fixed a compliance-checker sentence-boundary false
+positive that joined a correct `not on UK public roads or pavements` sentence
+to unrelated permission wording in the following sentence. Every change
+passed focused tests, the full Python suite, and GitHub dashboard, database,
+and test CI before immutable deployment.
+
+Job 42 remains in human review because its generated motor-power explanation
+was not acceptable; no Shopify article was created. Job 43 was regenerated and
+reviewed at exact worker revision
+`db11da4eb9414ec6d0a02493194e4c60cf5c8acf`. Its 1,994-word draft passed the
+quality and compliance gates. The approval-only run
+`hb_20260813T163034Z_0637596b` created exactly one hidden Shopify article,
+`1007438561628`, with handle `hoverboard-footpads-grip-buying-checks`.
+Shopify independently reports `published_at=null` and exactly one article with
+that handle. The run published nothing, left the queue unchanged, reconciled
+the exact reviewed body, and the narrow draft gate was immediately closed.
+Durable public evidence is in
+`docs/evidence/2026-08-13-hbstore-controlled-reactivation.json`; canonical
+private run evidence remains under
+`/docker/orin/evidence/hb_20260813T163034Z_0637596b`.
+
+The fixed read-only watchdog command now returns
+`ORIN_SCHEDULED_RUN_OBSERVED` for the 2026-08-13 Prefect run. The OpenClaw UI
+still retains the earlier scheduled error as historical state; the corrected
+UID-1000 command and direct post-fix receipt prove the current monitoring path.
 
 The private HBStore dashboard now projects that maintenance boundary directly
 from Supabase instead of displaying a generic live state. It labels the

@@ -1,0 +1,89 @@
+{
+  "schema": "orin.controlled-reactivation-proof/v1",
+  "recorded_at": "2026-08-13T16:32:45Z",
+  "client_id": "hoverboard_store",
+  "result": "passed",
+  "reviewed_revision": "db11da4eb9414ec6d0a02493194e4c60cf5c8acf",
+  "merged_pull_requests": [127, 128, 129],
+  "content_review": {
+    "rejected_item": {
+      "item_number": 42,
+      "status": "needs_human_review",
+      "shopify_create_count": 0,
+      "reason": "Generated motor-power explanation did not meet factual and content-quality requirements."
+    },
+    "approved_item": {
+      "item_number": 43,
+      "title": "Hoverboard Footpads and Grip: What to Check Before Buying",
+      "target_keyword": "hoverboard footpad grip",
+      "content_item_version_approved": 10,
+      "word_count": 1994,
+      "local_draft_run_id": "hb_20260813T162743Z_92b60708",
+      "local_draft_decision": "READY_TO_CREATE_SELECTED_JOB_DRAFT",
+      "draft_id": "2c48272a-4de1-44a5-a1f9-967180491625",
+      "body_sha256": "8fd153a2fc774d681186f79970077c2e73e7ac6b7355f7967701cae813fd599c",
+      "meta_description_length": 158,
+      "reviewed_safeguards": [
+        "grammatical topic heading",
+        "topic-specific footpad FAQs",
+        "closed-footwear guidance",
+        "no lifting, cutting, layering, repositioning, or sensor alteration advice",
+        "exact-model manufacturer guidance",
+        "qualified support for fitment or sensor work",
+        "safe-negative UK public-road wording"
+      ]
+    }
+  },
+  "shopify_transaction": {
+    "run_id": "hb_20260813T163034Z_0637596b",
+    "job_id": "f668ec73-1bfd-48bc-82dc-476c403834b6",
+    "status": "completed",
+    "decision": "APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED",
+    "attempt_count": 1,
+    "shopify_article_id": "1007438561628",
+    "shopify_handle": "hoverboard-footpads-grip-buying-checks",
+    "shopify_create_count": 1,
+    "shopify_published": false,
+    "queue_changed": false,
+    "reconciliation_status": "reconciled",
+    "shopify_write_state": "article_observed",
+    "approved_body_sha256": "8fd153a2fc774d681186f79970077c2e73e7ac6b7355f7967701cae813fd599c",
+    "fetched_body_sha256": "8fd153a2fc774d681186f79970077c2e73e7ac6b7355f7967701cae813fd599c",
+    "shopify_readback": {
+      "published_at": null,
+      "exact_handle_count": 1
+    }
+  },
+  "final_gates": {
+    "client_status": "active",
+    "request_intake_enabled": true,
+    "automation_enabled": true,
+    "allowed_mode": "dry-run",
+    "max_concurrency": 1,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "scheduler_state": "healthy",
+    "scheduler_owner": "prefect:orin-hbstore-prod"
+  },
+  "infrastructure": {
+    "worker_image": "local/orin-worker:db11da4eb9414ec6d0a02493194e4c60cf5c8acf",
+    "worker_restart_count": 0,
+    "scheduler_trigger_healthy": true,
+    "prefect_owner_worker_healthy": true,
+    "legacy_openclaw_schedule_enabled": false,
+    "dedicated_openclaw_schedule_enabled": false,
+    "watchdog_enabled": true,
+    "watchdog_delivery": "none",
+    "watchdog_direct_receipt": "ORIN_SCHEDULED_RUN_OBSERVED",
+    "active_jobs": 0,
+    "recorded_decisions": 0,
+    "active_incidents": 0
+  },
+  "safety": {
+    "live_publishing_enabled": false,
+    "live_article_created": false,
+    "broad_shopify_gate_opened": false,
+    "approval_only_gate_closed_after_transaction": true
+  },
+  "private_artifact_uri": "/docker/orin/evidence/hb_20260813T163034Z_0637596b"
+}
