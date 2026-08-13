@@ -1,0 +1,65 @@
+{
+  "schema": "orin.dashboard-maintenance-boundary/v1",
+  "observed_at": "2026-08-13T14:58:05Z",
+  "client_id": "hoverboard_store",
+  "result": "passed",
+  "scope": "Make the private dashboard display and enforce the already-closed HBStore maintenance boundary without opening any execution or Shopify gate.",
+  "release": {
+    "dashboard_state_pr": 124,
+    "dashboard_state_merge": "5a7e2d6c6657b5a5bf025144f73514486632532e",
+    "scheduler_projection_fix_pr": 125,
+    "scheduler_projection_fix_merge": "7ced17805c8cf31052e55d8fdeb858c83b5eb719",
+    "sites_version": 7,
+    "url": "https://orin-hbstore-dashboard.tooxic-ai.chatgpt.site"
+  },
+  "database_boundary": {
+    "migration": "enforce_dashboard_approval_gates",
+    "approval_trigger": "orin_private.validate_content_decision",
+    "concept_approval_blocked_while_execution_closed": true,
+    "hidden_draft_approval_blocked_while_shopify_gates_closed": true,
+    "request_changes_remains_available": true
+  },
+  "maintenance_state": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "recorded_decisions": 0
+  },
+  "live_dashboard_verification": {
+    "authenticated_workspace_loaded": true,
+    "workspace_label": "Maintenance paused",
+    "maintenance_banner_visible": true,
+    "scheduler_label": "Paused",
+    "worker_label": "Idle",
+    "watchdog_label": "Paused",
+    "shopify_draft_access_label": "Paused",
+    "review_item": 42,
+    "concept_approval_disabled": true,
+    "disabled_reason_visible": true,
+    "request_changes_enabled": true,
+    "live_publish_capability": false
+  },
+  "validation": {
+    "dashboard_tests": 10,
+    "dashboard_build": "passed",
+    "python_ci": "passed",
+    "database_ci": "passed",
+    "database_lint": "passed",
+    "supabase_security_advisor": {
+      "new_schema_findings": 0,
+      "preexisting_auth_warning": "Leaked Password Protection Disabled"
+    },
+    "supabase_performance_advisor": {
+      "new_blocking_findings": 0,
+      "informational_unused_indexes": 3
+    }
+  },
+  "conclusion": "The dashboard now tells the truth about maintenance and fails closed in both the browser and database. No job was queued and no Shopify write or publication occurred during deployment or verification."
+}
