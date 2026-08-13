@@ -1587,20 +1587,38 @@ Job: {job_number}
         return html.escape(text, quote=False)
 
     def _build_meta_description(self, title, keyword):
-        """Build a meta description from title and keyword."""
+        """Build a complete meta description from title and keyword.
+
+        Never trim prose at an arbitrary character boundary.  A shorter,
+        complete template is preferable to a grammatically broken snippet in
+        Shopify and search results.
+        """
         subject = keyword.strip() or title.strip()
-        description = (
-            f"Read this practical UK guide to {subject}. Check common causes, "
-            "safety warnings and next steps before replacing parts or seeking "
-            "qualified support."
+        candidates = (
+            (
+                f"Understand {subject} with this practical UK guide. Check "
+                "product details, manufacturer guidance and safety information "
+                "before making a decision."
+            ),
+            (
+                f"UK guide to {subject}. Check specifications, manufacturer "
+                "guidance and safety information before making an informed "
+                "decision."
+            ),
+            (
+                f"UK guide to {subject}. Check specs, safety information and "
+                "manufacturer guidance before deciding."
+            ),
         )
-        if len(description) < DEFAULT_CONTRACT["min_meta_description_chars"]:
-            description += " Use the checklist before you act."
-        if len(description) > DEFAULT_CONTRACT["max_meta_description_chars"]:
-            description = description[
-                : DEFAULT_CONTRACT["max_meta_description_chars"] - 1
-            ].rsplit(" ", 1)[0].rstrip(" ,;:") + "."
-        return description
+        minimum = DEFAULT_CONTRACT["min_meta_description_chars"]
+        maximum = DEFAULT_CONTRACT["max_meta_description_chars"]
+        for description in candidates:
+            if minimum <= len(description) <= maximum:
+                return description
+        raise ValueError(
+            "unable to build a complete meta description within the approved "
+            f"{minimum}-{maximum} character range"
+        )
 
     def _build_meta_title(self, title, keyword):
         """Build a complete SEO title within the approved 30-60 character range."""
