@@ -454,14 +454,14 @@ class WriterAgent:
                 {"id": "faq", "h2": "Frequently Asked Questions", "label": "FAQs"},
             ],
             "Accessories": [
-                {"id": "why-it-matters", "h2": f"Why {target_keyword.title()} Matter", "label": "Why it matters"},
+                {"id": "why-it-matters", "h2": f"Why {target_keyword.title()} Matters", "label": "Why it matters"},
                 {"id": "what-to-look-for", "h2": "What to Look For", "label": "What to look for"},
                 {"id": "things-to-avoid", "h2": "Things to Avoid", "label": "Things to avoid"},
                 {"id": "checklist", "h2": "Quick Checklist", "label": "Quick checklist"},
                 {"id": "faq", "h2": "Frequently Asked Questions", "label": "FAQs"},
             ],
             "Safety": [
-                {"id": "why-it-matters", "h2": f"Why {target_keyword.title()} Matter", "label": "Why it matters"},
+                {"id": "why-it-matters", "h2": f"Why {target_keyword.title()} Matters", "label": "Why it matters"},
                 {"id": "key-checks", "h2": "Key Safety Checks", "label": "Key safety checks"},
                 {"id": "warning-signs", "h2": "Warning Signs to Watch For", "label": "Warning signs"},
                 {"id": "checklist", "h2": "Safety Checklist", "label": "Safety checklist"},
@@ -819,6 +819,45 @@ class WriterAgent:
                 },
             ]
 
+        topic_text = f"{topic} {target_keyword}".lower()
+        if "footpad" in topic_text or "foot pad" in topic_text:
+            return [
+                {
+                    "question": "What signs show that hoverboard footpad grip is worn?",
+                    "answer_template": (
+                        "Stop using the board if the pad is loose, split, peeling, uneven, "
+                        "or no longer provides a consistent surface. Check the exact model "
+                        "manual and ask the manufacturer, seller, or a qualified service "
+                        "provider when replacement or sensor work may be needed."
+                    ),
+                },
+                {
+                    "question": "How should hoverboard footpads be cleaned?",
+                    "answer_template": (
+                        "Follow the cleaning instructions in the manual for the exact board. "
+                        "Do not remove the pads, soak the board, use harsh chemicals, or allow "
+                        "liquid into seams or sensor areas unless the manufacturer explicitly "
+                        "instructs you to do so."
+                    ),
+                },
+                {
+                    "question": "Can I fit any replacement grip pad to my hoverboard?",
+                    "answer_template": (
+                        "No. Confirm exact-model compatibility, dimensions, sensor clearance, "
+                        "and fitting instructions with the manufacturer or seller. Do not cut, "
+                        "layer, or reposition material over a sensor area."
+                    ),
+                },
+                {
+                    "question": "What footwear should a rider use on hoverboard footpads?",
+                    "answer_template": (
+                        "Use suitable closed footwear that is secure, dry, and in good "
+                        "condition. Follow the board and protective-equipment manufacturers' "
+                        "instructions, and do not ride in socks or with bare feet."
+                    ),
+                },
+            ]
+
         faq_templates = {
             "Hoverkart": [
                 {
@@ -1001,6 +1040,17 @@ class WriterAgent:
             + "All product feature claims must be plausible and widely accepted. "
             "Consult manufacturer guidance for all technical specifications."
         )
+        topic_text = f"{topic} {target_keyword}".lower()
+        if "footpad" in topic_text or "foot pad" in topic_text:
+            compliance_notes += (
+                " For footpad or grip guidance, do not advise lifting, removing, cutting, "
+                "layering, or repositioning pads, and do not suggest inspecting beneath them "
+                "or altering sensor areas. Do not claim pads protect the deck, keep sensors "
+                "cleaner, or make learning safer or easier. Require suitable closed footwear. "
+                "Tell readers to stop using damaged or loose pads, follow the exact model "
+                "manual, and contact the manufacturer, seller, or a qualified service provider "
+                "for replacement, fitment, or sensor work."
+            )
 
         # ── Claims to avoid ──────────────────────────────────────────────
         claims_to_avoid = [
