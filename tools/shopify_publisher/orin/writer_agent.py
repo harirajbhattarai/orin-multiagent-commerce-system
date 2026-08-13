@@ -219,6 +219,49 @@ def _model_output_retry_feedback(error):
     }
 
 
+def _normalise_model_metadata(
+    body_html,
+    *,
+    meta_title,
+    meta_description,
+    approved_handle,
+    target_keyword,
+    cluster,
+    job_number,
+):
+    """Replace model-authored metadata with deterministic approved values.
+
+    SEO metadata is structured pipeline data, not creative article copy. The
+    model still authors the visible article, but it cannot introduce random
+    length failures or alter the approved handle through leading comments.
+    """
+    article_start = re.search(
+        r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*\bhs-article\b[^"\']*["\'][^>]*>',
+        body_html,
+        flags=re.IGNORECASE,
+    )
+    if article_start is None:
+        return body_html
+
+    def comment_value(value):
+        return re.sub(r"\s+", " ", str(value)).strip().replace("--", "—")
+
+    metadata = "\n".join(
+        [
+            "<!--",
+            f"SEO Title: {comment_value(meta_title)}",
+            f"Meta Title: {comment_value(meta_title)}",
+            f"Meta Description: {comment_value(meta_description)}",
+            f"URL Slug: {comment_value(approved_handle)}",
+            f"Target Keyword: {comment_value(target_keyword)}",
+            f"Cluster: {comment_value(cluster)}",
+            f"Job: {comment_value(job_number)}",
+            "-->",
+        ]
+    )
+    return f"{metadata}\n{body_html[article_start.start():].lstrip()}"
+
+
 class WriterAgent:
     def __init__(self, base_dir, current_date_str, client_context=None):
         """
@@ -1433,7 +1476,15 @@ Job: {job_number}
                     quality_retry=retry_feedback,
                     attempt=2,
                 )
-            full_html = model_result.body_html
+            full_html = _normalise_model_metadata(
+                model_result.body_html,
+                meta_title=meta_title,
+                meta_description=meta_description,
+                approved_handle=approved_handle,
+                target_keyword=target_keyword,
+                cluster=cluster,
+                job_number=job_number,
+            )
             writer_source = "model"
             writer_model = model_result.model
             writer_provider = model_result.provider
@@ -1470,7 +1521,15 @@ Job: {job_number}
                     ),
                     attempt=2,
                 )
-                full_html = retry_result.body_html
+                full_html = _normalise_model_metadata(
+                    retry_result.body_html,
+                    meta_title=meta_title,
+                    meta_description=meta_description,
+                    approved_handle=approved_handle,
+                    target_keyword=target_keyword,
+                    cluster=cluster,
+                    job_number=job_number,
+                )
                 writer_model = retry_result.model
                 writer_provider = retry_result.provider
                 model_response_id = retry_result.response_id
