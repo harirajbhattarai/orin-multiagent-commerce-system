@@ -135,6 +135,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _add_execution_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--client-id",
+        help="bind this worker to one database client and dry-run claim path",
+    )
     parser.add_argument("--workspace-root", type=Path)
     parser.add_argument("--artifact-root", type=Path)
     parser.add_argument("--worker-id")
@@ -193,9 +197,12 @@ def main(argv: list[str] | None = None) -> int:
     repository = PostgresWorkerRepository(
         create_database_engine(database_url, pool_size=1),
         expected_role=os.environ.get("ORIN_WORKER_DATABASE_ROLE", "orin_worker"),
+        client_id=args.client_id,
     )
 
     def execute(job: ClaimedJob) -> dict[str, object]:
+        if args.client_id is not None and job.client_id != args.client_id:
+            raise RuntimeError("database returned a job outside the worker client binding")
         content_plan_snapshot = repository.get_content_plan_snapshot(
             job_id=job.job_id,
             worker_id=worker_id,

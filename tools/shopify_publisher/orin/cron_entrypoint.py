@@ -163,6 +163,8 @@ if CLIENT_ROUTE == "hcs_gadgets":
         print(f"ERROR: HCS entrypoint not found: {_hcs_script}")
         sys.exit(1)
     _hcs_args = [sys.executable, str(_hcs_script), "--dry-run"]
+    if AS_OF_DATE:
+        _hcs_args.append(f"--as-of-date={AS_OF_DATE}")
     if JSON_MODE:
         _hcs_args.append("--json")
     _hcs_result = subprocess.run(_hcs_args, capture_output=True, text=True, cwd=str(BASE_DIR))

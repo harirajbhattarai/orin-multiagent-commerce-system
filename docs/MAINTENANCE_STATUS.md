@@ -1,8 +1,25 @@
 # ORIN maintenance status
 
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 ## Current phase
+
+HCS Gadgets onboarding has passed its first server-side commissioning gate.
+The durable read-only identity audit verified the exact
+`hcsgadgets-com.myshopify.com` store, `Gadget Blog`, and 86 readable products
+without attempting a Shopify write. HCS remains in maintenance with request
+intake, automation, both Shopify write gates, and scheduler ownership closed;
+there are zero active HCS jobs and zero open HCS incidents.
+
+The dedicated HCS dry-run worker foundation is now database-scoped rather
+than relying on a worker name. The new `orin_hcs_worker` role starts `NOLOGIN`,
+cannot call the global claim function, and can claim only `hcs_gadgets`
+`dry-run` jobs through its dedicated function while both Shopify gates remain
+closed. Exact normalized topic identities and exact generated body hashes are
+globally unique across tenants, blocking accidental cross-client content
+reuse. The worker has not been started and HCS has not been activated; a
+separate credential installation, immutable deployment, and controlled
+dry-run proof are still required.
 
 HBStore completed its controlled reactivation proof on 2026-08-13. The client
 is active with request intake and dry-run automation enabled, concurrency one,

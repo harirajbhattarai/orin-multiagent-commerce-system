@@ -26,6 +26,7 @@ Safety:
 import json
 import hashlib
 import re
+import os
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -376,6 +377,29 @@ def run_hcs_pipeline():
 
 if __name__ == "__main__":
     result = run_hcs_pipeline()
+    preview_path = Path(
+        os.environ.get(
+            "ORIN_PIPELINE_PREVIEW_PATH",
+            "/tmp/orin_phase3b_cron_entrypoint_preview.json",
+        )
+    )
+    preview_path.write_text(
+        json.dumps(
+            {
+                **result,
+                "effective_mode": "dry-run",
+                "queue_touched": False,
+                "shopify_create_count": 0,
+                "shopify_write_state": "not_attempted",
+                "reconciliation_status": "not_required",
+                "replay_disposition": "terminal",
+            },
+            indent=2,
+            default=str,
+            allow_nan=False,
+        ) + "\n",
+        encoding="utf-8",
+    )
 
     if "--json" in sys.argv:
         print(json.dumps(result, indent=2, default=str, allow_nan=False))
