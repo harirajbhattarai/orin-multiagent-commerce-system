@@ -83,7 +83,7 @@ function Field({ label, hint, children }) {
   );
 }
 
-export function Onboarding() {
+export function Onboarding({ onOpenWorkspace }) {
   const [requests, setRequests] = useState([]);
   const [activeRequest, setActiveRequest] = useState(null);
   const [step, setStep] = useState(1);
@@ -314,7 +314,7 @@ export function Onboarding() {
               <div className="onboarding-section-heading"><span><Database size={20} weight="duotone" /></span><div><h2>{activeRequest.status === "database_provisioned" ? "Workspace safely provisioned" : "Create the isolated workspace"}</h2><p>The database tenant starts in maintenance. Commissioning remains a separate controlled process.</p></div></div>
               <div className="provision-summary"><div><span>Client</span><strong>{activeRequest.display_name}</strong></div><div><span>Workspace ID</span><strong>{activeRequest.client_id}</strong></div><div><span>Shopify blog</span><strong>{activeRequest.shopify_blog_title}</strong></div><div><span>Initial mode</span><strong>Maintenance · dry-run</strong></div></div>
               <ul className="safety-checklist">{checklist.map((item) => <li key={item.label} className={item.complete ? "complete" : "pending"}>{item.complete ? <CheckCircle size={19} weight="fill" /> : <span className="check-placeholder" />}<span>{item.label}</span></li>)}</ul>
-              {activeRequest.status !== "database_provisioned" ? <div className="onboarding-actions"><button className="text-button" type="button" onClick={() => setStep(3)}><ArrowLeft size={16} /> Back</button><button className="primary-button" type="button" onClick={provision} disabled={busy === "provision"}><ShieldCheck size={18} weight="fill" />{busy === "provision" ? "Provisioning…" : "Create safely disabled workspace"}</button></div> : <div className="commissioning-next"><WarningCircle size={21} weight="duotone" /><div><strong>Not production-ready yet</strong><span>Next, ORIN must create the dedicated worker workspace, perform read-only identity and dry-run tests, then run one controlled hidden-draft pilot. All gates remain closed until those proofs pass.</span></div></div>}
+              {activeRequest.status !== "database_provisioned" ? <div className="onboarding-actions"><button className="text-button" type="button" onClick={() => setStep(3)}><ArrowLeft size={16} /> Back</button><button className="primary-button" type="button" onClick={provision} disabled={busy === "provision"}><ShieldCheck size={18} weight="fill" />{busy === "provision" ? "Provisioning…" : "Create safely disabled workspace"}</button></div> : <><div className="commissioning-next"><WarningCircle size={21} weight="duotone" /><div><strong>Not production-ready yet</strong><span>Next, ORIN must create the dedicated worker workspace, perform read-only identity and dry-run tests, then run one controlled hidden-draft pilot. All gates remain closed until those proofs pass.</span></div></div><div className="onboarding-actions"><span><ShieldCheck size={17} /> Opens the isolated maintenance workspace.</span><button className="secondary-button" type="button" onClick={() => onOpenWorkspace(activeRequest.client_id)}>Open {activeRequest.display_name}</button></div></>}
             </div>
           )}
         </section>

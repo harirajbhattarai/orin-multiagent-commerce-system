@@ -39,6 +39,8 @@ function normalizeSnapshot(snapshot, { client, runtime, health }) {
   });
   return {
     ...snapshot,
+    nextArticle: snapshot.nextArticle?.id ? snapshot.nextArticle : null,
+    article: snapshot.article?.id ? snapshot.article : null,
     operations: {
       ...operations,
       lastChecked: `Checked ${formatMoment(operations.lastChecked, {
@@ -64,7 +66,35 @@ function normalizeSnapshot(snapshot, { client, runtime, health }) {
   };
 }
 
-export async function loadDashboardData() {
+async function loadWorkspaceOptions() {
+  const membershipResult = await supabase
+    .from("client_members")
+    .select("client_id,role")
+    .order("created_at", { ascending: true });
+  if (membershipResult.error) return { data: null, error: membershipResult.error };
+
+  const memberships = membershipResult.data ?? [];
+  if (memberships.length === 0) return { data: [], error: null };
+
+  const clientResult = await supabase
+    .from("clients")
+    .select("client_id,display_name,status")
+    .in("client_id", memberships.map((membership) => membership.client_id));
+  if (clientResult.error) return { data: null, error: clientResult.error };
+
+  const roleByClient = new Map(memberships.map((membership) => [membership.client_id, membership.role]));
+  const clients = (clientResult.data ?? [])
+    .map((client) => ({
+      id: client.client_id,
+      name: client.display_name,
+      status: client.status,
+      role: roleByClient.get(client.client_id),
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  return { data: clients, error: null };
+}
+
+export async function loadDashboardData(requestedClientId = null) {
   if (!supabase || maintenancePreviewEnabled) {
     const data = maintenancePreviewEnabled
       ? (() => {
@@ -86,7 +116,14 @@ export async function loadDashboardData() {
           };
         })()
       : dashboardData;
-    return { data, source: "demo", error: null, requiresAuth: false };
+    return {
+      data,
+      workspaces: [{ id: data.client.id, name: data.client.name, status: "active", role: "owner" }],
+      selectedClientId: data.client.id,
+      source: "demo",
+      error: null,
+      requiresAuth: false,
+    };
   }
 
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -97,26 +134,42 @@ export async function loadDashboardData() {
     return { data: null, source: "auth", error: null, requiresAuth: true };
   }
 
+  const workspaceResult = await loadWorkspaceOptions();
+  if (workspaceResult.error || !workspaceResult.data?.length) {
+    return {
+      data: null,
+      source: "error",
+      error: workspaceResult.error?.message ?? "Your account is not connected to a client workspace yet.",
+      requiresAuth: false,
+    };
+  }
+  const workspaces = workspaceResult.data;
+  const selectedClientId = workspaces.some((workspace) => workspace.id === requestedClientId)
+    ? requestedClientId
+    : workspaces.some((workspace) => workspace.id === dashboardData.client.id)
+      ? dashboardData.client.id
+      : workspaces[0].id;
+
   const [snapshotResult, runtimeResult, clientResult, healthResult] = await Promise.all([
     supabase
       .from("client_dashboard_snapshot")
       .select("snapshot")
-      .eq("client_id", dashboardData.client.id)
+      .eq("client_id", selectedClientId)
       .maybeSingle(),
     supabase
       .from("client_runtime_settings")
       .select("request_intake_enabled,automation_enabled,shopify_writes_enabled,approved_draft_writes_enabled,allowed_mode")
-      .eq("client_id", dashboardData.client.id)
+      .eq("client_id", selectedClientId)
       .maybeSingle(),
     supabase
       .from("clients")
-      .select("status")
-      .eq("client_id", dashboardData.client.id)
+      .select("client_id,display_name,status")
+      .eq("client_id", selectedClientId)
       .maybeSingle(),
     supabase
       .from("scheduler_health")
       .select("state,scheduler_owner,last_heartbeat_at,updated_at")
-      .eq("client_id", dashboardData.client.id)
+      .eq("client_id", selectedClientId)
       .maybeSingle(),
   ]);
 
@@ -149,6 +202,8 @@ export async function loadDashboardData() {
 
   return {
     data: normalizeSnapshot(data.snapshot, { client, runtime, health }),
+    workspaces,
+    selectedClientId,
     source: "supabase",
     error: null,
     requiresAuth: false,
