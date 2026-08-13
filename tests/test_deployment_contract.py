@@ -129,6 +129,19 @@ def test_hcs_worker_is_dedicated_dry_run_and_has_no_shopify_secret():
     assert "ports:" not in worker
 
 
+def test_hcs_worker_secret_installer_and_preflight_are_uid_scoped():
+    installer = Path("deploy/vps/install_hcs_worker_db_secret.sh").read_text(
+        encoding="utf-8"
+    )
+    preflight = Path("deploy/vps/preflight.sh").read_text(encoding="utf-8")
+    assert 'target="${secrets_dir}/hcs_worker_database_url"' in installer
+    assert '"${first}" != *"orin_hcs_worker"*' in installer
+    assert 'chown 10005:10005 "${temporary}"' in installer
+    assert 'chmod 0400 "${temporary}"' in installer
+    assert "--require-hcs-worker-secret" in preflight
+    assert "[hcs_worker_database_url]=10005" in preflight
+
+
 def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():
     trigger = COMPOSE.split("  scheduler-trigger:", 1)[1].split(
         "\n  control-api:", 1
