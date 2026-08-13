@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { dashboardData } from "../data.js";
+import { functionInvokeError } from "../functionErrors.js";
 import { deriveOperationalState } from "../operationalState.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -307,7 +308,7 @@ export async function createOnboardingRequest(payload) {
       content_categories: payload.contentCategories,
     },
   });
-  return { data: data?.request ?? null, error: error ?? (data?.error ? new Error(data.error) : null) };
+  return { data: data?.request ?? null, error: await functionInvokeError(error, data) };
 }
 
 export async function verifyOnboardingShopify(payload) {
@@ -317,7 +318,7 @@ export async function verifyOnboardingShopify(payload) {
   });
   return {
     data,
-    error: error ?? (data?.error ? new Error(data.error) : null),
+    error: await functionInvokeError(error, data),
   };
 }
 
@@ -326,7 +327,7 @@ export async function updateOnboardingScope(requestId, productScope) {
   const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
     body: { action: "update_scope", request_id: requestId, product_scope: productScope },
   });
-  return { data: data?.request ?? null, error: error ?? (data?.error ? new Error(data.error) : null) };
+  return { data: data?.request ?? null, error: await functionInvokeError(error, data) };
 }
 
 export async function provisionOnboardingClient(requestId) {
@@ -334,7 +335,7 @@ export async function provisionOnboardingClient(requestId) {
   const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
     body: { action: "provision_client", request_id: requestId },
   });
-  return { data: data?.request ?? null, error: error ?? (data?.error ? new Error(data.error) : null) };
+  return { data: data?.request ?? null, error: await functionInvokeError(error, data) };
 }
 
 export async function auditProvisionedClient(clientId) {
@@ -342,7 +343,7 @@ export async function auditProvisionedClient(clientId) {
   const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
     body: { action: "audit_provisioned_client", client_id: clientId },
   });
-  return { data: data?.audit ?? null, error: error ?? (data?.error ? new Error(data.error) : null) };
+  return { data: data?.audit ?? null, error: await functionInvokeError(error, data) };
 }
 
 function decisionRequestStorageKey({ clientId, contentItemId, contentItemVersion, decision }) {
