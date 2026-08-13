@@ -68,3 +68,32 @@ def test_public_road_permission_claim_remains_blocked(
 
     assert result.returncode == 2
     assert "STATUS: FAIL" in result.stdout
+
+
+@pytest.mark.parametrize("script", SCRIPTS)
+def test_safe_negative_sentence_is_not_tainted_by_later_permission_language(
+    script: Path,
+    tmp_path: Path,
+) -> None:
+    article = tmp_path / "article.html"
+    article.write_text(
+        """
+        <p>
+          Use the hoverboard on suitable private land with the landowner's
+          permission, and not on UK public roads or pavements. If you are
+          unsure where you can ride, check the current UK rules.
+        </p>
+        """,
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(script), str(article)],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "STATUS: PASS WITH WARNINGS" in result.stdout
+    assert "STATUS: FAIL" not in result.stdout
