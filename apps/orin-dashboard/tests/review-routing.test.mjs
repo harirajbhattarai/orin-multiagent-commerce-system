@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   isReviewableQueueItem,
@@ -181,4 +182,21 @@ test("allows only the approval path covered by the open gates", () => {
   });
   assert.equal(approvalAvailability(approvedDrafts, "draft").allowed, true);
   assert.equal(approvedDrafts.shopifyWrites, "Approved drafts only");
+});
+
+test("reads only the scheduler-health columns granted to dashboard users", async () => {
+  const source = await readFile(
+    new URL("../src/lib/dashboardClient.js", import.meta.url),
+    "utf8",
+  );
+  const query = source.match(
+    /\.from\("scheduler_health"\)\s*\.select\("([^"]+)"\)/,
+  );
+
+  assert.ok(query, "scheduler-health query should be present");
+  assert.equal(
+    query[1],
+    "state,scheduler_owner,last_heartbeat_at,updated_at",
+  );
+  assert.equal(query[1].includes("details"), false);
 });
