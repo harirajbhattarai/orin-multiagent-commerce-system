@@ -1,10 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { dashboardData } from "../data.js";
+import { deriveOperationalState } from "../operationalState.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export const isLiveReadEnabled = Boolean(supabaseUrl && publishableKey);
+const maintenancePreviewEnabled = import.meta.env.DEV
+  && new URLSearchParams(window.location.search).get("preview") === "maintenance";
 
 const supabase = isLiveReadEnabled
   ? createClient(supabaseUrl, publishableKey, {
@@ -23,18 +26,18 @@ function formatMoment(value, options) {
   return new Intl.DateTimeFormat("en-GB", options).format(date);
 }
 
-function normalizeSnapshot(snapshot, runtime) {
+function normalizeSnapshot(snapshot, { client, runtime, health }) {
+  const operations = deriveOperationalState({
+    client,
+    runtime,
+    health,
+    snapshotOperations: snapshot.operations,
+  });
   return {
     ...snapshot,
     operations: {
-      ...snapshot.operations,
-      shopifyWrites: runtime?.shopify_writes_enabled
-        ? "Broad hidden drafts"
-        : runtime?.approved_draft_writes_enabled
-          ? "Approved drafts only"
-          : "Disabled",
-      approvedDraftWritesEnabled: runtime?.approved_draft_writes_enabled === true,
-      lastChecked: `Checked ${formatMoment(snapshot.operations?.lastChecked, {
+      ...operations,
+      lastChecked: `Checked ${formatMoment(operations.lastChecked, {
         day: "numeric",
         month: "short",
         hour: "2-digit",
@@ -58,8 +61,28 @@ function normalizeSnapshot(snapshot, runtime) {
 }
 
 export async function loadDashboardData() {
-  if (!supabase) {
-    return { data: dashboardData, source: "demo", error: null, requiresAuth: false };
+  if (!supabase || maintenancePreviewEnabled) {
+    const data = maintenancePreviewEnabled
+      ? (() => {
+          const operations = deriveOperationalState({
+            client: { status: "maintenance" },
+            runtime: {
+              request_intake_enabled: false,
+              automation_enabled: false,
+              shopify_writes_enabled: false,
+              approved_draft_writes_enabled: false,
+              allowed_mode: "dry-run",
+            },
+            health: { state: "disabled", scheduler_owner: null, updated_at: new Date().toISOString() },
+            snapshotOperations: dashboardData.operations,
+          });
+          return {
+            ...dashboardData,
+            operations: { ...operations, lastChecked: "Checked moments ago" },
+          };
+        })()
+      : dashboardData;
+    return { data, source: "demo", error: null, requiresAuth: false };
   }
 
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -70,7 +93,7 @@ export async function loadDashboardData() {
     return { data: null, source: "auth", error: null, requiresAuth: true };
   }
 
-  const [snapshotResult, runtimeResult] = await Promise.all([
+  const [snapshotResult, runtimeResult, clientResult, healthResult] = await Promise.all([
     supabase
       .from("client_dashboard_snapshot")
       .select("snapshot")
@@ -78,27 +101,50 @@ export async function loadDashboardData() {
       .maybeSingle(),
     supabase
       .from("client_runtime_settings")
-      .select("shopify_writes_enabled,approved_draft_writes_enabled")
+      .select("request_intake_enabled,automation_enabled,shopify_writes_enabled,approved_draft_writes_enabled,allowed_mode")
+      .eq("client_id", dashboardData.client.id)
+      .maybeSingle(),
+    supabase
+      .from("clients")
+      .select("status")
+      .eq("client_id", dashboardData.client.id)
+      .maybeSingle(),
+    supabase
+      .from("scheduler_health")
+      .select("state,scheduler_owner,last_heartbeat_at,updated_at,details")
       .eq("client_id", dashboardData.client.id)
       .maybeSingle(),
   ]);
 
   const { data, error } = snapshotResult;
   const runtime = runtimeResult.data;
+  const client = clientResult.data;
+  const health = healthResult.data;
 
-  if (error || runtimeResult.error || !data?.snapshot || !runtime) {
+  if (
+    error
+    || runtimeResult.error
+    || clientResult.error
+    || healthResult.error
+    || !data?.snapshot
+    || !runtime
+    || !client
+    || !health
+  ) {
     return {
       data: null,
       source: "error",
       error: error?.message
         ?? runtimeResult.error?.message
+        ?? clientResult.error?.message
+        ?? healthResult.error?.message
         ?? "Your account is not connected to a client workspace yet.",
       requiresAuth: false,
     };
   }
 
   return {
-    data: normalizeSnapshot(data.snapshot, runtime),
+    data: normalizeSnapshot(data.snapshot, { client, runtime, health }),
     source: "supabase",
     error: null,
     requiresAuth: false,

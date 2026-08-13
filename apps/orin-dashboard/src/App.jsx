@@ -40,6 +40,7 @@ import {
   reviewJobIdFromPath,
   selectRouteBoundReviewArticle,
 } from "./reviewArticle.js";
+import { approvalAvailability } from "./operationalState.js";
 
 function readPath(path = window.location.pathname) {
   if (path.startsWith("/review/")) return "review";
@@ -64,6 +65,26 @@ function useRoute() {
   };
 
   return { route, path, navigate };
+}
+
+function dashboardHeading(value) {
+  const moment = value ? new Date(value) : new Date();
+  const safeMoment = Number.isNaN(moment.getTime()) ? new Date() : moment;
+  const date = new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "Europe/London",
+  }).format(safeMoment);
+  const hour = Number(new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    timeZone: "Europe/London",
+  }).format(safeMoment));
+  return {
+    date,
+    greeting: hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening",
+  };
 }
 
 function Brand() {
@@ -91,11 +112,14 @@ function StoreBadge({ compact = false }) {
   );
 }
 
-function AppShell({ route, navigate, children, dataSource, onSignOut }) {
+function AppShell({ route, navigate, children, dataSource, operations, queueCount, onSignOut }) {
   const navItems = [
     { id: "overview", label: "Overview", icon: House, path: "/" },
     { id: "queue", label: "Content queue", icon: ListChecks, path: "/queue" },
   ];
+  const liveSource = dataSource === "supabase";
+  const environmentLabel = liveSource || operations.isPaused ? operations.workspaceLabel : "Safe preview";
+  const environmentTone = liveSource || operations.isPaused ? operations.overallTone : "preview";
 
   return (
     <div className="app-shell">
@@ -116,7 +140,7 @@ function AppShell({ route, navigate, children, dataSource, onSignOut }) {
                 >
                   <Icon size={19} weight={active ? "fill" : "regular"} />
                   <span>{item.label}</span>
-                  {item.id === "queue" && <span className="nav-count">3</span>}
+                  {item.id === "queue" && <span className="nav-count">{queueCount}</span>}
                 </button>
               );
             })}
@@ -141,8 +165,8 @@ function AppShell({ route, navigate, children, dataSource, onSignOut }) {
         <header className="topbar">
           <div className="mobile-brand"><Brand /></div>
           <div className="environment-pill">
-            <span className={`live-dot ${dataSource === "supabase" ? "connected" : ""}`} />
-            {dataSource === "supabase" ? "Live workspace" : "Safe preview"}
+            <span className={`live-dot ${environmentTone}`} />
+            {environmentLabel}
           </div>
           <div className="topbar-actions">
             <button className="icon-button" type="button" aria-label="Search"><MagnifyingGlass size={20} /></button>
@@ -153,7 +177,15 @@ function AppShell({ route, navigate, children, dataSource, onSignOut }) {
             <StoreBadge compact />
           </div>
         </header>
-        <main className="page-content">{children}</main>
+        <main className="page-content">
+          {operations.isPaused && (
+            <div className={`maintenance-banner ${operations.overallTone}`} role="status">
+              <WarningCircle size={21} weight="duotone" />
+              <div><strong>{operations.workspaceLabel}</strong><span>{operations.workspaceMessage}</span></div>
+            </div>
+          )}
+          {children}
+        </main>
         <nav className="mobile-nav" aria-label="Mobile navigation">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -261,12 +293,14 @@ function MetricCard({ label, value, tone, icon: Icon }) {
 }
 
 function Overview({ data, navigate }) {
+  const paused = data.operations.isPaused;
+  const heading = dashboardHeading(data.generatedAt);
   return (
     <div className="overview-page">
       <PageHeading
-        eyebrow="Sunday, 2 August"
-        title="Good evening, Hari."
-        description="Your content system is healthy. One article is ready for your review."
+        eyebrow={heading.date}
+        title={`${heading.greeting}, Hari.`}
+        description={paused ? data.operations.workspaceMessage : "Your content system is healthy. One article is ready for your review."}
         action={<button className="secondary-button" type="button" onClick={() => navigate("/queue")}><ListChecks size={17} /> View queue</button>}
       />
 
@@ -306,16 +340,17 @@ function Overview({ data, navigate }) {
               <span className="section-kicker">OPERATIONS</span>
               <h2>System status</h2>
             </div>
-            <span className="health-ring"><Check size={17} weight="bold" /></span>
+            <span className={`health-ring ${data.operations.overallTone}`}>{paused ? <Clock size={17} weight="bold" /> : <Check size={17} weight="bold" />}</span>
           </div>
           <div className="operations-list">
-            <div><span><Clock size={18} /> Daily schedule</span><StatusPill tone="green">{data.operations.scheduler}</StatusPill></div>
-            <div><span><Robot size={18} /> Content worker</span><StatusPill tone="green">{data.operations.worker}</StatusPill></div>
-            <div><span><ShieldCheck size={18} /> Shopify draft access</span><StatusPill tone="blue">{data.operations.shopifyWrites}</StatusPill></div>
+            <div><span className="operation-copy"><span><Clock size={18} /> Daily schedule</span><small>{data.operations.schedulerDetail}</small></span><StatusPill tone={data.operations.schedulerTone}>{data.operations.scheduler}</StatusPill></div>
+            <div><span className="operation-copy"><span><Robot size={18} /> Content worker</span><small>{data.operations.workerDetail}</small></span><StatusPill tone={data.operations.workerTone}>{data.operations.worker}</StatusPill></div>
+            <div><span className="operation-copy"><span><Gauge size={18} /> Watchdog</span><small>{data.operations.watchdogDetail}</small></span><StatusPill tone={data.operations.watchdogTone}>{data.operations.watchdog}</StatusPill></div>
+            <div><span className="operation-copy"><span><ShieldCheck size={18} /> Shopify draft access</span><small>{data.operations.shopifyDetail}</small></span><StatusPill tone={data.operations.shopifyTone}>{data.operations.shopifyWrites}</StatusPill></div>
           </div>
-          <div className="operations-footer">
-            <CloudCheck size={19} weight="duotone" />
-            <span><strong>Everything is protected</strong>{data.operations.lastChecked}</span>
+          <div className={`operations-footer ${data.operations.overallTone}`}>
+            {paused ? <ShieldCheck size={19} weight="duotone" /> : <CloudCheck size={19} weight="duotone" />}
+            <span><strong>{data.operations.overallLabel}</strong>{data.operations.lastChecked}</span>
           </div>
         </article>
       </section>
@@ -367,7 +402,7 @@ function Queue({ data, navigate }) {
       <PageHeading
         eyebrow="CONTENT OPERATIONS"
         title="Content flightboard"
-        description="Follow every article from approved concept to Shopify draft."
+        description={data.operations.isPaused ? "Review the queue while execution remains safely paused." : "Follow every article from approved concept to Shopify draft."}
         action={(
           <button
             className="primary-button"
@@ -430,7 +465,7 @@ function Queue({ data, navigate }) {
               </div>
             ))}
           </div>
-          <div className="activity-safe"><ShieldCheck size={21} weight="duotone" /><span><strong>Write protection is on</strong>No article can go live without your approval.</span></div>
+          <div className="activity-safe"><ShieldCheck size={21} weight="duotone" /><span><strong>{data.operations.isPaused ? "Workflow is paused" : "Write protection is on"}</strong>{data.operations.isPaused ? "No approval can start work while maintenance gates are closed." : "No article can go live without your approval."}</span></div>
         </aside>
       </section>
     </div>
@@ -504,6 +539,7 @@ function Review({ data, jobId, navigate, dataSource }) {
     ? "approve_hidden_draft"
     : article.reviewKind === "concept" ? "approve_concept" : null;
   const approve = () => approvalKind && saveDecision(approvalKind);
+  const approvalState = approvalAvailability(data.operations, article.reviewKind);
   const approvalLabel = article.reviewKind === "draft"
     ? "Approve unpublished Shopify draft"
     : article.reviewKind === "concept" ? "Approve concept for drafting" : "Revision required";
@@ -583,7 +619,8 @@ function Review({ data, jobId, navigate, dataSource }) {
 
             {!changesOpen ? (
               <div className="decision-actions">
-                <button className="approve-button" type="button" onClick={approve} disabled={saving || !approvalKind}><CheckCircle size={19} weight="fill" /> {saving ? "Saving…" : approvalLabel}</button>
+                <button className="approve-button" type="button" onClick={approve} disabled={saving || !approvalKind || !approvalState.allowed} title={approvalState.allowed ? "" : approvalState.reason}><CheckCircle size={19} weight="fill" /> {saving ? "Saving…" : approvalLabel}</button>
+                {!approvalState.allowed && approvalKind && <p className="approval-paused-note"><WarningCircle size={15} /> {approvalState.reason}</p>}
                 <button className="changes-button" type="button" onClick={() => setChangesOpen(true)} disabled={saving}><NotePencil size={18} /> Request changes</button>
               </div>
             ) : (
@@ -628,7 +665,7 @@ export function App() {
   }
 
   return (
-    <AppShell route={route} navigate={navigate} dataSource={state.source} onSignOut={signOutDashboard}>
+    <AppShell route={route} navigate={navigate} dataSource={state.source} operations={state.data.operations} queueCount={state.data.counts.review} onSignOut={signOutDashboard}>
       {route === "overview" && <Overview data={state.data} navigate={navigate} />}
       {route === "queue" && <Queue data={state.data} navigate={navigate} />}
       {route === "review" && <Review data={state.data} jobId={reviewJobIdFromPath(path)} navigate={navigate} dataSource={state.source} />}

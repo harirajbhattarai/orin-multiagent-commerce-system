@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(28);
 
 select has_table('public', 'content_drafts', 'versioned review draft table exists');
 select ok(
@@ -48,6 +48,40 @@ select count(*)::bigint as value from public.content_jobs;
 
 select set_config('request.jwt.claim.sub', 'abababab-abab-4bab-8bab-abababababab', true);
 set local role authenticated;
+select throws_ok(
+  $$
+    insert into public.content_decisions (
+      client_id, content_item_id, content_item_version, decision, requested_by, request_id
+    )
+    select client_id, content_item_id, version, 'approve_concept',
+           'abababab-abab-4bab-8bab-abababababab',
+           'cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd'
+    from public.content_plan_items
+    where client_id = 'hoverboard_store'
+      and content_item_id = 'dededede-dede-4ede-8ede-dededededede'
+  $$,
+  '55000',
+  'content approvals are paused while client execution gates are closed',
+  'maintenance gates reject concept approval at the database boundary'
+);
+
+reset role;
+select is(
+  (select count(*)::bigint from public.content_jobs),
+  (select value from phase6_jobs_before),
+  'rejected maintenance approval creates no execution work'
+);
+
+update public.clients set status = 'active' where client_id = 'hoverboard_store';
+update public.client_runtime_settings
+set request_intake_enabled = true,
+    automation_enabled = true,
+    shopify_writes_enabled = false,
+    approved_draft_writes_enabled = false,
+    allowed_mode = 'dry-run'
+where client_id = 'hoverboard_store';
+
+set local role authenticated;
 insert into public.content_decisions (
   client_id, content_item_id, content_item_version, decision, requested_by, request_id
 )
@@ -66,24 +100,6 @@ select is(
 );
 
 reset role;
-set local role orin_worker;
-select * from orin_private.materialize_next_content_decision();
-reset role;
-
-select is(
-  (select count(*)::bigint from public.content_jobs),
-  (select value from phase6_jobs_before),
-  'closed gates do not materialize concept approval'
-);
-
-update public.clients set status = 'active' where client_id = 'hoverboard_store';
-update public.client_runtime_settings
-set request_intake_enabled = true,
-    automation_enabled = true,
-    shopify_writes_enabled = false,
-    allowed_mode = 'dry-run'
-where client_id = 'hoverboard_store';
-
 set local role orin_worker;
 select * from orin_private.materialize_next_content_decision();
 reset role;
@@ -185,24 +201,21 @@ select results_eq(
 );
 
 set local role authenticated;
-insert into public.content_decisions (
-  client_id, content_item_id, content_item_version, decision, requested_by, request_id
-) values (
-  'hoverboard_store', 'dededede-dede-4ede-8ede-dededededede', 2,
-  'approve_hidden_draft', 'abababab-abab-4bab-8bab-abababababab',
-  'efefefef-efef-4fef-8fef-efefefefefef'
+select throws_ok(
+  $$
+    insert into public.content_decisions (
+      client_id, content_item_id, content_item_version, decision, requested_by, request_id
+    ) values (
+      'hoverboard_store', 'dededede-dede-4ede-8ede-dededededede', 2,
+      'approve_hidden_draft', 'abababab-abab-4bab-8bab-abababababab',
+      'efefefef-efef-4fef-8fef-efefefefefef'
+    )
+  $$,
+  '55000',
+  'Shopify draft approval is paused while Shopify write gates are closed',
+  'closed Shopify gates reject hidden-draft approval at the database boundary'
 );
 reset role;
-set local role orin_worker;
-select * from orin_private.materialize_next_content_decision();
-reset role;
-
-select is(
-  (select processing_status from public.content_decisions
-   where request_id = 'efefefef-efef-4fef-8fef-efefefefefef'),
-  'recorded',
-  'hidden-draft approval waits while Shopify write gates are closed'
-);
 
 select throws_ok(
   $$
@@ -222,6 +235,16 @@ set approved_draft_writes_enabled = true,
     shopify_writes_enabled = false,
     allowed_mode = 'dry-run'
 where client_id = 'hoverboard_store';
+
+set local role authenticated;
+insert into public.content_decisions (
+  client_id, content_item_id, content_item_version, decision, requested_by, request_id
+) values (
+  'hoverboard_store', 'dededede-dede-4ede-8ede-dededededede', 2,
+  'approve_hidden_draft', 'abababab-abab-4bab-8bab-abababababab',
+  'efefefef-efef-4fef-8fef-efefefefefef'
+);
+reset role;
 
 set local role orin_worker;
 select * from orin_private.materialize_next_content_decision();

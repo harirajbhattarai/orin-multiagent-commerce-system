@@ -6,6 +6,7 @@ import {
   reviewJobIdFromPath,
   selectRouteBoundReviewArticle,
 } from "../src/reviewArticle.js";
+import { approvalAvailability, deriveOperationalState } from "../src/operationalState.js";
 
 const data = {
   nextArticle: { id: 33, readingTime: "Concept review", qualityScore: null },
@@ -112,4 +113,72 @@ test("fails closed for missing, unbound, or non-reviewable jobs", () => {
   assert.equal(selectRouteBoundReviewArticle(data, 4), null);
   assert.equal(selectRouteBoundReviewArticle(data, 999), null);
   assert.equal(selectRouteBoundReviewArticle({ ...data, queue: [{ id: 3, stage: "Review" }] }, 3), null);
+});
+
+test("projects maintenance as paused and blocks both approval paths", () => {
+  const operations = deriveOperationalState({
+    client: { status: "maintenance" },
+    runtime: {
+      request_intake_enabled: false,
+      automation_enabled: false,
+      shopify_writes_enabled: false,
+      approved_draft_writes_enabled: false,
+      allowed_mode: "dry-run",
+    },
+    health: {
+      state: "disabled",
+      scheduler_owner: null,
+      last_heartbeat_at: "2026-08-13T10:00:00Z",
+      updated_at: "2026-08-13T12:00:00Z",
+    },
+    nowMs: Date.parse("2026-08-13T13:00:00Z"),
+  });
+
+  assert.equal(operations.workspaceLabel, "Maintenance paused");
+  assert.equal(operations.scheduler, "Paused");
+  assert.equal(operations.worker, "Idle");
+  assert.equal(operations.watchdog, "Paused");
+  assert.equal(operations.shopifyWrites, "Paused");
+  assert.equal(approvalAvailability(operations, "concept").allowed, false);
+  assert.equal(approvalAvailability(operations, "draft").allowed, false);
+});
+
+test("allows only the approval path covered by the open gates", () => {
+  const conceptOnly = deriveOperationalState({
+    client: { status: "active" },
+    runtime: {
+      request_intake_enabled: true,
+      automation_enabled: true,
+      shopify_writes_enabled: false,
+      approved_draft_writes_enabled: false,
+      allowed_mode: "dry-run",
+    },
+    health: {
+      state: "healthy",
+      scheduler_owner: "prefect:orin-hbstore-prod",
+      last_heartbeat_at: "2026-08-13T12:30:00Z",
+    },
+    nowMs: Date.parse("2026-08-13T13:00:00Z"),
+  });
+  assert.equal(approvalAvailability(conceptOnly, "concept").allowed, true);
+  assert.equal(approvalAvailability(conceptOnly, "draft").allowed, false);
+
+  const approvedDrafts = deriveOperationalState({
+    client: { status: "active" },
+    runtime: {
+      request_intake_enabled: true,
+      automation_enabled: true,
+      shopify_writes_enabled: false,
+      approved_draft_writes_enabled: true,
+      allowed_mode: "dry-run",
+    },
+    health: {
+      state: "healthy",
+      scheduler_owner: "prefect:orin-hbstore-prod",
+      last_heartbeat_at: "2026-08-13T12:30:00Z",
+    },
+    nowMs: Date.parse("2026-08-13T13:00:00Z"),
+  });
+  assert.equal(approvalAvailability(approvedDrafts, "draft").allowed, true);
+  assert.equal(approvedDrafts.shopifyWrites, "Approved drafts only");
 });
