@@ -1,0 +1,134 @@
+{
+  "schema": "orin.hbstore-reliability-checkpoint/v1",
+  "observed_at": "2026-08-13T12:59:40.460913Z",
+  "client_id": "hoverboard_store",
+  "result": "passed_in_maintenance_mode",
+  "scope": "Pause content execution after Job 41 and verify the production control plane, durable state, monitoring, and Shopify ownership ledger.",
+  "source": {
+    "main_revision": "a7b5fd18b5059a2e7dee6a699210ec5947d35aae",
+    "watchdog_permission_fix_pr": 122,
+    "watchdog_permission_migration": "grant_watchdog_approval_gate_read",
+    "worker_revision": "6ae6561b5e01a6250b1cfd10ad7392f06c4ba25a",
+    "scheduler_trigger_revision": "96cc33c34a8288090846060e430c69bf01eb76b7",
+    "watchdog_revision": "41e4c9161864dcd39af6b3ead240ae61ddd48068",
+    "prefect_revision": "4b96b85e1e5f64a564ba4554a9471c436dc3a4af"
+  },
+  "checkpoint_finding": {
+    "code": "ORIN_WATCHDOG_CHECK_FAILED",
+    "observed_run": "2026-08-13 11:15 Europe/London",
+    "root_cause": "The watchdog repository selected approved_draft_writes_enabled after the Phase 6 approval-only gate was introduced, but the fixed read-only watchdog role retained its earlier column-level grant.",
+    "remediation": "PR #122 granted SELECT on only approved_draft_writes_enabled to orin_watchdog and added executable pgTAP coverage.",
+    "post_fix_readonly_result": "ORIN_SCHEDULER_NOT_ACTIVE",
+    "post_fix_interpretation": "The complete database projection executed successfully and returned the expected configuration alert because the client was intentionally paused."
+  },
+  "maintenance_state": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "max_concurrency": 1,
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "recorded_decisions": 0
+  },
+  "scheduler_pause": {
+    "prefect_deployment_id": "99b5600e-9f05-4bc2-8dc0-b3d03f561d8a",
+    "prefect_deployment_paused": true,
+    "prefect_schedule_id": "d08b9809-e5cb-4ad4-b9bb-0716193f1393",
+    "prefect_schedule_active": false,
+    "prefect_schedule_cron": "0 11 * * *",
+    "prefect_schedule_timezone": "Europe/London",
+    "prefect_owner_pool_paused": true,
+    "prefect_owner_pool_concurrency": 1,
+    "prefect_owner_pool_active_slots": 0,
+    "openclaw_enabled_jobs": 0,
+    "openclaw_next_wake_at_ms": null
+  },
+  "infrastructure": {
+    "ssh": "healthy",
+    "worker_running": true,
+    "worker_restart_count": 0,
+    "worker_latest_outcome": "no_job_due",
+    "scheduler_trigger_healthy": true,
+    "scheduler_trigger_restart_count": 0,
+    "watchdog_healthy": true,
+    "watchdog_restart_count": 0,
+    "prefect_owner_worker_healthy": true,
+    "prefect_server_healthy": true,
+    "prefect_postgres_healthy": true,
+    "prefect_restart_counts": 0
+  },
+  "durable_content_state": {
+    "plan_item_count": 60,
+    "status_counts": {
+      "planned": 19,
+      "needs_human_review": 3,
+      "draft_created": 37,
+      "published_live": 1
+    },
+    "inactive_human_review_backlog": [3, 21, 22],
+    "verified_job_range": "28-41",
+    "verified_job_count": 14,
+    "verified_draft_created_count": 14,
+    "verified_article_id_count": 14,
+    "verified_handle_count": 14,
+    "duplicate_article_ids": 0
+  },
+  "historical_handle_backfill": [
+    {
+      "item_number": 28,
+      "shopify_article_id": "1007164260700",
+      "shopify_handle": "hoverboard-charger-not-working-checks-before-buying-a-new-one",
+      "published": false
+    },
+    {
+      "item_number": 29,
+      "shopify_article_id": "1007195390300",
+      "shopify_handle": "birthday-hoverboard-gift-guide-for-kids-uk",
+      "published": false
+    },
+    {
+      "item_number": 30,
+      "shopify_article_id": "1007206334812",
+      "shopify_handle": "hoverboard-bundle-buying-guide-board-kart-and-safety-gear",
+      "published": false
+    },
+    {
+      "item_number": 31,
+      "shopify_article_id": "1007283863900",
+      "shopify_handle": "kids-electric-scooter-buying-checklist-for-parents",
+      "published": false
+    }
+  ],
+  "last_scheduler_receipt": {
+    "run_id": "hb_20260813T100020Z_8f5ca5ec",
+    "status": "completed",
+    "requested_mode": "dry-run",
+    "effective_mode": "dry-run",
+    "shopify_create_count": 0,
+    "shopify_published": false,
+    "queue_changed": false,
+    "reconciliation_status": "not_required",
+    "error_code": null
+  },
+  "watchdog_role": {
+    "login_enabled": true,
+    "superuser": false,
+    "bypass_rls": false,
+    "approval_gate_select": true,
+    "runtime_settings_update": false,
+    "content_jobs_insert": false
+  },
+  "validation": {
+    "python_tests": 269,
+    "database_tests": 169,
+    "database_lint": "clean",
+    "github_ci": ["dashboard", "database", "test"],
+    "github_ci_result": "passed"
+  },
+  "conclusion": "HBStore passed the reliability checkpoint for the existing controlled hidden-draft workflow. Content execution and all schedules remain intentionally paused. No new article was approved, drafted, created, or published during this checkpoint. Resume requires a separate explicit activation step and a healthy watchdog verification after scheduler ownership is restored."
+}
