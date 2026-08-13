@@ -11,6 +11,21 @@ are off, the scheduler has no owner, the Prefect deployment/schedule/owner
 pool are paused, and all OpenClaw schedules are disabled with no next wake.
 There are zero active jobs, zero open incidents, and zero recorded decisions.
 
+The private HBStore dashboard now projects that maintenance boundary directly
+from Supabase instead of displaying a generic live state. It labels the
+workspace `Maintenance paused`, shows the scheduler, worker, watchdog, and
+Shopify draft path as paused or idle, and disables concept and hidden-draft
+approval buttons while their matching gates are closed. PR #124 added the
+state projection and a database trigger that rejects approvals behind closed
+gates. The first production render then exposed an intentionally narrow column
+grant: the client queried the ungranted `scheduler_health.details` column. PR
+#125 removed that column from the browser query and added a regression test for
+the approved scheduler-health projection. The corrected private Sites release
+was visually verified on the overview and Job 42 review pages, including a
+disabled concept approval with its maintenance reason. No content, scheduler,
+or Shopify gate was opened. Durable details are in
+`docs/evidence/2026-08-13-dashboard-maintenance-boundary.json`.
+
 The checkpoint found one genuine monitoring regression. The 11:15 read-only
 watchdog could not select the Phase 6 `approved_draft_writes_enabled` column,
 so it returned `ORIN_WATCHDOG_CHECK_FAILED` even though its container was
