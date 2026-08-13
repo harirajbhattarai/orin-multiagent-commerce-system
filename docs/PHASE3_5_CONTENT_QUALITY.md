@@ -74,6 +74,9 @@ The adapter:
   document-level HTML tags;
 - writes the non-secret request and extracted response to the private run
   evidence directory;
+- normalizes the SEO title, meta description, approved handle, target keyword,
+  cluster, and job identity from the approved plan before validation, so the
+  model cannot introduce random structured-metadata failures;
 - never falls back silently to the deterministic template;
 - still requires the complete content-quality receipt to pass.
 

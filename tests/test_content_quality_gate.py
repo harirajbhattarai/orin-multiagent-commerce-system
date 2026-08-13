@@ -562,6 +562,62 @@ Meta Description: Read this practical UK guide to hoverboard charger not working
         self.assertTrue(stats["model_attempts"][1]["quality_passed"])
         self.assertEqual(stats["model_response_id"], "retry-response")
 
+    def test_model_writer_normalises_structured_seo_metadata_before_validation(self):
+        repository_root = Path(__file__).resolve().parents[1]
+        writer = WriterAgent(str(repository_root), "2026-07-26")
+        job_context = {
+            "job_number": "99",
+            "job_label": "Job 99",
+            "topic": "Hoverboard Charger Not Working: Safe Checks",
+            "target_keyword": TARGET_KEYWORD,
+            "target_date": "2026-07-26",
+            "expected_draft_date": "2026-07-26",
+            "queue_status": "planned",
+            "file_path": "",
+            "shopify_handle": None,
+        }
+        plan = writer.plan_writing(job_ctx=job_context)["writer_plan"]
+        plan["h2_outline"] = [
+            {"id": f"check-{index}", "h2": f"Detailed Check {index}"}
+            for index in range(1, 7)
+        ]
+        model_html = _valid_article().replace(
+            "Meta Description: Read this practical UK guide to hoverboard charger not working. "
+            "Check common causes, safety warnings and next steps before replacing parts or seeking support.",
+            "Meta Description: " + ("model generated metadata " * 20).strip(),
+            1,
+        )
+        result = ModelWriterResult(
+            body_html=model_html,
+            provider="minimax",
+            model="MiniMax-M3",
+            response_id="long-metadata-response",
+            finish_reason="stop",
+            usage={},
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            output_path = Path(directory) / "article.html"
+            with patch.dict(os.environ, {"ORIN_MODEL_WRITER_ENABLED": "1"}):
+                with patch("writer_agent.generate_article", return_value=result) as generate:
+                    stats = writer.write_selected_job_draft(
+                        job_ctx=job_context,
+                        writer_plan=plan,
+                        output_path_override=str(output_path),
+                    )
+            receipt = evaluate_article_quality(
+                output_path.read_text(encoding="utf-8"),
+                target_keyword=TARGET_KEYWORD,
+                site_url=SITE_URL,
+                approved_title=job_context["topic"],
+            )
+
+        self.assertEqual(generate.call_count, 1)
+        self.assertTrue(receipt["passed"], receipt["blockers"])
+        self.assertGreaterEqual(receipt["metrics"]["meta_description_chars"], 120)
+        self.assertLessEqual(receipt["metrics"]["meta_description_chars"], 160)
+        self.assertTrue(stats["model_attempts"][0]["quality_passed"])
+
     def test_model_writer_uses_bounded_retry_for_missing_approved_h2(self):
         repository_root = Path(__file__).resolve().parents[1]
         writer = WriterAgent(str(repository_root), "2026-07-26")
