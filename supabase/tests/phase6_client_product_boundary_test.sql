@@ -112,6 +112,19 @@ select is(
   'dashboard payload is bound to the member tenant'
 );
 
+reset role;
+update public.clients
+set status = 'active'
+where client_id = 'hoverboard_store';
+update public.client_runtime_settings
+set request_intake_enabled = true,
+    automation_enabled = true,
+    shopify_writes_enabled = false,
+    approved_draft_writes_enabled = false,
+    allowed_mode = 'dry-run'
+where client_id = 'hoverboard_store';
+set local role authenticated;
+
 insert into public.content_decisions (
   client_id,
   content_item_id,
