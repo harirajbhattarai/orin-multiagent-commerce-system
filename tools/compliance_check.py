@@ -144,22 +144,24 @@ def has_permission_claim(context, phrase):
     This prevents false positives on phrases like 'not suitable for use on pavements'.
     """
     c = context.lower()
-    if not any(indicator in c for indicator in PERMISSION_CLAIM_INDICATORS):
-        return False
-    # Find the position of each permission indicator
-    for indicator in PERMISSION_CLAIM_INDICATORS:
-        idx = c.find(indicator)
-        if idx == -1:
+    negation_words = (
+        "not", "no", "never", "avoid", "restricted", "prohibited",
+        "do not", "don't", "should not", "must not", "cannot",
+    )
+
+    # Permission language is relevant only when it occurs in the same sentence
+    # as the sensitive phrase. A broad character window can otherwise join a
+    # safe sentence such as "not on public roads" to a later sentence such as
+    # "check where you can ride" and produce a false positive.
+    for sentence in re.split(r"(?<=[.!?])\s+|[;\n]+", c):
+        if phrase.lower() not in sentence:
             continue
-        # Extract everything before the indicator
-        before = c[:idx]
-        # Check if a negation word appears in the 30 chars before the indicator
-        negation_zone = before[-30:] if len(before) >= 30 else before
-        negation_words = ("not", "no", "never", "avoid", "restricted", "prohibited",
-                          "do not", "don't", "should not", "must not", "cannot")
+        phrase_idx = sentence.find(phrase.lower())
+        negation_zone = sentence[max(0, phrase_idx - 80):phrase_idx]
         if any(neg in negation_zone for neg in negation_words):
-            continue  # negated — skip this indicator
-        return True
+            continue
+        if any(indicator in sentence for indicator in PERMISSION_CLAIM_INDICATORS):
+            return True
     return False
 
 
