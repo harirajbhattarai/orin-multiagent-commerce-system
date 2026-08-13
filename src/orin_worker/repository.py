@@ -13,9 +13,16 @@ from orin_worker.models import ClaimedJob, CompletionRecord
 
 
 class PostgresWorkerRepository:
-    def __init__(self, engine: Engine, *, expected_role: str = "orin_worker") -> None:
+    def __init__(
+        self,
+        engine: Engine,
+        *,
+        expected_role: str = "orin_worker",
+        client_id: str | None = None,
+    ) -> None:
         self.engine = engine
         self.expected_role = expected_role
+        self.client_id = client_id
 
     def _assert_narrow_role(self, connection: object) -> None:
         current_role = connection.execute(text("select current_user")).scalar_one()  # type: ignore[attr-defined]
@@ -27,15 +34,26 @@ class PostgresWorkerRepository:
     def claim_next(self, *, worker_id: str, lease_seconds: int) -> ClaimedJob | None:
         with self.engine.begin() as connection:
             self._assert_narrow_role(connection)
-            row = connection.execute(
-                text(
+            if self.client_id is None:
+                statement = text(
+                    "select * from orin_private.claim_next_job(:worker_id, :lease_seconds)"
+                )
+                parameters = {"worker_id": worker_id, "lease_seconds": lease_seconds}
+            else:
+                statement = text(
                     """
                     select *
-                    from orin_private.claim_next_job(:worker_id, :lease_seconds)
+                    from orin_private.claim_next_dry_run_job_for_client(
+                      :worker_id, :client_id, :lease_seconds
+                    )
                     """
-                ),
-                {"worker_id": worker_id, "lease_seconds": lease_seconds},
-            ).first()
+                )
+                parameters = {
+                    "worker_id": worker_id,
+                    "client_id": self.client_id,
+                    "lease_seconds": lease_seconds,
+                }
+            row = connection.execute(statement, parameters).first()
         if row is None:
             return None
         value = row._mapping
@@ -53,9 +71,22 @@ class PostgresWorkerRepository:
         """Turn at most one eligible dashboard decision into a gated job."""
         with self.engine.begin() as connection:
             self._assert_narrow_role(connection)
-            connection.execute(
-                text("select * from orin_private.materialize_next_content_decision()")
-            ).first()
+            if self.client_id is None:
+                statement = text(
+                    "select * from orin_private.materialize_next_content_decision()"
+                )
+                parameters = {}
+            else:
+                statement = text(
+                    """
+                    select *
+                    from orin_private.materialize_next_dry_run_decision_for_client(
+                      :client_id
+                    )
+                    """
+                )
+                parameters = {"client_id": self.client_id}
+            connection.execute(statement, parameters).first()
 
     def renew(self, *, job_id: UUID, worker_id: str, lease_seconds: int) -> bool:
         with self.engine.begin() as connection:

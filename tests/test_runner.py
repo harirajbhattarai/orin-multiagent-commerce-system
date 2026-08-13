@@ -93,6 +93,58 @@ def test_python_api_rejects_unsupported_client_before_pipeline_or_evidence(
     assert artifact_root.exists() is False
 
 
+def test_hcs_runner_is_dry_run_only_before_pipeline_or_evidence(tmp_path):
+    command, preview_path, counter_path = fake_pipeline(
+        tmp_path,
+        {"blocked": False, "planner_decision": "no_job_due"},
+    )
+    artifact_root = tmp_path / "hcs-artifacts"
+
+    with pytest.raises(ValueError, match="dry-run only"):
+        run_client(
+            client_id="hcs_gadgets",
+            request_id=str(uuid.uuid4()),
+            mode="hidden-draft",
+            workspace_root=tmp_path / "workspace",
+            artifact_root=artifact_root,
+            repo_root=Path.cwd(),
+            pipeline_command=command,
+            pipeline_preview_path=preview_path,
+        )
+
+    assert counter_path.exists() is False
+    assert artifact_root.exists() is False
+
+
+def test_hcs_dry_run_uses_client_identity_and_never_mutates_shopify(tmp_path):
+    preview = {
+        "blocked": False,
+        "planner_decision": "no_job_due",
+        "selected_job": None,
+        "effective_mode": "dry-run",
+        "queue_touched": False,
+        "shopify_create_count": 0,
+        "shopify_write_state": "not_attempted",
+    }
+    command, preview_path, _ = fake_pipeline(tmp_path, preview)
+
+    result = run_client(
+        client_id="hcs_gadgets",
+        request_id=str(uuid.uuid4()),
+        mode="dry-run",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        pipeline_command=command,
+        pipeline_preview_path=preview_path,
+    )
+
+    assert result["client_id"] == "hcs_gadgets"
+    assert result["run_id"].startswith("hcs_")
+    assert result["shopify_create_count"] == 0
+    assert result["shopify_published"] is False
+
+
 def test_no_job_run_writes_versioned_durable_result(tmp_path):
     preview = {
         "blocked": False,

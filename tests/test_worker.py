@@ -179,6 +179,8 @@ def test_automatic_worker_has_fixed_execution_scope():
     parsed = build_parser().parse_args(
         [
             "serve",
+            "--client-id",
+            "hoverboard_store",
             "--worker-id",
             "orin-hbstore-prod",
             "--poll-seconds",
@@ -188,12 +190,24 @@ def test_automatic_worker_has_fixed_execution_scope():
 
     assert parsed.command == "serve"
     assert parsed.worker_id == "orin-hbstore-prod"
+    assert parsed.client_id == "hoverboard_store"
     assert parsed.poll_seconds == 15
     assert not hasattr(parsed, "as_of_date")
     assert not hasattr(parsed, "job_number")
 
     with pytest.raises(SystemExit):
         build_parser().parse_args(["serve", "--job-number", "30"])
+
+
+def test_dedicated_hcs_worker_has_an_explicit_client_binding():
+    parsed = build_parser().parse_args(
+        ["serve", "--client-id", "hcs_gadgets", "--worker-id", "orin-hcs-prod"]
+    )
+
+    assert parsed.client_id == "hcs_gadgets"
+    assert parsed.worker_id == "orin-hcs-prod"
+    assert not hasattr(parsed, "as_of_date")
+    assert not hasattr(parsed, "job_number")
 
 
 def test_automatic_worker_stops_after_a_no_job_receipt():

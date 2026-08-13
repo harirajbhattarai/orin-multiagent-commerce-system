@@ -8,6 +8,7 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert 'profiles: ["manual-api"]' in COMPOSE
     assert 'profiles: ["manual-worker"]' in COMPOSE
     assert 'profiles: ["automatic-worker"]' in COMPOSE
+    assert 'profiles: ["hcs-automatic-worker"]' in COMPOSE
     assert 'profiles: ["scheduler-trigger"]' in COMPOSE
     assert 'profiles: ["watchdog"]' in COMPOSE
     assert 'profiles: ["evidence-sync"]' in COMPOSE
@@ -15,7 +16,7 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert "traefik." not in COMPOSE.lower()
     assert "50083" not in COMPOSE
     assert "network_mode: host" not in COMPOSE
-    assert COMPOSE.count("pull_policy: never") == 6
+    assert COMPOSE.count("pull_policy: never") == 7
     assert ":latest" not in COMPOSE
 
 
@@ -24,10 +25,10 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert "/data/.openclaw" not in COMPOSE
     assert "privileged:" not in COMPOSE
     assert COMPOSE.count("read_only: true") >= 6
-    assert COMPOSE.count('cap_drop: ["ALL"]') == 6
-    assert COMPOSE.count("no-new-privileges:true") == 6
+    assert COMPOSE.count('cap_drop: ["ALL"]') == 7
+    assert COMPOSE.count("no-new-privileges:true") == 7
     assert COMPOSE.count('restart: "no"') == 4
-    assert COMPOSE.count("restart: unless-stopped") == 2
+    assert COMPOSE.count("restart: unless-stopped") == 3
 
 
 def test_database_credentials_are_file_backed_and_role_separated():
@@ -98,6 +99,7 @@ def test_automatic_worker_is_fixed_scope_and_not_publicly_routed():
     assert "serve" in worker
     assert "--worker-id" in worker
     assert "orin-hbstore-prod" in worker
+    assert "--client-id\n      - hoverboard_store" in worker
     assert "--as-of-date" not in worker
     assert "--job-number" not in worker
     assert "restart: unless-stopped" in worker
@@ -109,6 +111,22 @@ def test_automatic_worker_is_fixed_scope_and_not_publicly_routed():
     ) in worker
     assert "target: /runtime/clients/hoverboard_store/content_engine" in worker
     assert "/var/run/docker.sock" not in worker
+
+
+def test_hcs_worker_is_dedicated_dry_run_and_has_no_shopify_secret():
+    worker = COMPOSE.split("  hcs-worker-daemon:", 1)[1].split(
+        "\n  evidence-sync:", 1
+    )[0]
+    assert 'profiles: ["hcs-automatic-worker"]' in worker
+    assert "--client-id\n      - hcs_gadgets" in worker
+    assert "orin-hcs-prod" in worker
+    assert "ORIN_WORKER_DATABASE_ROLE: orin_hcs_worker" in worker
+    assert "hcs_worker_database_url" in worker
+    assert 'ORIN_MODEL_WRITER_ENABLED: "0"' in worker
+    assert "SHOPIFY_ACCESS_TOKEN" not in worker
+    assert "--as-of-date" not in worker
+    assert "--job-number" not in worker
+    assert "ports:" not in worker
 
 
 def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():

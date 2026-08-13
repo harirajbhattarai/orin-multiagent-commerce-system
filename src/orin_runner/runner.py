@@ -43,7 +43,7 @@ from orin_shopify import (
 )
 
 
-SUPPORTED_CLIENTS = {"hoverboard_store"}
+SUPPORTED_CLIENTS = {"hoverboard_store", "hcs_gadgets"}
 SUPPORTED_MODES = {"dry-run", "hidden-draft"}
 PIPELINE_PREVIEW_PATH = Path("/tmp/orin_phase3b_cron_entrypoint_preview.json")
 APPROVED_PIPELINE_PATH = Path("tools/shopify_publisher/orin/cron_entrypoint.py")
@@ -81,7 +81,7 @@ def utc_now() -> str:
 
 
 def make_run_id(client_id: str) -> str:
-    prefix = "hb" if client_id == "hoverboard_store" else "run"
+    prefix = {"hoverboard_store": "hb", "hcs_gadgets": "hcs"}.get(client_id, "run")
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     return f"{prefix}_{stamp}_{uuid.uuid4().hex[:8]}"
 
@@ -572,6 +572,8 @@ def run_client(
     """Run one idempotent client request and return its final-result payload."""
     if client_id not in SUPPORTED_CLIENTS:
         raise UnsupportedClientError(f"unsupported client: {client_id}")
+    if client_id == "hcs_gadgets" and mode != "dry-run":
+        raise UnsupportedClientError("hcs_gadgets is commissioned for dry-run only")
     if job_number is not None:
         if not re.fullmatch(r"[1-9][0-9]*", job_number):
             raise ValueError("job_number must be a positive integer")
@@ -692,6 +694,11 @@ def run_client(
                 "HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE",
                 "HOVERBOARD_STORE_SHOPIFY_API_VERSION",
                 "HOVERBOARD_STORE_SHOPIFY_BLOG_ID",
+                "HCS_GADGETS_SHOPIFY_STORE_DOMAIN",
+                "HCS_GADGETS_SHOPIFY_ACCESS_TOKEN",
+                "HCS_GADGETS_SHOPIFY_ACCESS_TOKEN_FILE",
+                "HCS_GADGETS_SHOPIFY_API_VERSION",
+                "HCS_GADGETS_SHOPIFY_BLOG_ID",
             ):
                 environment.pop(name, None)
         if pipeline_preview_path.exists():
