@@ -17,14 +17,19 @@ cannot call the global claim function, and can claim only `hcs_gadgets`
 `dry-run` jobs through its dedicated function while both Shopify gates remain
 closed. Exact normalized topic identities and exact generated body hashes are
 globally unique across tenants, blocking accidental cross-client content
-reuse. The worker has not been started and HCS has not been activated; a
-separate credential installation, immutable deployment, and controlled
-dry-run proof are still required.
+reuse. HCS has not been activated; a corrected immutable image build and
+controlled dry-run proof are still required.
 
-The reviewed HCS worker image is available at exact revision
-`5f2c954a3007458ec2f4e56328afc07a7c6f960d`, but no HCS container has been
-started. A dedicated interactive installer and preflight check now stage the
-next proof without exposing the database URL or reusing an HBStore credential.
+The HCS credential installer and preflight check stage the next proof without
+exposing the database URL or reusing an HBStore credential.
+
+The first daemon start failed closed before claiming a job because its image
+tag was built from the older `ORIN_PROJECT_ROOT` still pinned in
+`deployment.env`; the CLI therefore lacked the HCS client argument despite the
+new revision label. The container was immediately removed. HCS remained in
+maintenance with zero jobs, runs, incidents, and Shopify actions. A dedicated
+build wrapper now requires the clean source checkout, requested image tag, OCI
+revision, and image-level HCS CLI binding to agree before commissioning.
 
 HBStore completed its controlled reactivation proof on 2026-08-13. The client
 is active with request intake and dry-run automation enabled, concurrency one,

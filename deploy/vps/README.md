@@ -260,6 +260,16 @@ deploy/vps/install_hcs_worker_db_secret.sh
 deploy/vps/preflight.sh --require-secrets --require-hcs-worker-secret
 ```
 
+Build the HCS image only through the provenance-checking wrapper. The exported
+commit and checkout must be identical; the wrapper refuses to build when a
+new image tag would otherwise be applied to an older release directory:
+
+```bash
+export ORIN_DEPLOY_SHA="$(git -C /exact/release rev-parse HEAD)"
+export ORIN_PROJECT_ROOT=/exact/release
+deploy/vps/build_hcs_worker.sh
+```
+
 The installer writes only
 `/docker/orin/secrets/hcs_worker_database_url`, owned by UID `10005` with mode
 `0400`, and refuses to overwrite an existing file. Keep HCS in maintenance,
