@@ -21,6 +21,11 @@ reuse. The worker has not been started and HCS has not been activated; a
 separate credential installation, immutable deployment, and controlled
 dry-run proof are still required.
 
+The reviewed HCS worker image is available at exact revision
+`5f2c954a3007458ec2f4e56328afc07a7c6f960d`, but no HCS container has been
+started. A dedicated interactive installer and preflight check now stage the
+next proof without exposing the database URL or reusing an HBStore credential.
+
 HBStore completed its controlled reactivation proof on 2026-08-13. The client
 is active with request intake and dry-run automation enabled, concurrency one,
 and Prefect retaining scheduler ownership. Broad Shopify writes remain off.

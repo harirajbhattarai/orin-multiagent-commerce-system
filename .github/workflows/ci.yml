@@ -113,6 +113,7 @@ jobs:
         run: |
           bash -n deploy/vps/preflight.sh
           bash -n deploy/vps/install_watchdog_db_secret.sh
+          bash -n deploy/vps/install_hcs_worker_db_secret.sh
           bash -n deploy/vps/watchdog_preflight.sh
           deployment_tmp="$(mktemp -d)"
           mkdir -p \
