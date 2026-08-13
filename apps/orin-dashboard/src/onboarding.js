@@ -32,8 +32,8 @@ export function onboardingSafetyChecklist(request) {
     { label: "Business profile saved", complete: Boolean(request?.request_id) },
     { label: "Shopify token verified and encrypted", complete: request?.credential_status === "stored" },
     { label: "Isolated database tenant created", complete: request?.status === "database_provisioned" },
-    { label: "Request intake and automation disabled", complete: request?.commissioning_status === "gates_closed" },
-    { label: "All Shopify write gates disabled", complete: request?.commissioning_status === "gates_closed" },
-    { label: "Scheduler disabled with no owner", complete: request?.commissioning_status === "gates_closed" },
+    { label: "Request intake and automation disabled", complete: ["gates_closed", "identity_verified"].includes(request?.commissioning_status) },
+    { label: "All Shopify write gates disabled", complete: ["gates_closed", "identity_verified"].includes(request?.commissioning_status) },
+    { label: "Scheduler disabled with no owner", complete: ["gates_closed", "identity_verified"].includes(request?.commissioning_status) },
   ];
 }

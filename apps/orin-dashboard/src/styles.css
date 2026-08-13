@@ -399,6 +399,8 @@ h2 { letter-spacing: -.025em; }
 .commissioning-next > div { display: flex; flex-direction: column; gap: 5px; }
 .commissioning-next strong { color: #5e4c2c; font-size: 10px; }
 .commissioning-next span { font-size: 9px; line-height: 1.55; }
+.commissioning-next.verified { color: #176c59; background: #effaf6; border-color: #bce8d8; }
+.commissioning-next.verified strong { color: #125746; }
 .empty-workspace-card { min-height: 260px; display: flex; align-items: center; justify-content: space-between; gap: 28px; }
 .empty-workspace-card h2 { max-width: 520px; margin: 8px 0 10px; }
 .empty-workspace-card p { max-width: 620px; color: var(--muted); line-height: 1.65; }

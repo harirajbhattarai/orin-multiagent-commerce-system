@@ -37,4 +37,12 @@ test("provisioning checklist stays incomplete until the fail-closed tenant exist
     commissioning_status: "gates_closed",
   });
   assert.equal(after.every((item) => item.complete), true);
+
+  const audited = onboardingSafetyChecklist({
+    request_id: "request-1",
+    credential_status: "stored",
+    status: "database_provisioned",
+    commissioning_status: "identity_verified",
+  });
+  assert.equal(audited.every((item) => item.complete), true);
 });

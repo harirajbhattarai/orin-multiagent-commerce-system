@@ -60,6 +60,7 @@ async function readShopify(storeDomain: string, accessToken: string) {
         query: `query OrinOnboarding {
           shop { name myshopifyDomain }
           blogs(first: 50) { nodes { id title handle } }
+          productsCount { count }
         }`,
       }),
     },
@@ -95,6 +96,7 @@ async function readShopify(storeDomain: string, accessToken: string) {
       title: String(blog.title ?? ""),
       handle: String(blog.handle ?? ""),
     })),
+    productCount: Number(payload.data?.productsCount?.count ?? 0),
   };
 }
 
@@ -184,6 +186,48 @@ Deno.serve(async (request: Request) => {
       });
       if (error) throw new Error(error.message);
       return json(origin, 200, { ok: true, request: Array.isArray(data) ? data[0] : data });
+    }
+    if (body.action === "audit_provisioned_client") {
+      const clientId = typeof body.client_id === "string" ? body.client_id.trim() : "";
+      if (!/^[a-z0-9][a-z0-9_]{1,62}$/.test(clientId)) {
+        return json(origin, 400, { error: "A valid provisioned client ID is required." });
+      }
+      const connectionResult = await service.rpc("service_get_client_shopify_audit_connection", {
+        p_operator_id: operatorId,
+        p_client_id: clientId,
+      });
+      if (connectionResult.error) throw new Error(connectionResult.error.message);
+      const connection = Array.isArray(connectionResult.data)
+        ? connectionResult.data[0]
+        : connectionResult.data;
+      if (!connection?.store_domain || !connection?.access_token || !connection?.blog_gid) {
+        throw new Error("The encrypted Shopify connection is incomplete.");
+      }
+
+      const shopify = await readShopify(connection.store_domain, connection.access_token);
+      const observedBlog = shopify.blogs.find((blog) => blog.id === connection.blog_gid);
+      if (shopify.shop.domain.toLowerCase() !== connection.store_domain.toLowerCase() || !observedBlog) {
+        throw new Error("Shopify identity does not match the provisioned client workspace.");
+      }
+      const auditResult = await service.rpc("service_record_client_shopify_identity_audit", {
+        p_operator_id: operatorId,
+        p_client_id: clientId,
+        p_observed_store_domain: shopify.shop.domain,
+        p_observed_blog_gid: observedBlog.id,
+        p_observed_blog_title: observedBlog.title,
+        p_observed_product_count: shopify.productCount,
+      });
+      if (auditResult.error) throw new Error(auditResult.error.message);
+      const audit = Array.isArray(auditResult.data) ? auditResult.data[0] : auditResult.data;
+      return json(origin, 200, {
+        ok: true,
+        audit: {
+          ...audit,
+          store_domain: shopify.shop.domain,
+          blog_title: observedBlog.title,
+          product_count: shopify.productCount,
+        },
+      });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Onboarding action failed.";

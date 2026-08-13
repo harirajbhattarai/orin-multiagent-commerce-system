@@ -337,6 +337,14 @@ export async function provisionOnboardingClient(requestId) {
   return { data: data?.request ?? null, error: error ?? (data?.error ? new Error(data.error) : null) };
 }
 
+export async function auditProvisionedClient(clientId) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: { action: "audit_provisioned_client", client_id: clientId },
+  });
+  return { data: data?.audit ?? null, error: error ?? (data?.error ? new Error(data.error) : null) };
+}
+
 function decisionRequestStorageKey({ clientId, contentItemId, contentItemVersion, decision }) {
   return `orin-decision:${clientId}:${contentItemId}:${contentItemVersion}:${decision}`;
 }
