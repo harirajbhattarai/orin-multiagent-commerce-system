@@ -1,0 +1,2 @@
+create index client_commissioning_audits_audited_by_idx
+  on public.client_commissioning_audits(audited_by);
