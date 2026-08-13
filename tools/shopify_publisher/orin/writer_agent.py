@@ -148,6 +148,7 @@ def _model_validation_receipts(
         body_html,
         target_keyword=target_keyword,
         site_url=site_url,
+        approved_title=title,
     )
     topic_receipt = run_topic_identity_gate(
         job_id=job_number,

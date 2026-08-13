@@ -959,6 +959,7 @@ def run_pipeline():
                     "site_url",
                     "https://hoverboardstore.co.uk",
                 ),
+                approved_title=writer_plan.get("title", ""),
             )
             _hv_words = _quality_receipt["metrics"]["visible_word_count"]
             _hv_safe = _quality_receipt["passed"]

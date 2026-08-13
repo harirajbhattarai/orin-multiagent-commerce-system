@@ -135,6 +135,49 @@ class ContentQualityGateTests(unittest.TestCase):
         self.assertFalse(receipt["metrics"]["target_keyword_in_h1"])
         self.assertIn("CQ_KEYWORD_MISSING_FROM_H1", codes)
 
+    def test_approved_title_resolves_natural_keyword_h1_variant(self):
+        approved_title = (
+            "Electric Scooter for Older Children and Teens: "
+            "Buying Factors That Matter"
+        )
+        html = _valid_article().replace(
+            "<h1>Hoverboard Charger Not Working: Safe Checks</h1>",
+            f"<h1>{approved_title}</h1>",
+            1,
+        )
+        receipt = evaluate_article_quality(
+            html,
+            target_keyword=TARGET_KEYWORD,
+            site_url=SITE_URL,
+            approved_title=approved_title,
+        )
+        codes = {blocker["code"] for blocker in receipt["blockers"]}
+
+        self.assertFalse(receipt["metrics"]["target_keyword_in_h1"])
+        self.assertTrue(receipt["metrics"]["h1_matches_approved_title"])
+        self.assertTrue(
+            receipt["metrics"]["h1_keyword_requirement_satisfied"]
+        )
+        self.assertNotIn("CQ_KEYWORD_MISSING_FROM_H1", codes)
+
+    def test_unapproved_unrelated_h1_remains_blocked(self):
+        html = _valid_article().replace(
+            "<h1>Hoverboard Charger Not Working: Safe Checks</h1>",
+            "<h1>A Completely Different Article</h1>",
+            1,
+        )
+        receipt = evaluate_article_quality(
+            html,
+            target_keyword=TARGET_KEYWORD,
+            site_url=SITE_URL,
+            approved_title="Approved Charger Troubleshooting Guide",
+        )
+        codes = {blocker["code"] for blocker in receipt["blockers"]}
+
+        self.assertFalse(receipt["metrics"]["target_keyword_in_h1"])
+        self.assertFalse(receipt["metrics"]["h1_matches_approved_title"])
+        self.assertIn("CQ_KEYWORD_MISSING_FROM_H1", codes)
+
     def test_highlights_h2_is_not_a_substantive_section(self):
         html = _valid_article().replace(
             '<div class="hs-quick-answer">',

@@ -14,7 +14,7 @@ from html.parser import HTMLParser
 from urllib.parse import urlparse
 
 
-CONTRACT_VERSION = "phase3.5-blog-v1"
+CONTRACT_VERSION = "phase3.5-blog-v2"
 DEFAULT_CONTRACT = {
     "min_visible_words": 1500,
     "min_seo_title_chars": 30,
@@ -296,6 +296,7 @@ def evaluate_article_quality(
     *,
     target_keyword: str,
     site_url: str,
+    approved_title: str = "",
 ) -> dict:
     """Return a machine-readable Phase 3.5 content-quality receipt."""
     parsed = parse_article(html)
@@ -314,6 +315,14 @@ def evaluate_article_quality(
     first_150_words = " ".join(visible_words[:150]).lower()
     keyword_in_opening = bool(keyword and keyword in first_150_words)
     keyword_in_h1 = _keyword_matches_heading(target_keyword, h1)
+    approved_title_normalised = _normalise_space(approved_title).casefold()
+    h1_matches_approved_title = bool(
+        approved_title_normalised
+        and _normalise_space(h1).casefold() == approved_title_normalised
+    )
+    h1_keyword_requirement_satisfied = (
+        keyword_in_h1 or h1_matches_approved_title
+    )
 
     paragraph_norms = [
         _normalise_paragraph(paragraph)
@@ -357,6 +366,9 @@ def evaluate_article_quality(
         "target_keyword": target_keyword,
         "target_keyword_occurrences": keyword_occurrences,
         "target_keyword_in_h1": keyword_in_h1,
+        "approved_title": approved_title,
+        "h1_matches_approved_title": h1_matches_approved_title,
+        "h1_keyword_requirement_satisfied": h1_keyword_requirement_satisfied,
         "target_keyword_in_opening": keyword_in_opening,
         "substantive_sections": substantive_sections,
         "substantive_section_count": len(substantive_sections),
@@ -445,13 +457,16 @@ def evaluate_article_quality(
             shallow_sections,
             f">={c['min_words_per_substantive_section']} words each",
         )
-    if not keyword_in_h1:
+    if not h1_keyword_requirement_satisfied:
         _block(
             blockers,
             "CQ_KEYWORD_MISSING_FROM_H1",
-            "Target keyword is not present in the H1.",
+            "H1 neither represents the target keyword nor matches the approved title.",
             h1,
-            target_keyword,
+            {
+                "target_keyword": target_keyword,
+                "approved_title": approved_title or None,
+            },
         )
     if not keyword_in_opening:
         _block(
