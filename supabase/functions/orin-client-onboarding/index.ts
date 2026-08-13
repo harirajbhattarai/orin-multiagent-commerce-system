@@ -48,23 +48,28 @@ function normalizeStoreDomain(value: unknown) {
 }
 
 async function readShopify(storeDomain: string, accessToken: string) {
-  const shopifyResponse = await fetch(
-    `https://${storeDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Shopify-Access-Token": accessToken,
+  let shopifyResponse: Response;
+  try {
+    shopifyResponse = await fetch(
+      `https://${storeDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": accessToken,
+        },
+        body: JSON.stringify({
+          query: `query OrinOnboarding {
+            shop { name myshopifyDomain }
+            blogs(first: 50) { nodes { id title handle } }
+            productsCount { count }
+          }`,
+        }),
       },
-      body: JSON.stringify({
-        query: `query OrinOnboarding {
-          shop { name myshopifyDomain }
-          blogs(first: 50) { nodes { id title handle } }
-          productsCount { count }
-        }`,
-      }),
-    },
-  );
+    );
+  } catch {
+    throw new Error("The encrypted Shopify credential could not be used. Re-save the Admin API token.");
+  }
 
   if (!shopifyResponse.ok) {
     throw new Error(
