@@ -1,0 +1,142 @@
+{
+  "schema": "orin.approval-only-reconciliation-proof/v1",
+  "verified_at": "2026-08-13T11:45:00Z",
+  "status": "passed",
+  "client_id": "hoverboard_store",
+  "content_item": {
+    "content_item_id": "77304542-e46b-4f7c-a7ed-f8eff2fa1382",
+    "item_number": 41,
+    "topic": "All-Terrain Hoverboards: Tyres, Surfaces and Buyer Checks",
+    "target_keyword": "all terrain hoverboard buying guide",
+    "status_after": "draft_created",
+    "version_after": 3,
+    "shopify_article_id": "1007434367324",
+    "shopify_handle": "all-terrain-hoverboards-tyres-surfaces",
+    "last_run_id": "hb_20260813T114312Z_5201b5dc"
+  },
+  "approved_draft": {
+    "draft_id": "0318c992-e412-40fa-a438-4a32cc3e6c8d",
+    "content_item_version": 2,
+    "source_run_id": "hb_20260813T102816Z_e895e362",
+    "word_count": 1772,
+    "body_sha256": "513a085a30551d19765865053dfceb0e82764624673a12fece0e122c5f045dee"
+  },
+  "approval": {
+    "decision_id": "a0a7039a-9fa6-4348-83c5-ee96d5d41694",
+    "request_id": "68c17715-fc86-4582-92b5-747adcc26c23",
+    "decision": "approve_hidden_draft",
+    "processing_status": "consumed",
+    "dashboard_live_publish_capability": false,
+    "outcome": "Exact reviewed HTML frozen for approval-only unpublished Shopify-draft replay."
+  },
+  "execution": {
+    "source_job_key": "decision:a0a7039a-9fa6-4348-83c5-ee96d5d41694",
+    "source_job_key_count": 1,
+    "job_id": "76eb63b2-2e53-4002-a666-54e2fe706203",
+    "request_id": "68c17715-fc86-4582-92b5-747adcc26c23",
+    "requested_mode": "hidden-draft",
+    "job_status": "completed",
+    "attempt_count": 5,
+    "successful_run_id": "hb_20260813T114312Z_5201b5dc",
+    "code_version": "6ae6561b5e01a6250b1cfd10ad7392f06c4ba25a",
+    "status": "completed",
+    "decision": "APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED",
+    "error_code": null,
+    "replay_disposition": "terminal",
+    "shopify_write_state": "article_observed",
+    "shopify_create_count": 1,
+    "shopify_create_count_semantics": "one request-owned article observed; the successful recovery called no create mutation",
+    "shopify_published": false,
+    "queue_changed": false,
+    "reconciliation_status": "reconciled"
+  },
+  "failed_closed_attempts": [
+    {
+      "attempt": 1,
+      "run_id": "hb_20260813T111459Z_be3b1492",
+      "code_version": "8b9ef58525aca55f38428829281e3f095302074c"
+    },
+    {
+      "attempt": 2,
+      "run_id": "hb_20260813T111601Z_b96e6129",
+      "code_version": "8b9ef58525aca55f38428829281e3f095302074c"
+    },
+    {
+      "attempt": 3,
+      "run_id": "hb_20260813T111703Z_189315f8",
+      "code_version": "8b9ef58525aca55f38428829281e3f095302074c"
+    },
+    {
+      "attempt": 4,
+      "run_id": "hb_20260813T113934Z_a571445a",
+      "reported_code_version": "6ae6561b5e01a6250b1cfd10ad7392f06c4ba25a",
+      "deployment_fault": "image was labeled with the new revision but built from the previous ORIN_PROJECT_ROOT; the approval gate was closed again before correction"
+    }
+  ],
+  "shopify": {
+    "verification_mode": "read_only_graphql_idempotency_marker_scan",
+    "marker_match_count": 1,
+    "article_gid": "gid://shopify/Article/1007434367324",
+    "article_id": "1007434367324",
+    "handle": "all-terrain-hoverboards-tyres-surfaces",
+    "title": "All-Terrain Hoverboards: Tyres, Surfaces and Buyer Checks",
+    "published_at": null,
+    "shopify_published": false,
+    "durable_article_ownership_count": 1,
+    "idempotency_marker": "orin-v1:hoverboard_store:68c17715-fc86-4582-92b5-747adcc26c23",
+    "duplicate_articles": false
+  },
+  "body_verification": {
+    "approved_raw_body_sha256": "513a085a30551d19765865053dfceb0e82764624673a12fece0e122c5f045dee",
+    "fetched_raw_body_sha256": "7a4dbfe3a3e816a6a2366bcbcaa2a352cbb99f4085aa57ebc32b24ddde2209df",
+    "canonicalization": "shopify-safe-html-serialization/v3",
+    "observed_difference": "Shopify inserted nine render-equivalent newline blocks between adjacent or nested FAQ div elements.",
+    "approved_canonical_body_sha256": "0141a8e4e72f9f5ca6e0d60186f92df0c62bf299eeb8c9e9833a8836f85c2dbe",
+    "fetched_canonical_body_sha256": "0141a8e4e72f9f5ca6e0d60186f92df0c62bf299eeb8c9e9833a8836f85c2dbe",
+    "canonical_hashes_match": true
+  },
+  "incidents": [
+    {
+      "incident_id": "813a9c32-28a7-48a5-b0aa-ce163934ced0",
+      "code": "ORIN_RECONCILIATION_ATTEMPTS_EXHAUSTED",
+      "status": "resolved"
+    },
+    {
+      "incident_id": "405e7150-c1e2-4b3f-873e-9ba376688a90",
+      "code": "ORIN_RECONCILIATION_ATTEMPTS_EXHAUSTED",
+      "status": "resolved"
+    }
+  ],
+  "deployment": {
+    "release_root": "/docker/orin/releases/6ae6561b5e01a6250b1cfd10ad7392f06c4ba25a-canonical",
+    "checkout_clean": true,
+    "checkout_revision": "6ae6561b5e01a6250b1cfd10ad7392f06c4ba25a",
+    "worker_image_revision": "6ae6561b5e01a6250b1cfd10ad7392f06c4ba25a",
+    "worker_restart_count": 0,
+    "scheduler_trigger_healthy": true,
+    "watchdog_healthy": true,
+    "prefect_owner_worker_healthy": true
+  },
+  "dashboard": {
+    "item_number": 41,
+    "stage": "Approved",
+    "status": "Shopify draft",
+    "version": 3
+  },
+  "production_state": {
+    "client_status": "active",
+    "request_intake_enabled": true,
+    "automation_enabled": true,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": true,
+    "allowed_mode": "dry-run",
+    "max_concurrency": 1,
+    "scheduler_state": "healthy",
+    "scheduler_owner": "prefect:orin-hbstore-prod",
+    "active_jobs": 0,
+    "open_incidents": 0
+  },
+  "private_evidence": {
+    "successful_run_directory": "/docker/orin/evidence/hb_20260813T114312Z_5201b5dc"
+  }
+}

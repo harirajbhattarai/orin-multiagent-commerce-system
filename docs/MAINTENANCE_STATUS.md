@@ -43,6 +43,22 @@ second create, persisted the canonical handle, published nothing, left the
 queue unchanged, and resolved the recovery incident. Durable evidence is in
 `docs/evidence/2026-08-12-job37-anchor-reconciliation-proof.json`.
 
+Job 41, “All-Terrain Hoverboards: Tyres, Surfaces and Buyer Checks,” completed
+the same approval-only path on 2026-08-13. Shopify preserved the exact content
+and marker but inserted render-equivalent newlines between nested FAQ `div`
+blocks. The worker failed closed, kept the item in review, and opened a
+reconciliation incident instead of claiming an unverified success. PR #120
+added only that observed block-boundary serialization to the narrow
+canonicalizer. After correcting the immutable release root and verifying the
+patched image against the live article, guarded attempt 5 found the existing
+unpublished article before any create call. Run
+`hb_20260813T114312Z_5201b5dc` completed at revision
+`6ae6561b5e01a6250b1cfd10ad7392f06c4ba25a`, persisted article
+`1007434367324`, created no duplicate, and moved the dashboard projection to
+`Approved` / `Shopify draft`. Both recovery incidents are resolved. Durable
+evidence is in
+`docs/evidence/2026-08-13-job41-faq-reconciliation-proof.json`.
+
 Phase 7 Prefect dry-run production ownership is active for Hoverboard Store.
 The reviewed Prefect server, scheduler deployment, owner worker, and watchdog
 policy run at revision `4b96b85e1e5f64a564ba4554a9471c436dc3a4af`.
