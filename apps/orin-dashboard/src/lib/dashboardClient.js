@@ -19,6 +19,10 @@ const supabase = isLiveReadEnabled
     })
   : null;
 
+export function dashboardSupabaseClient() {
+  return supabase;
+}
+
 function formatMoment(value, options) {
   if (!value) return "Not observed yet";
   const date = new Date(value);
@@ -208,6 +212,74 @@ export function subscribeToAuthChanges(callback) {
   if (!supabase) return () => {};
   const { data } = supabase.auth.onAuthStateChange(() => callback());
   return () => data.subscription.unsubscribe();
+}
+
+export async function loadOnboardingAccess() {
+  if (!supabase) return { allowed: false, role: null, error: null };
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !sessionData.session?.user) {
+    return { allowed: false, role: null, error: sessionError };
+  }
+  const { data, error } = await supabase
+    .from("platform_operators")
+    .select("role,active")
+    .eq("user_id", sessionData.session.user.id)
+    .eq("active", true)
+    .maybeSingle();
+  return { allowed: Boolean(data), role: data?.role ?? null, error };
+}
+
+export async function loadOnboardingRequests() {
+  if (!supabase) return { data: [], error: null };
+  return supabase
+    .from("client_onboarding_requests")
+    .select("request_id,client_id,display_name,owner_email,shopify_store_domain,market_country,timezone,brand_voice,content_categories,product_scope,shopify_blog_gid,shopify_blog_title,credential_status,status,commissioning_status,last_error,created_at,updated_at")
+    .order("created_at", { ascending: false });
+}
+
+export async function createOnboardingRequest(payload) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: {
+      action: "create_request",
+      client_id: payload.clientId,
+      display_name: payload.displayName,
+      owner_email: payload.ownerEmail,
+      store_domain: payload.storeDomain,
+      market_country: payload.marketCountry,
+      timezone: payload.timezone,
+      brand_voice: payload.brandVoice,
+      content_categories: payload.contentCategories,
+    },
+  });
+  return { data: data?.request ?? null, error: error ?? (data?.error ? new Error(data.error) : null) };
+}
+
+export async function verifyOnboardingShopify(payload) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: payload,
+  });
+  return {
+    data,
+    error: error ?? (data?.error ? new Error(data.error) : null),
+  };
+}
+
+export async function updateOnboardingScope(requestId, productScope) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: { action: "update_scope", request_id: requestId, product_scope: productScope },
+  });
+  return { data: data?.request ?? null, error: error ?? (data?.error ? new Error(data.error) : null) };
+}
+
+export async function provisionOnboardingClient(requestId) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: { action: "provision_client", request_id: requestId },
+  });
+  return { data: data?.request ?? null, error: error ?? (data?.error ? new Error(data.error) : null) };
 }
 
 function decisionRequestStorageKey({ clientId, contentItemId, contentItemVersion, decision }) {

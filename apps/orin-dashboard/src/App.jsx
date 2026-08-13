@@ -23,11 +23,13 @@ import {
   SignOut,
   Sparkle,
   Storefront,
+  UserPlus,
   WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import {
   loadDashboardData,
+  loadOnboardingAccess,
   loadReviewItem,
   recordContentDecision,
   sendMagicLink,
@@ -41,8 +43,10 @@ import {
   selectRouteBoundReviewArticle,
 } from "./reviewArticle.js";
 import { approvalAvailability } from "./operationalState.js";
+import { Onboarding } from "./Onboarding.jsx";
 
 function readPath(path = window.location.pathname) {
+  if (path.startsWith("/onboarding")) return "onboarding";
   if (path.startsWith("/review/")) return "review";
   if (path.startsWith("/queue")) return "queue";
   return "overview";
@@ -112,10 +116,11 @@ function StoreBadge({ compact = false }) {
   );
 }
 
-function AppShell({ route, navigate, children, dataSource, operations, queueCount, onSignOut }) {
+function AppShell({ route, navigate, children, dataSource, operations, queueCount, onSignOut, operatorAccess }) {
   const navItems = [
     { id: "overview", label: "Overview", icon: House, path: "/" },
     { id: "queue", label: "Content queue", icon: ListChecks, path: "/queue" },
+    ...(operatorAccess ? [{ id: "onboarding", label: "Add client", icon: UserPlus, path: "/onboarding" }] : []),
   ];
   const liveSource = dataSource === "supabase";
   const environmentLabel = liveSource || operations.isPaused ? operations.workspaceLabel : "Safe preview";
@@ -643,6 +648,7 @@ function Review({ data, jobId, navigate, dataSource }) {
 export function App() {
   const { route, path, navigate } = useRoute();
   const [state, setState] = useState({ data: null, source: "loading", error: null, requiresAuth: false });
+  const [operatorAccess, setOperatorAccess] = useState(false);
 
   const reload = () => {
     setState((current) => ({ ...current, source: "loading", error: null }));
@@ -651,9 +657,18 @@ export function App() {
 
   useEffect(() => {
     let active = true;
-    loadDashboardData().then((result) => active && setState(result));
+    Promise.all([loadDashboardData(), loadOnboardingAccess()]).then(([result, access]) => {
+      if (!active) return;
+      setState(result);
+      setOperatorAccess(access.allowed);
+    });
     const unsubscribe = subscribeToAuthChanges(() => {
-      if (active) loadDashboardData().then((result) => active && setState(result));
+      if (!active) return;
+      Promise.all([loadDashboardData(), loadOnboardingAccess()]).then(([result, access]) => {
+        if (!active) return;
+        setState(result);
+        setOperatorAccess(access.allowed);
+      });
     });
     return () => { active = false; unsubscribe(); };
   }, []);
@@ -665,10 +680,13 @@ export function App() {
   }
 
   return (
-    <AppShell route={route} navigate={navigate} dataSource={state.source} operations={state.data.operations} queueCount={state.data.counts.review} onSignOut={signOutDashboard}>
+    <AppShell route={route} navigate={navigate} dataSource={state.source} operations={state.data.operations} queueCount={state.data.counts.review} onSignOut={signOutDashboard} operatorAccess={operatorAccess}>
       {route === "overview" && <Overview data={state.data} navigate={navigate} />}
       {route === "queue" && <Queue data={state.data} navigate={navigate} />}
       {route === "review" && <Review data={state.data} jobId={reviewJobIdFromPath(path)} navigate={navigate} dataSource={state.source} />}
+      {route === "onboarding" && (operatorAccess
+        ? <Onboarding />
+        : <div className="empty-state"><WarningCircle size={26} /><strong>Platform operator access required</strong><span>This route cannot create or view onboarding records for your account.</span></div>)}
     </AppShell>
   );
 }
