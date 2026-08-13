@@ -1,8 +1,27 @@
 # ORIN maintenance status
 
-Last updated: 2026-08-12
+Last updated: 2026-08-13
 
 ## Current phase
+
+Job 38, “Electric Scooter for Older Children and Teens: Buying Factors That
+Matter,” now has a completed 1,993-word local review draft. The first run
+exposed a contradictory contract: it required the H1 to remain the approved
+title while also requiring the exact target keyword in that H1. PR #117 made
+an exact approved H1 satisfy the heading requirement while preserving exact
+keyword checks in the opening and article body. A fresh run then exposed
+model-variable SEO metadata at 180 characters. PR #118 moved all structured
+SEO metadata to deterministic approved-plan normalization before quality
+validation.
+
+Both fixes passed focused, full, dashboard, container, and database CI before
+deployment. Run `hb_20260813T093034Z_b24e7473` completed on exact worker
+revision `8b9ef58525aca55f38428829281e3f095302074c` with decision
+`READY_TO_CREATE_SELECTED_JOB_DRAFT`. It persisted version 4 draft
+`6c9b943f-9f45-4949-80fe-b24ba62f29dc`, performed zero Shopify creates,
+published nothing, left the queue unchanged, and required no reconciliation.
+There are zero active jobs and zero open incidents. Durable details are in
+`docs/evidence/2026-08-13-job38-content-quality-recovery-proof.json`.
 
 Phase 6 exact-reviewed hidden-draft proof is complete for Hoverboard Store.
 Supabase owns the 60-item plan, execution jobs bind to plan items through a
