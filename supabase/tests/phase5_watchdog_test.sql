@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(11);
 
 select ok(
   (
@@ -27,6 +27,16 @@ select ok(
     'SELECT'
   ),
   'orin_watchdog can read only the required client and scheduler columns'
+);
+
+select ok(
+  has_column_privilege(
+    'orin_watchdog',
+    'public.client_runtime_settings',
+    'approved_draft_writes_enabled',
+    'SELECT'
+  ),
+  'orin_watchdog can read the approval-only gate used by its safety snapshot'
 );
 
 select ok(
@@ -114,6 +124,11 @@ from public.scheduler_health
 where client_id = 'hoverboard_store'
 \gset watchdog_
 
+select count(approved_draft_writes_enabled) as hbstore_settings_count
+from public.client_runtime_settings
+where client_id = 'hoverboard_store'
+\gset watchdog_
+
 reset role;
 
 select is(
@@ -132,6 +147,12 @@ select is(
   :'watchdog_hbstore_scheduler_count'::bigint,
   1::bigint,
   'orin_watchdog can observe the fixed HBStore scheduler row'
+);
+
+select is(
+  :'watchdog_hbstore_settings_count'::bigint,
+  1::bigint,
+  'orin_watchdog can execute the complete runtime-safety projection'
 );
 
 select * from finish();
