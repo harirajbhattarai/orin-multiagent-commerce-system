@@ -13,7 +13,7 @@ Phase 3.5 closes that gap before scheduler transfer.
 ## Production rule
 
 No Hoverboard Store article may reach the Shopify transaction unless the exact
-writer HTML passes the `phase3.5-blog-v1` content-quality contract.
+writer HTML passes the `phase3.5-blog-v2` content-quality contract.
 
 The contract is deterministic and evaluates rendered text. HTML tags, comments,
 and metadata do not count toward article length.
@@ -29,7 +29,9 @@ and metadata do not count toward article length.
 - At least 5 distinct internal links
 - At least 4 substantive sections
 - At least 100 visible words in each substantive section
-- Target keyword in the H1 and opening
+- H1 represents the target keyword or exactly matches the version-bound,
+  human-approved title; the exact target keyword remains mandatory near the
+  opening
 - Natural target-keyword usage between 2 and 12 exact occurrences
 - No repeated substantive paragraphs
 - No placeholders or unfinished content

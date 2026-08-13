@@ -835,6 +835,7 @@ def review_selected_job_draft(
             content,
             target_keyword=writer_plan.get("target_keyword", ""),
             site_url=site_url,
+            approved_title=writer_plan.get("title", ""),
         )
         quality.update(quality_receipt["metrics"])
         quality["contract_version"] = quality_receipt["contract_version"]

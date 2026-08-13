@@ -172,9 +172,11 @@ Required output contract:
 - Use at least ten useful paragraphs and five approved internal links.
 - Every href must exactly match a URL supplied in internal_link_plan or
   cta_plan.button_href. Do not invent, shorten, expand, or guess URLs.
-- Use the exact target keyword naturally 4-8 times, including the H1/opening,
-  and never more than 12 times. Use natural synonyms elsewhere instead of
-  repeating the exact phrase in every section heading or the CTA.
+- Use the exact target keyword naturally 4-8 times, including near the opening,
+  and never more than 12 times. The H1 must remain exactly equal to the approved
+  title; do not rewrite it merely to force an exact-match keyword. Use natural
+  synonyms elsewhere instead of repeating the exact phrase in every section
+  heading or the CTA.
 - Do not repeat paragraphs or pad the article with generic filler.
 - Do not add FAQPage JSON-LD.
 - Do not include inline styles, style/script tags, document wrappers, or visible

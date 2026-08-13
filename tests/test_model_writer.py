@@ -48,7 +48,7 @@ WRITER_PLAN = {
     "internal_link_plan": [],
     "cta_plan": {},
     "claims_to_avoid": ["guarantee"],
-    "content_quality_contract": {"version": "phase3.5-blog-v1"},
+    "content_quality_contract": {"version": "phase3.5-blog-v2"},
 }
 ARTICLE = """<!--
 Meta Title: Hoverboard Charger Not Working: Safe Checks
@@ -106,6 +106,14 @@ class ModelWriterTests(unittest.TestCase):
         )
         self.assertIn(
             "Use every h2_outline[].h2 value verbatim",
+            payload["messages"][1]["content"],
+        )
+        self.assertIn(
+            "H1 must remain exactly equal to the approved",
+            payload["messages"][1]["content"],
+        )
+        self.assertNotIn(
+            "including the H1/opening",
             payload["messages"][1]["content"],
         )
         self.assertIn(
