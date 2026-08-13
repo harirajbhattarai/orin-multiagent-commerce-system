@@ -111,7 +111,7 @@ export async function loadDashboardData() {
       .maybeSingle(),
     supabase
       .from("scheduler_health")
-      .select("state,scheduler_owner,last_heartbeat_at,updated_at,details")
+      .select("state,scheduler_owner,last_heartbeat_at,updated_at")
       .eq("client_id", dashboardData.client.id)
       .maybeSingle(),
   ]);
