@@ -1,0 +1,74 @@
+{
+  "schema": "orin.maintenance-proof/v1",
+  "recorded_at": "2026-08-13T09:34:00+00:00",
+  "client_id": "hoverboard_store",
+  "content_item": {
+    "item_number": 38,
+    "content_item_id": "a48ab6e1-85b2-4c1d-b939-fb5c33aad8c8",
+    "title": "Electric Scooter for Older Children and Teens: Buying Factors That Matter",
+    "target_keyword": "electric scooter for teenagers UK",
+    "status": "local_draft_created",
+    "version": 4
+  },
+  "failures": [
+    {
+      "run_id": "hb_20260813T083145Z_f6afbc05",
+      "code_version": "20142585fd2319a38fab5fb4994fa05a30613d70",
+      "blocker": "CQ_KEYWORD_MISSING_FROM_H1",
+      "reason": "The contract simultaneously required the exact approved H1 and the exact target keyword in that H1.",
+      "shopify_create_count": 0,
+      "shopify_published": false,
+      "queue_changed": false
+    },
+    {
+      "run_id": "hb_20260813T091705Z_5d0104b8",
+      "code_version": "9e6eee2cb61bb0f3d5dd7d00ae3cd60f4b83120b",
+      "blocker": "CQ_META_DESCRIPTION_LENGTH",
+      "reason": "The model-authored meta description was 180 characters; the approved range is 120-160.",
+      "shopify_create_count": 0,
+      "shopify_published": false,
+      "queue_changed": false
+    }
+  ],
+  "fixes": [
+    {
+      "pull_request": 117,
+      "merge_revision": "9e6eee2cb61bb0f3d5dd7d00ae3cd60f4b83120b",
+      "scope": "Treat the exact approved H1 as satisfying the heading requirement while retaining keyword checks in the opening and body."
+    },
+    {
+      "pull_request": 118,
+      "merge_revision": "8b9ef58525aca55f38428829281e3f095302074c",
+      "scope": "Normalize SEO title, meta description, approved handle, target keyword, cluster, and job identity from the approved plan before validation."
+    }
+  ],
+  "recovery": {
+    "decision_id": "7aea9c94-09f4-40a0-b959-826d6667018e",
+    "request_id": "8acd86bc-97e3-40dd-9785-d4b01e9c205b",
+    "job_id": "07081233-7498-4231-ace4-efc9312a34b9",
+    "run_id": "hb_20260813T093034Z_b24e7473",
+    "status": "completed",
+    "decision": "READY_TO_CREATE_SELECTED_JOB_DRAFT",
+    "code_version": "8b9ef58525aca55f38428829281e3f095302074c",
+    "draft_id": "6c9b943f-9f45-4949-80fe-b24ba62f29dc",
+    "draft_version": 4,
+    "body_sha256": "2f45954c2013094c7e8306959d093616ab9f99dbafe621b2780a66f58e8ebca5",
+    "word_count": 1993,
+    "meta_title": "Electric Scooter For Teenagers Uk",
+    "meta_description_chars": 153,
+    "shopify_create_count": 0,
+    "shopify_published": false,
+    "queue_changed": false,
+    "reconciliation_status": "not_required",
+    "error_code": null
+  },
+  "postconditions": {
+    "worker_image": "local/orin-worker:8b9ef58525aca55f38428829281e3f095302074c",
+    "worker_restart_count": 0,
+    "scheduler_trigger_healthy": true,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "broad_shopify_writes_enabled": false,
+    "allowed_scheduler_mode": "dry-run"
+  }
+}
