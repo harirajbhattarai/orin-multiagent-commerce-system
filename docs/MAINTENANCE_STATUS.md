@@ -4,6 +4,37 @@ Last updated: 2026-08-13
 
 ## Current phase
 
+HBStore completed a full reliability checkpoint after Job 41 on 2026-08-13.
+Content execution is intentionally paused: the client is in maintenance,
+request intake and automation are off, broad and approval-only Shopify writes
+are off, the scheduler has no owner, the Prefect deployment/schedule/owner
+pool are paused, and all OpenClaw schedules are disabled with no next wake.
+There are zero active jobs, zero open incidents, and zero recorded decisions.
+
+The checkpoint found one genuine monitoring regression. The 11:15 read-only
+watchdog could not select the Phase 6 `approved_draft_writes_enabled` column,
+so it returned `ORIN_WATCHDOG_CHECK_FAILED` even though its container was
+healthy. PR #122 added only that missing column-level `SELECT` grant and
+executable pgTAP coverage. All 269 Python tests, 169 database tests, database
+lint, and GitHub CI passed before the migration was applied. A post-fix
+read-only check executed the complete projection and returned the expected
+`ORIN_SCHEDULER_NOT_ACTIVE` alert because maintenance mode was deliberate.
+
+Jobs 28-31 also predated durable Shopify-handle persistence. Read-only Shopify
+queries verified their stored article IDs, exact handles, Journal Insights
+blog ownership, and `publishedAt=null`; those four handles were backfilled.
+Jobs 28-41 now contain 14 unique article IDs and 14 handles, all at
+`draft_created`, with no duplicate article ID. Items 3, 21, and 22 remain an
+inactive human-review backlog rather than active execution work.
+
+The controlled hidden-draft architecture has therefore passed this
+maintenance checkpoint, but it is not currently active. Resuming content is a
+separate explicit operation: restore Prefect ownership and the daily schedule,
+open only the approved dry-run gates, re-enable the read-only watchdog, and
+require a healthy receipt before approving another content item. Durable
+details are in
+`docs/evidence/2026-08-13-hbstore-reliability-checkpoint.json`.
+
 Job 38, “Electric Scooter for Older Children and Teens: Buying Factors That
 Matter,” now has a completed 1,993-word local review draft. The first run
 exposed a contradictory contract: it required the H1 to remain the approved
@@ -59,21 +90,23 @@ unpublished article before any create call. Run
 evidence is in
 `docs/evidence/2026-08-13-job41-faq-reconciliation-proof.json`.
 
-Phase 7 Prefect dry-run production ownership is active for Hoverboard Store.
+Phase 7 Prefect dry-run production ownership was commissioned for Hoverboard
+Store and is intentionally paused by the current maintenance checkpoint.
 The reviewed Prefect server, scheduler deployment, owner worker, and watchdog
 policy run at revision `4b96b85e1e5f64a564ba4554a9471c436dc3a4af`.
-Prefect owns the fixed daily `0 11 * * *` Europe/London request boundary; the
-legacy and dedicated OpenClaw production schedulers remain disabled. The
-OpenClaw read-only watchdog is active at `15 11 * * *` Europe/London with no
-delivery.
+When active, Prefect owns the fixed daily `0 11 * * *` Europe/London request
+boundary; the legacy and dedicated OpenClaw production schedulers remain
+disabled. The OpenClaw read-only watchdog normally runs at `15 11 * * *`
+Europe/London with no delivery and is also disabled during this pause.
 
 The current safe state supersedes the older chronological operating-state
-notes below: the client is active, request intake and automation are enabled,
-maximum concurrency is one, allowed mode is `dry-run`, and scheduler owner is
-`prefect:orin-hbstore-prod`. Shopify writes remain disabled. The Prefect owner
-worker, Prefect server, automatic ORIN worker, scheduler-trigger, and watchdog
-are healthy with zero restarts; there are zero active jobs and zero open
-incidents. Live publishing was never enabled.
+notes below: the client is in maintenance, request intake and automation are
+disabled, maximum concurrency is one, allowed mode is `dry-run`, Shopify
+writes are disabled, and scheduler ownership is disabled. Prefect and
+OpenClaw schedules are paused/disabled. The Prefect services, automatic ORIN
+worker, scheduler-trigger, and watchdog remain healthy with zero restarts;
+there are zero active jobs and zero open incidents. Live publishing was never
+enabled.
 
 Phase 3 manual verification is complete. Phase 4 automatic
 trigger-plus-worker commissioning passed on the fresh London-date source key
