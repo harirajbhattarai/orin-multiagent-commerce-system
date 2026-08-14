@@ -315,9 +315,12 @@ services:
       ORIN_WORKER_DATABASE_ROLE: orin_hcs_worker
       ORIN_REPO_ROOT: /app
       ORIN_WORKSPACE_ROOT: /runtime
-      ORIN_MODEL_WRITER_ENABLED: "0"
+      ORIN_MODEL_WRITER_ENABLED: "${ORIN_HCS_MODEL_WRITER_ENABLED:-0}"
+      ORIN_WRITER_API_KEY_FILE: /run/secrets/hcs_writer_api_key
+      ORIN_WRITER_TIMEOUT_SECONDS: "240"
     secrets:
       - hcs_worker_database_url
+      - hcs_writer_api_key
     volumes:
       - type: bind
         source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets
@@ -403,6 +406,8 @@ secrets:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/worker_database_url
   hcs_worker_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hcs_worker_database_url
+  hcs_writer_api_key:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hcs_writer_api_key
   hoverboard_shopify_access_token:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hoverboard_shopify_access_token
   writer_api_key:

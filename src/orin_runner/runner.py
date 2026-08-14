@@ -158,9 +158,10 @@ def _read_existing_result(
     requested_mode: str,
     as_of_date: str | None,
     job_number: str | None,
+    claim_attempt: int | None = None,
 ) -> tuple[dict[str, Any] | None, int]:
     if not request_index.exists():
-        return None, 1
+        return None, claim_attempt or 1
     pointer = json.loads(request_index.read_text(encoding="utf-8"))
     expected = {
         "client_id": client_id,
@@ -174,6 +175,16 @@ def _read_existing_result(
     result_path = Path(pointer["final_result_path"])
     result = json.loads(result_path.read_text(encoding="utf-8"))
     attempt = int(result.get("attempt", pointer.get("attempt", 1)))
+    if claim_attempt is not None and attempt != claim_attempt:
+        if requested_mode != "dry-run":
+            raise IdempotencyConflictError(
+                "a database claim attempt cannot replace cached Shopify-write evidence"
+            )
+        # A dry-run can be executed again safely when database finalization did
+        # not consume the prior local result. Bind the replacement evidence to
+        # the exact durable lease attempt so completion cannot persist a stale
+        # runner-local attempt number.
+        return None, claim_attempt
     disposition = result.get("replay_disposition")
     if result.get("schema") != SCHEMA_VERSION:
         # v1 did not encode replay safety. Re-execute through the marker-first
@@ -565,6 +576,7 @@ def run_client(
     job_number: str | None = None,
     durable_db_mode: bool = False,
     content_plan_snapshot: dict[str, Any] | None = None,
+    claim_attempt: int | None = None,
     pipeline_command: Sequence[str] | None = None,
     pipeline_preview_path: Path = PIPELINE_PREVIEW_PATH,
     pipeline_timeout_seconds: float = 900,
@@ -578,6 +590,8 @@ def run_client(
         if not re.fullmatch(r"[1-9][0-9]*", job_number):
             raise ValueError("job_number must be a positive integer")
         job_number = str(int(job_number))
+    if claim_attempt is not None and claim_attempt < 1:
+        raise ValueError("claim_attempt must be a positive integer")
 
     artifact_root.mkdir(parents=True, exist_ok=True, mode=0o700)
     artifact_root.chmod(0o700)
@@ -593,6 +607,7 @@ def run_client(
             requested_mode=mode,
             as_of_date=as_of_date,
             job_number=job_number,
+            claim_attempt=claim_attempt,
         )
         if existing is not None:
             return existing

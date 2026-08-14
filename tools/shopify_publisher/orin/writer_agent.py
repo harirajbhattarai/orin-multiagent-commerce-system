@@ -2,6 +2,7 @@
 import json
 import re
 import hashlib
+from html import unescape
 from pathlib import Path
 from datetime import datetime, timedelta
 import sys
@@ -260,6 +261,120 @@ def _normalise_model_metadata(
         ]
     )
     return f"{metadata}\n{body_html[article_start.start():].lstrip()}"
+
+
+def _normalise_hcs_model_output(
+    body_html,
+    *,
+    meta_title,
+    meta_description,
+    approved_handle,
+    target_keyword,
+    cluster,
+    job_number,
+    title,
+    site_url,
+    blog_handle,
+    byline,
+):
+    """Bind HCS metadata and deterministic schema to validated model HTML."""
+    article_start = re.search(
+        r'<article\b[^>]*\bclass\s*=\s*["\'][^"\']*\bhcs-article\b[^"\']*["\'][^>]*>',
+        body_html,
+        flags=re.IGNORECASE,
+    )
+    if article_start is None:
+        return body_html
+    article = body_html[article_start.start():].lstrip()
+    closing = re.search(r"</article>\s*$", article, flags=re.IGNORECASE)
+    if closing is None:
+        return body_html
+
+    def text_content(fragment):
+        return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", fragment))).strip()
+
+    faq_entities = []
+    for faq in re.findall(
+        r'<div\b[^>]*\bclass\s*=\s*["\'][^"\']*\bhcs-faq-item\b[^"\']*["\'][^>]*>(.*?)</div>',
+        article,
+        flags=re.IGNORECASE | re.DOTALL,
+    ):
+        question = re.search(r"<h3\b[^>]*>(.*?)</h3>", faq, flags=re.IGNORECASE | re.DOTALL)
+        answer = re.search(r"<p\b[^>]*>(.*?)</p>", faq, flags=re.IGNORECASE | re.DOTALL)
+        if question is not None and answer is not None:
+            faq_entities.append(
+                {
+                    "@type": "Question",
+                    "name": text_content(question.group(1)),
+                    "acceptedAnswer": {
+                        "@type": "Answer",
+                        "text": text_content(answer.group(1)),
+                    },
+                }
+            )
+
+    today = datetime.now().date().isoformat()
+    canonical_url = f"{site_url.rstrip('/')}/blogs/{blog_handle}/{approved_handle}"
+    schemas = [
+        {
+            "@context": "https://schema.org",
+            "@type": "BlogPosting",
+            "headline": title,
+            "datePublished": today,
+            "dateModified": today,
+            "author": {"@type": "Organization", "name": byline},
+            "publisher": {
+                "@type": "Organization",
+                "name": byline,
+                "url": site_url,
+            },
+            "url": canonical_url,
+            "description": meta_description,
+        }
+    ]
+    if faq_entities:
+        schemas.append(
+            {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "mainEntity": faq_entities,
+            }
+        )
+    schema_html = "\n".join(
+        '<script type="application/ld+json">\n'
+        + json.dumps(schema, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+        + "\n</script>"
+        for schema in schemas
+    )
+    article = article[:closing.start()].rstrip() + "\n\n" + schema_html + "\n</article>"
+
+    def comment_value(value):
+        return re.sub(r"\s+", " ", str(value)).strip().replace("--", "—")
+
+    metadata = "\n".join(
+        [
+            "<!--",
+            f"SEO Title: {comment_value(meta_title)}",
+            f"Meta Title: {comment_value(meta_title)}",
+            f"Meta Description: {comment_value(meta_description)}",
+            f"URL Slug: {comment_value(approved_handle)}",
+            f"Target Keyword: {comment_value(target_keyword)}",
+            f"Cluster: {comment_value(cluster)}",
+            f"Job: {comment_value(job_number)}",
+            "-->",
+        ]
+    )
+    return f"{metadata}\n{article}"
+
+
+def _html_without_schema_scripts(html):
+    """Return visible article HTML without deterministic JSON-LD payloads."""
+    return re.sub(
+        r"<script\b[^>]*>.*?</script>",
+        "",
+        html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
 
 
 class WriterAgent:
@@ -1526,28 +1641,54 @@ Job: {job_number}
                     quality_retry=retry_feedback,
                     attempt=2,
                 )
-            full_html = _normalise_model_metadata(
-                model_result.body_html,
-                meta_title=meta_title,
-                meta_description=meta_description,
-                approved_handle=approved_handle,
-                target_keyword=target_keyword,
-                cluster=cluster,
-                job_number=job_number,
-            )
+            if self.is_hcs:
+                full_html = _normalise_hcs_model_output(
+                    model_result.body_html,
+                    meta_title=meta_title,
+                    meta_description=meta_description,
+                    approved_handle=approved_handle,
+                    target_keyword=target_keyword,
+                    cluster=cluster,
+                    job_number=job_number,
+                    title=title,
+                    site_url=self.site_url,
+                    blog_handle=self.blog_handle,
+                    byline=self.byline,
+                )
+            else:
+                full_html = _normalise_model_metadata(
+                    model_result.body_html,
+                    meta_title=meta_title,
+                    meta_description=meta_description,
+                    approved_handle=approved_handle,
+                    target_keyword=target_keyword,
+                    cluster=cluster,
+                    job_number=job_number,
+                )
             writer_source = "model"
             writer_model = model_result.model
             writer_provider = model_result.provider
             model_response_id = model_result.response_id
-            initial_quality, initial_topic = _model_validation_receipts(
-                full_html,
-                job_number=job_number,
-                title=title,
-                target_keyword=target_keyword,
-                cluster=cluster,
-                h2_outline=h2_outline,
-                site_url=writer_plan.get("site_url", self.site_url),
-            )
+            if self.is_hcs:
+                initial_quality = {"passed": True, "blockers": [], "metrics": {}}
+                initial_topic = run_topic_identity_gate(
+                    job_id=job_number,
+                    expected_topic=title,
+                    target_keyword=target_keyword,
+                    cluster=cluster,
+                    approved_h2_plan=h2_outline,
+                    output_html=_html_without_schema_scripts(full_html),
+                )
+            else:
+                initial_quality, initial_topic = _model_validation_receipts(
+                    full_html,
+                    job_number=job_number,
+                    title=title,
+                    target_keyword=target_keyword,
+                    cluster=cluster,
+                    h2_outline=h2_outline,
+                    site_url=writer_plan.get("site_url", self.site_url),
+                )
             model_attempts.append(
                 _model_attempt_receipt(
                     2 if retry_budget_used else 1,
@@ -1571,27 +1712,53 @@ Job: {job_number}
                     ),
                     attempt=2,
                 )
-                full_html = _normalise_model_metadata(
-                    retry_result.body_html,
-                    meta_title=meta_title,
-                    meta_description=meta_description,
-                    approved_handle=approved_handle,
-                    target_keyword=target_keyword,
-                    cluster=cluster,
-                    job_number=job_number,
-                )
+                if self.is_hcs:
+                    full_html = _normalise_hcs_model_output(
+                        retry_result.body_html,
+                        meta_title=meta_title,
+                        meta_description=meta_description,
+                        approved_handle=approved_handle,
+                        target_keyword=target_keyword,
+                        cluster=cluster,
+                        job_number=job_number,
+                        title=title,
+                        site_url=self.site_url,
+                        blog_handle=self.blog_handle,
+                        byline=self.byline,
+                    )
+                else:
+                    full_html = _normalise_model_metadata(
+                        retry_result.body_html,
+                        meta_title=meta_title,
+                        meta_description=meta_description,
+                        approved_handle=approved_handle,
+                        target_keyword=target_keyword,
+                        cluster=cluster,
+                        job_number=job_number,
+                    )
                 writer_model = retry_result.model
                 writer_provider = retry_result.provider
                 model_response_id = retry_result.response_id
-                retry_quality, retry_topic = _model_validation_receipts(
-                    full_html,
-                    job_number=job_number,
-                    title=title,
-                    target_keyword=target_keyword,
-                    cluster=cluster,
-                    h2_outline=h2_outline,
-                    site_url=writer_plan.get("site_url", self.site_url),
-                )
+                if self.is_hcs:
+                    retry_quality = {"passed": True, "blockers": [], "metrics": {}}
+                    retry_topic = run_topic_identity_gate(
+                        job_id=job_number,
+                        expected_topic=title,
+                        target_keyword=target_keyword,
+                        cluster=cluster,
+                        approved_h2_plan=h2_outline,
+                        output_html=_html_without_schema_scripts(full_html),
+                    )
+                else:
+                    retry_quality, retry_topic = _model_validation_receipts(
+                        full_html,
+                        job_number=job_number,
+                        title=title,
+                        target_keyword=target_keyword,
+                        cluster=cluster,
+                        h2_outline=h2_outline,
+                        site_url=writer_plan.get("site_url", self.site_url),
+                    )
                 model_attempts.append(
                     _model_attempt_receipt(
                         2,

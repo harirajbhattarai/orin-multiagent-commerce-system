@@ -121,3 +121,48 @@ def test_database_bound_hcs_item_fails_closed_without_database_mode(monkeypatch)
         "decision": "blocked",
         "block_reason": "DURABLE_SELECTION_REQUIRES_DATABASE_MODE",
     }
+
+
+def test_hcs_normaliser_adds_bound_metadata_and_schema(monkeypatch):
+    monkeypatch.syspath_prepend(str(ORIN_TOOLS))
+    from writer_agent import _normalise_hcs_model_output
+
+    body = """<article class="hcs-article">
+<section class="hcs-faq"><div class="hcs-faq-item">
+<h3>What should a buyer compare?</h3><p>Compare the listing and manual.</p>
+</div></section></article>"""
+    output = _normalise_hcs_model_output(
+        body,
+        meta_title="Adult Scooter Suspension Guide",
+        meta_description="Compare adult scooter suspension details using listings and manuals before choosing a model that suits your intended use.",
+        approved_handle="adult-scooter-suspension-guide",
+        target_keyword="adult electric scooter suspension guide",
+        cluster="buying-guide",
+        job_number="1",
+        title="Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+        site_url="https://hcsgadgets.com",
+        blog_handle="gadget-blog",
+        byline="HCS Gadgets",
+    )
+
+    assert "Meta Title: Adult Scooter Suspension Guide" in output
+    assert output.count('<script type="application/ld+json">') == 2
+    assert '"@type":"BlogPosting"' in output
+    assert '"@type":"FAQPage"' in output
+    assert "https://hcsgadgets.com/blogs/gadget-blog/adult-scooter-suspension-guide" in output
+
+
+def test_hcs_visible_quality_ignores_json_ld_arrays(monkeypatch):
+    monkeypatch.syspath_prepend(str(ORIN_TOOLS))
+    from hcs_writer_adapter import _visible_article_html, check_content_quality
+
+    html = """<article class="hcs-article">
+<section class="hcs-content"><h2>First check</h2><p>Compare the listing.</p>
+<h2>Second check</h2><p>Read the manufacturer manual.</p></section>
+<script type="application/ld+json">{"mainEntity":[{"name":"Question"}]}</script>
+</article>"""
+
+    passed, failures = check_content_quality(_visible_article_html(html))
+
+    assert passed is True
+    assert failures == []
