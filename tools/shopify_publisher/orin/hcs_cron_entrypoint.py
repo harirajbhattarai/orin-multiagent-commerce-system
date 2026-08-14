@@ -124,7 +124,12 @@ def is_planned(job: dict) -> bool:
     """True if job is planned (not yet started)."""
     return job.get("queue_status") == "planned"
 
-def planner_select_job(jobs: list, business_today: date) -> dict:
+def planner_select_job(
+    jobs: list,
+    business_today: date,
+    *,
+    durable_selected_job: str | None = None,
+) -> dict:
     """
     Select the next HCS job using ORIN planner logic:
     - Lowest-numbered planned job is the next candidate
@@ -132,6 +137,55 @@ def planner_select_job(jobs: list, business_today: date) -> dict:
     - draft_created, in_review, pending_revision are not HCS states (HCS queue only has planned/published_live)
     """
     planned = [j for j in jobs if is_planned(j)]
+    if durable_selected_job is not None:
+        if os.environ.get("ORIN_DURABLE_DB_MODE") != "1":
+            return {
+                "decision": "blocked",
+                "block_reason": "DURABLE_SELECTION_REQUIRES_DATABASE_MODE",
+            }
+        if not re.fullmatch(r"[1-9][0-9]*", durable_selected_job):
+            return {
+                "decision": "blocked",
+                "block_reason": "DURABLE_SELECTED_JOB_INVALID",
+            }
+        canonical_number = str(int(durable_selected_job))
+        selected = next(
+            (
+                job
+                for job in jobs
+                if str(int(job.get("job_number", "0"))) == canonical_number
+            ),
+            None,
+        )
+        if selected is None:
+            return {
+                "decision": "blocked",
+                "block_reason": "DURABLE_SELECTED_JOB_NOT_FOUND",
+            }
+        if not is_planned(selected):
+            return {
+                "decision": "blocked",
+                "block_reason": "DURABLE_SELECTED_JOB_NOT_PLANNED",
+            }
+        return {
+            "decision": "job_selected",
+            "selected_job": selected["job_number"],
+            "selected_topic": selected.get("topic"),
+            "selected_keyword": selected.get("keyword"),
+            "target_date": selected.get("target_date"),
+            "queue_status": selected.get("queue_status"),
+            "days_until_target": days_until(
+                selected.get("target_date", ""), business_today
+            ),
+            "reason": (
+                "Selected the exact database-bound approved content item; "
+                "calendar planning is not re-evaluated"
+            ),
+            "planned_jobs": [job["job_number"] for job in planned],
+            "due_jobs": [],
+            "durable_selected_job": canonical_number,
+        }
+
     if not planned:
         return {"decision": "no_job_due", "selected_job": None, "reason": "No planned jobs in queue"}
 
@@ -249,10 +303,28 @@ def run_hcs_pipeline():
 
     # ── Planner Decision ──────────────────────────────────────────────────
     print("\n[Step 4] Running HCS planner...")
-    planner_result = planner_select_job(jobs, BUSINESS_TODAY)
+    durable_selected_job = os.environ.get("ORIN_DURABLE_SELECTED_JOB")
+    planner_result = planner_select_job(
+        jobs,
+        BUSINESS_TODAY,
+        durable_selected_job=durable_selected_job,
+    )
     decision = planner_result.get("decision")
     print(f"  Planner decision: {decision}")
     print(f"  Reason: {planner_result.get('reason')}")
+
+    if decision == "blocked":
+        return {
+            "blocked": True,
+            "block_reason": planner_result.get("block_reason"),
+            "phase": "DURABLE_SELECTION",
+            "planner_decision": decision,
+            "shopify_call_count": 0,
+            "queue_sha256_before": queue_sha_before,
+            "queue_sha256_after": queue_sha_before,
+            "queue_unchanged": True,
+            "draft_unchanged": True,
+        }
 
     if decision == "no_job_due":
         print(f"\n  ℹ️  No job is due. Pipeline stopped safely.")

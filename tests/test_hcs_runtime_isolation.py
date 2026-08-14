@@ -1,5 +1,7 @@
 import importlib
+import runpy
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -75,3 +77,47 @@ def test_hcs_runtime_path_cannot_escape_client_subtree(tmp_path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="escapes the dedicated client subtree"):
         loader._runtime_path("clients/hoverboard_store/content_engine")
+
+
+def test_database_bound_hcs_item_bypasses_legacy_calendar(monkeypatch):
+    monkeypatch.syspath_prepend(str(ORIN_TOOLS))
+    monkeypatch.setenv("ORIN_DURABLE_DB_MODE", "1")
+    module = runpy.run_path(str(ORIN_TOOLS / "hcs_cron_entrypoint.py"))
+    select_job = module["planner_select_job"]
+    jobs = [
+        {
+            "job_number": "1",
+            "topic": "Approved database concept",
+            "keyword": "approved concept",
+            "queue_status": "planned",
+            "target_date": "2026-08-28",
+        }
+    ]
+
+    result = select_job(
+        jobs,
+        date(2026, 8, 14),
+        durable_selected_job="1",
+    )
+
+    assert result["decision"] == "job_selected"
+    assert result["selected_job"] == "1"
+    assert result["days_until_target"] == 14
+    assert result["durable_selected_job"] == "1"
+
+
+def test_database_bound_hcs_item_fails_closed_without_database_mode(monkeypatch):
+    monkeypatch.syspath_prepend(str(ORIN_TOOLS))
+    monkeypatch.delenv("ORIN_DURABLE_DB_MODE", raising=False)
+    module = runpy.run_path(str(ORIN_TOOLS / "hcs_cron_entrypoint.py"))
+
+    result = module["planner_select_job"](
+        [{"job_number": "1", "queue_status": "planned"}],
+        date(2026, 8, 14),
+        durable_selected_job="1",
+    )
+
+    assert result == {
+        "decision": "blocked",
+        "block_reason": "DURABLE_SELECTION_REQUIRES_DATABASE_MODE",
+    }
