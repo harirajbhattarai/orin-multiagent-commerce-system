@@ -32,6 +32,7 @@ Usage:
 import datetime
 import hashlib
 import json
+import math
 import os
 import re
 import urllib.request
@@ -426,6 +427,16 @@ def _load_and_validate_config():
         PRODUCT_TRUTH_MAX_AGE_MISSING   — key not in config
         PRODUCT_TRUTH_MAX_AGE_INVALID   — value is zero/negative/non-numeric/boolean/empty
     """
+    environment_value = os.environ.get("ORIN_HCS_PRODUCT_TRUTH_MAX_AGE_HOURS")
+    if environment_value is not None:
+        try:
+            max_age_hours = float(environment_value)
+        except (TypeError, ValueError):
+            return None, "PRODUCT_TRUTH_INVALID", "PRODUCT_TRUTH_MAX_AGE_INVALID"
+        if not math.isfinite(max_age_hours) or max_age_hours <= 0:
+            return None, "PRODUCT_TRUTH_INVALID", "PRODUCT_TRUTH_MAX_AGE_INVALID"
+        return max_age_hours, "PRODUCT_TRUTH_CONFIG_VALID", None
+
     if not os.path.exists(CONFIG_FILE):
         return None, "PRODUCT_TRUTH_INVALID", "PRODUCT_TRUTH_CONFIG_MISSING"
 

@@ -319,6 +319,7 @@ services:
       ORIN_WRITER_API_KEY_FILE: /run/secrets/hcs_writer_api_key
       ORIN_WRITER_TIMEOUT_SECONDS: "240"
       ORIN_HCS_PRODUCT_TRUTH_SOURCE: public-storefront
+      ORIN_HCS_PRODUCT_TRUTH_MAX_AGE_HOURS: "24"
     secrets:
       - hcs_worker_database_url
       - hcs_writer_api_key

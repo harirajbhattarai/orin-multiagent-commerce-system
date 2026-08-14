@@ -31,6 +31,7 @@ def _load_adapter(monkeypatch):
 def test_public_product_truth_never_loads_admin_token(monkeypatch):
     module = _load_adapter(monkeypatch)
     monkeypatch.setenv("ORIN_HCS_PRODUCT_TRUTH_SOURCE", "public-storefront")
+    monkeypatch.setenv("ORIN_HCS_PRODUCT_TRUTH_MAX_AGE_HOURS", "24")
     monkeypatch.setattr(
         module,
         "_load_token",
@@ -87,4 +88,19 @@ def test_hcs_worker_explicitly_uses_public_product_truth():
     )[0]
 
     assert "ORIN_HCS_PRODUCT_TRUTH_SOURCE: public-storefront" in worker
+    assert 'ORIN_HCS_PRODUCT_TRUTH_MAX_AGE_HOURS: "24"' in worker
     assert "hoverboard_shopify_access_token" not in worker
+
+
+def test_product_truth_config_can_be_supplied_without_client_files(
+    tmp_path, monkeypatch
+):
+    module = _load_adapter(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("ORIN_HCS_PRODUCT_TRUTH_MAX_AGE_HOURS", "24")
+
+    adapter = module.HCSProductTruth()
+
+    assert adapter.product_truth_max_age_hours == 24.0
+    assert adapter.config_validation_status == "PRODUCT_TRUTH_CONFIG_VALID"
+    assert adapter.config_validation_reason is None
