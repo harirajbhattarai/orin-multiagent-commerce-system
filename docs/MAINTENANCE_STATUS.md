@@ -31,6 +31,18 @@ maintenance with zero jobs, runs, incidents, and Shopify actions. A dedicated
 build wrapper now requires the clean source checkout, requested image tag, OCI
 revision, and image-level HCS CLI binding to agree before commissioning.
 
+The corrected HCS no-job proof then passed at exact release
+`726d3de0a3c7db1199f5de799a5721699d1c485b`. The provenance wrapper built the
+image from the matching clean checkout and verified its in-image
+`hcs_gadgets` binding. The dedicated daemon started as `orin-hcs-prod` with
+restart count zero and emitted three consecutive `no_job_due` receipts. It
+received no Shopify credential and created zero jobs, runs, incidents, or
+Shopify actions. The daemon was removed, `orin_hcs_worker` was returned to
+`NOLOGIN`, and its exact credential file was securely deleted. HCS remains in
+maintenance with every execution, Shopify, and scheduler gate closed. Durable
+public evidence is in
+`docs/evidence/2026-08-14-hcs-dedicated-worker-no-job-proof.json`.
+
 HBStore completed its controlled reactivation proof on 2026-08-13. The client
 is active with request intake and dry-run automation enabled, concurrency one,
 and Prefect retaining scheduler ownership. Broad Shopify writes remain off.

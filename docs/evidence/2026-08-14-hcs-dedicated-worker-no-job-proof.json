@@ -1,0 +1,77 @@
+{
+  "proof": "hcs_dedicated_worker_no_job",
+  "recorded_at": "2026-08-14T00:05:12Z",
+  "client_id": "hcs_gadgets",
+  "result": "passed",
+  "release": {
+    "commit": "726d3de0a3c7db1199f5de799a5721699d1c485b",
+    "image": "local/orin-worker:726d3de0a3c7db1199f5de799a5721699d1c485b",
+    "image_revision_verified": true,
+    "source_checkout_clean_and_exact": true,
+    "in_image_client_binding_verified": "hcs_gadgets"
+  },
+  "failed_closed_precursor": {
+    "image_tag": "local/orin-worker:5f2c954a3007458ec2f4e56328afc07a7c6f960d",
+    "cause": "build context still pointed at an older immutable release directory",
+    "observed_error": "worker CLI rejected --client-id before database claim",
+    "container_removed": true,
+    "jobs_created": 0,
+    "runs_created": 0,
+    "shopify_actions": 0
+  },
+  "preflight": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "active_incidents": 0,
+    "credential_role": "orin_hcs_worker",
+    "credential_owner": "10005:10005",
+    "credential_mode": "0400"
+  },
+  "worker_receipts": [
+    {
+      "status": "no_job_due",
+      "job_id": null,
+      "run_id": null,
+      "replayed": false
+    },
+    {
+      "status": "no_job_due",
+      "job_id": null,
+      "run_id": null,
+      "replayed": false
+    },
+    {
+      "status": "no_job_due",
+      "job_id": null,
+      "run_id": null,
+      "replayed": false
+    }
+  ],
+  "worker_runtime": {
+    "worker_id": "orin-hcs-prod",
+    "restart_count": 0,
+    "shopify_credential_mounted": false
+  },
+  "postflight": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "total_jobs": 0,
+    "total_runs": 0,
+    "active_incidents": 0,
+    "worker_container_present": false,
+    "worker_role_login": false,
+    "worker_secret_present": false
+  }
+}
