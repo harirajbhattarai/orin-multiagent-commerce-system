@@ -43,6 +43,7 @@ from duplicate_decision_agent import build_duplicate_memory
 from topic_identity_gate import run_topic_identity_gate, TOPIC_IDENTITY_BLOCK
 from hcs_product_truth_adapter import HCSProductTruth, build_link_map
 from hcs_html_contract_validator import run_checks as run_hcs_contract_checks
+from model_writer import model_writer_enabled
 
 # ── Shared component imports for real transaction/queue integration ──────────
 # These are the SHARED production components, parameterised via ClientContext.
@@ -221,6 +222,16 @@ def _find_repeated_sentences(html: str, min_len: int = 40, max_repeat: int = 2) 
 
 
 _CONTENT_QUALITY_BLOCK = "CONTENT_QUALITY_BLOCK"
+
+
+def _visible_article_html(html: str) -> str:
+    """Exclude machine-readable schema from prose and topic checks."""
+    return re.sub(
+        r"<script\b[^>]*>.*?</script>",
+        "",
+        html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
 
 
 def check_content_quality(html: str) -> tuple[bool, list[str]]:
@@ -544,6 +555,8 @@ def build_hcs_writer_plan(
 
     # Build base plan using shared writer infrastructure
     plan = writer_agent._build_dynamic_writer_plan(job_ctx)
+    plan["client_id"] = client_ctx.client_id
+    plan["byline"] = client_ctx.byline
 
     # FIX 1: Override H2 outline with HCS-specific headings.
     # This replaces ANY hoverboard-generated H2 with HCS-specific ones.
@@ -594,8 +607,151 @@ def build_hcs_writer_plan(
             "type": "collection",
         }
     ]
+    plan["html_structure_requirements"] = [
+        "exactly one article.hcs-article wrapper",
+        "section.hcs-hero with p.hcs-eyebrow, one h1, and p.hcs-intro",
+        "div.hcs-top-grid containing section.hcs-quick-answer and section.hcs-toc",
+        "section.hcs-content containing every planned h2 with its exact id",
+        "div.hcs-split containing div.hcs-do and div.hcs-dont; hcs-do contains h2 id good-bad",
+        "every table uses class hcs-table and is wrapped by div.hcs-table-scroll",
+        "section.hcs-checklist contains a ul",
+        "section.hcs-faq uses static div.hcs-faq-item children with h3 and p",
+        "section.hcs-cta contains an a.hcs-button",
+        "no document wrappers, style tags, inline styles, details, or summary tags",
+    ]
 
     return plan
+
+
+def generate_hcs_review_draft(
+    *,
+    selected_job: dict,
+    output_dir: Path,
+    business_date: str,
+) -> dict:
+    """Generate and validate one HCS review draft without Shopify or queue writes."""
+    run_dir = Path(output_dir).resolve()
+    if not run_dir.is_dir():
+        return {
+            "passed": False,
+            "block_phase": "EVIDENCE_CAPABILITY",
+            "block_reason": "private run evidence directory is unavailable",
+        }
+    if not model_writer_enabled():
+        return {
+            "passed": False,
+            "block_phase": "WRITER_CONFIGURATION",
+            "block_reason": "HCS model writer is disabled",
+        }
+
+    client_ctx = load_client_context("hcs_gadgets")
+    truth_gate = run_product_truth_gate(client_ctx)
+    if truth_gate.get("blocking"):
+        return {
+            "passed": False,
+            "block_phase": "PRODUCT_TRUTH_GATE",
+            "block_reason": truth_gate.get("block_reason"),
+            "product_truth_gate": truth_gate,
+        }
+    product_truth = load_product_truth(client_ctx)
+    if not product_truth.get("loaded"):
+        return {
+            "passed": False,
+            "block_phase": "PRODUCT_TRUTH_LOAD",
+            "block_reason": product_truth.get("error") or "product truth was not writer-ready",
+            "product_truth_gate": truth_gate,
+        }
+
+    job_number = str(selected_job.get("job_number") or "")
+    topic = str(selected_job.get("topic") or "").strip()
+    target_keyword = str(
+        selected_job.get("target_keyword") or selected_job.get("keyword") or ""
+    ).strip()
+    if not job_number or not topic or not target_keyword:
+        return {
+            "passed": False,
+            "block_phase": "JOB_CONTEXT",
+            "block_reason": "selected HCS job identity is incomplete",
+        }
+    job_ctx = {
+        "client_id": client_ctx.client_id,
+        "job_number": job_number,
+        "job_label": f"Job {job_number}",
+        "title": topic,
+        "topic": topic,
+        "target_keyword": target_keyword,
+        "target_date": str(selected_job.get("target_date") or business_date),
+        "expected_draft_date": str(selected_job.get("expected_draft_date") or business_date),
+        "queue_status": "planned",
+        "shopify_handle": selected_job.get("shopify_handle"),
+        "shopify_article_id": selected_job.get("shopify_article_id"),
+        "published_at": None,
+        "file_path": selected_job.get("file_path"),
+    }
+    writer = HCSWriterAgent(
+        str(BASE_DIR),
+        business_date,
+        client_context=client_ctx,
+    )
+    plan = build_hcs_writer_plan(writer, job_ctx, product_truth, client_ctx)
+    plan_path = run_dir / "hcs_writer_plan.json"
+    plan_path.write_text(json.dumps(plan, indent=2, default=str), encoding="utf-8")
+    plan_path.chmod(0o600)
+
+    draft_path = run_dir / f"writer_output_{job_number}.html"
+    execution = write_hcs_article(writer, job_ctx, plan, draft_path, client_ctx)
+    if not execution.get("success"):
+        return {
+            "passed": False,
+            "block_phase": "WRITER_EXECUTION",
+            "block_reason": execution.get("block_reason") or execution.get("error"),
+            "writer_execution": execution,
+            "product_truth_gate": truth_gate,
+        }
+    draft_path.chmod(0o600)
+    html = draft_path.read_text(encoding="utf-8")
+
+    topic_gate = run_topic_identity_gate_hcs(job_ctx, plan, html, client_ctx)
+    if topic_gate.get("decision") == TOPIC_IDENTITY_BLOCK:
+        return {
+            "passed": False,
+            "block_phase": "TOPIC_IDENTITY_GATE",
+            "block_reason": topic_gate.get("blockers", []),
+            "writer_execution": execution,
+            "topic_identity_gate": topic_gate,
+            "product_truth_gate": truth_gate,
+        }
+
+    review = run_phase2a_review_hcs(job_ctx, plan, draft_path, client_ctx)
+    review_decision = review.get("review_decision", "")
+    review_blocked = review_decision == "POST_WRITE_REVIEW_BLOCKED" or (
+        review_decision == "POST_WRITE_REVIEW_NEEDS_HUMAN_REVIEW"
+        and bool(review.get("blockers"))
+    )
+    review_path = run_dir / "hcs_post_write_review.json"
+    review_path.write_text(json.dumps(review, indent=2, default=str), encoding="utf-8")
+    review_path.chmod(0o600)
+    if review_blocked:
+        return {
+            "passed": False,
+            "block_phase": "POST_WRITE_REVIEW",
+            "block_reason": review.get("blockers", []),
+            "writer_execution": execution,
+            "topic_identity_gate": topic_gate,
+            "post_write_review": review,
+            "product_truth_gate": truth_gate,
+        }
+
+    return {
+        "passed": True,
+        "writer_output_path": str(draft_path),
+        "writer_execution": execution,
+        "topic_identity_gate": topic_gate,
+        "post_write_review": review,
+        "product_truth_gate": truth_gate,
+        "shopify_call_count": 0,
+        "queue_unchanged": True,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1368,7 +1524,9 @@ def write_hcs_article(
         stats["internal_link_count"] = html_fixed.count("<a href=")
 
         # ── FIX 2: Content quality gate — block low-quality content ────────────
-        quality_ok, quality_failures = check_content_quality(html_fixed)
+        quality_ok, quality_failures = check_content_quality(
+            _visible_article_html(html_fixed)
+        )
         if not quality_ok:
             stats["quality_gate_passed"] = False
             stats["quality_gate_failures"] = quality_failures
@@ -1411,7 +1569,7 @@ def run_topic_identity_gate_hcs(
         target_keyword=job_ctx.get("target_keyword", ""),
         cluster=cluster,
         approved_h2_plan=approved_h2_plan,
-        output_html=output_html,
+        output_html=_visible_article_html(output_html),
     )
 
 

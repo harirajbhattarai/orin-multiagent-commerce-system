@@ -357,6 +357,42 @@ def run_hcs_pipeline():
     print(f"  Target date: {selected_job.get('target_date')}")
     print(f"  Days until target: {planner_result.get('days_until_target')}d")
 
+    # Generate the exact version-bound review artifact inside private run
+    # evidence. This path has no Shopify credential and performs no queue write.
+    artifact_dir_value = os.environ.get("ORIN_RUN_ARTIFACT_DIR", "")
+    artifact_dir = Path(artifact_dir_value).resolve() if artifact_dir_value else None
+    if artifact_dir is None or not artifact_dir.is_dir():
+        return {
+            "blocked": True,
+            "block_reason": "private run evidence is required for HCS drafting",
+            "phase": "EVIDENCE_CAPABILITY",
+            "planner_decision": decision,
+            "selected_job": selected_job_num,
+            "shopify_call_count": 0,
+            "queue_unchanged": True,
+        }
+    from hcs_writer_adapter import generate_hcs_review_draft
+
+    review_generation = generate_hcs_review_draft(
+        selected_job=selected_job,
+        output_dir=artifact_dir,
+        business_date=BUSINESS_TODAY.isoformat(),
+    )
+    if not review_generation.get("passed"):
+        return {
+            "blocked": True,
+            "block_reason": review_generation.get("block_reason"),
+            "phase": review_generation.get("block_phase", "HCS_REVIEW_DRAFT"),
+            "planner_decision": decision,
+            "selected_job": selected_job_num,
+            "review_generation": review_generation,
+            "shopify_call_count": 0,
+            "queue_sha256_before": queue_sha_before,
+            "queue_sha256_after": queue_sha_before,
+            "queue_unchanged": True,
+            "draft_unchanged": True,
+        }
+
     # ── Job 01/02 Skip Verification ──────────────────────────────────────
     print("\n[Step 5] Verifying Job 01 and Job 02 are skipped...")
     job01 = next((j for j in jobs if j["job_number"] == "01"), None)
@@ -413,6 +449,8 @@ def run_hcs_pipeline():
         "selected_job": selected_job_num,
         "selected_topic": selected_job.get("topic") if selected_job else None,
         "selected_keyword": selected_job.get("keyword") if selected_job else None,
+        "writer_output_path": review_generation.get("writer_output_path"),
+        "review_generation": review_generation,
         "target_date": selected_job.get("target_date") if selected_job else None,
         "job_01_skip": {"status": job01.get("queue_status") if job01 else None, "skipped": skip_01},
         "job_02_skip": {"status": job02.get("queue_status") if job02 else None, "skipped": skip_02},

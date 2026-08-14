@@ -142,6 +142,45 @@ class ModelWriterTests(unittest.TestCase):
         )
         self.assertEqual(MINIMAX_ENDPOINT, "https://api.minimax.io/v1/chat/completions")
 
+    def test_hcs_request_uses_tenant_specific_contract(self):
+        job_context = {
+            "client_id": "hcs_gadgets",
+            "job_number": "1",
+            "topic": "Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+        }
+        writer_plan = {
+            **WRITER_PLAN,
+            "client_id": "hcs_gadgets",
+            "title": job_context["topic"],
+            "target_keyword": "adult electric scooter suspension guide",
+        }
+
+        payload = build_request_payload(job_context, writer_plan)
+        system_prompt = payload["messages"][0]["content"]
+        user_prompt = payload["messages"][1]["content"]
+
+        self.assertIn("ORIN Content for HCS Gadgets", system_prompt)
+        self.assertNotIn("Hoverboard Store", system_prompt)
+        self.assertIn("article.hcs-article", user_prompt)
+        self.assertIn('id="good-bad"', user_prompt)
+        self.assertIn("div.hcs-table-scroll", user_prompt)
+        self.assertIn("Do not emit script tags or JSON-LD", user_prompt)
+        self.assertIn('"client_id": "hcs_gadgets"', user_prompt)
+
+    def test_hcs_article_and_table_are_allowed_model_html(self):
+        article = (
+            '<article class="hcs-article"><section class="hcs-content">'
+            '<h2 id="compare-suspension">Compare suspension</h2>'
+            '<table class="hcs-table"><thead><tr><th>Check</th></tr></thead>'
+            '<tbody><tr><td>Listing and manual</td></tr></tbody></table>'
+            '</section></article>'
+        )
+
+        self.assertEqual(
+            extract_article_html(f"{ARTICLE_START}{article}{ARTICLE_END}"),
+            article,
+        )
+
     def test_extracts_exact_sentinel_artifact(self):
         content = f"{ARTICLE_START}\n{ARTICLE}\n{ARTICLE_END}"
 

@@ -804,6 +804,41 @@ def test_database_worker_dry_run_uses_private_artifact_directory(tmp_path):
     assert child_environment["artifact_dir"] == result["artifact_uri"]
 
 
+def test_database_claim_attempt_reexecutes_stale_cached_dry_run(tmp_path):
+    preview = {
+        "blocked": False,
+        "planner_decision": "job_selected",
+        "selected_job": "1",
+        "effective_mode": "dry-run",
+        "shopify_create_count": 0,
+        "shopify_write_state": "not_attempted",
+        "queue_touched": False,
+    }
+    command, preview_path, counter_path = fake_pipeline(tmp_path, preview)
+    request_id = str(uuid.uuid4())
+    arguments = dict(
+        client_id="hcs_gadgets",
+        request_id=request_id,
+        mode="dry-run",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        pipeline_command=command,
+        pipeline_preview_path=preview_path,
+    )
+
+    first = run_client(**arguments, claim_attempt=1)
+    replacement = run_client(**arguments, claim_attempt=4)
+    replay = run_client(**arguments, claim_attempt=4)
+
+    assert first["attempt"] == 1
+    assert replacement["attempt"] == 4
+    assert replacement["run_id"] != first["run_id"]
+    assert replay == replacement
+    assert counter_path.read_text() == "2"
+
+
 def test_dry_run_removes_shopify_credentials_from_child(tmp_path, monkeypatch):
     preview_path = tmp_path / "pipeline-preview.json"
     env_path = tmp_path / "shopify-env.json"

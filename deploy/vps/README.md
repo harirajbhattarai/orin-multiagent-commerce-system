@@ -257,8 +257,10 @@ install it interactively:
 
 ```bash
 deploy/vps/install_hcs_worker_db_secret.sh
+deploy/vps/install_hcs_writer_secret.sh
 deploy/vps/prepare_hcs_worker_storage.sh
-deploy/vps/preflight.sh --require-secrets --require-hcs-worker-secret
+deploy/vps/preflight.sh --require-secrets --require-hcs-worker-secret \
+  --require-hcs-writer-secret
 ```
 
 Build the HCS image only through the provenance-checking wrapper. The exported
@@ -271,9 +273,13 @@ export ORIN_PROJECT_ROOT=/exact/release
 deploy/vps/build_hcs_worker.sh
 ```
 
-The installer writes only
+The database installer writes only
 `/docker/orin/secrets/hcs_worker_database_url`, owned by UID `10005` with mode
-`0400`, and refuses to overwrite an existing file. The storage preparation
+`0400`, and refuses to overwrite an existing file. The writer installer stores
+the platform model credential separately at
+`/docker/orin/secrets/hcs_writer_api_key`, also owned by UID `10005` with mode
+`0400`. It grants no Shopify capability and is mounted only into the HCS
+worker. The storage preparation
 creates only `/docker/orin/evidence/hcs_gadgets`, owned by UID `10005` with
 mode `0700`; the HCS container mounts that private directory at `/evidence`
 instead of receiving access to Hoverboard Store evidence. Keep HCS in maintenance,

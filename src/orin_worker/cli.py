@@ -220,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
             job_number=getattr(args, "job_number", None),
             durable_db_mode=True,
             content_plan_snapshot=content_plan_snapshot,
+            claim_attempt=job.attempt_count,
         )
         review_draft = _capture_review_draft(result, content_plan_snapshot)
         if review_draft is not None:

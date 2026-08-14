@@ -122,7 +122,10 @@ def test_hcs_worker_is_dedicated_dry_run_and_has_no_shopify_secret():
     assert "orin-hcs-prod" in worker
     assert "ORIN_WORKER_DATABASE_ROLE: orin_hcs_worker" in worker
     assert "hcs_worker_database_url" in worker
-    assert 'ORIN_MODEL_WRITER_ENABLED: "0"' in worker
+    assert 'ORIN_MODEL_WRITER_ENABLED: "${ORIN_HCS_MODEL_WRITER_ENABLED:-0}"' in worker
+    assert "ORIN_WRITER_API_KEY_FILE: /run/secrets/hcs_writer_api_key" in worker
+    assert "ORIN_WRITER_TIMEOUT_SECONDS: \"240\"" in worker
+    assert "hcs_writer_api_key" in worker
     assert "SHOPIFY_ACCESS_TOKEN" not in worker
     assert (
         "source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"
@@ -148,18 +151,29 @@ def test_hcs_worker_secret_installer_and_preflight_are_uid_scoped():
     storage = Path("deploy/vps/prepare_hcs_worker_storage.sh").read_text(
         encoding="utf-8"
     )
+    writer_installer = Path("deploy/vps/install_hcs_writer_secret.sh").read_text(
+        encoding="utf-8"
+    )
     assert 'target="${secrets_dir}/hcs_worker_database_url"' in installer
     assert '"${first}" != *"orin_hcs_worker"*' in installer
     assert 'chown 10005:10005 "${temporary}"' in installer
     assert 'chmod 0400 "${temporary}"' in installer
     assert "--require-hcs-worker-secret" in preflight
     assert "[hcs_worker_database_url]=10005" in preflight
+    assert 'target="${secrets_dir}/hcs_writer_api_key"' in writer_installer
+    assert 'chown 10005:"${runtime_gid}" "${temporary}"' in writer_installer
+    assert 'chmod 0400 "${temporary}"' in writer_installer
+    assert "--require-hcs-writer-secret" in preflight
+    assert "[hcs_writer_api_key]=10005" in preflight
     assert 'hcs_evidence_root="${ORIN_EVIDENCE_ROOT}/hcs_gadgets"' in preflight
     assert 'hcs_runtime_root="${ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"' in preflight
     assert "product_truth_normalised.json" in preflight
     assert "product_truth_link_map.json" in preflight
     assert 'target="${evidence_root}/hcs_gadgets"' in storage
     assert 'install -d -m 0700 -o 10005 -g "${runtime_gid}"' in storage
+    readme = Path("deploy/vps/README.md").read_text(encoding="utf-8")
+    assert "install_hcs_writer_secret.sh" in readme
+    assert "--require-hcs-writer-secret" in readme
 
 
 def test_hcs_worker_build_fails_if_source_commit_and_image_tag_diverge():
