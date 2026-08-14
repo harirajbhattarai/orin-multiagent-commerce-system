@@ -167,6 +167,8 @@ class ModelWriterTests(unittest.TestCase):
         self.assertIn("div.hcs-table-scroll", user_prompt)
         self.assertIn("Do not emit script tags or JSON-LD", user_prompt)
         self.assertIn("Do not use the words roads, streets, pavements", user_prompt)
+        self.assertIn("Put the planned CTA H2", user_prompt)
+        self.assertIn("Do not mention stock, in-stock status", user_prompt)
         self.assertIn('"client_id": "hcs_gadgets"', user_prompt)
 
     def test_hcs_model_validation_blocks_unsafe_public_surface_wording(self):
@@ -185,6 +187,25 @@ class ModelWriterTests(unittest.TestCase):
         codes = {blocker["code"] for blocker in receipt["blockers"]}
         self.assertIn("HCS_UK_COMPLIANCE", codes)
         self.assertFalse(receipt["passed"])
+
+    def test_hcs_model_validation_reports_exact_contract_failure(self):
+        receipt, _ = _hcs_model_validation_receipts(
+            '<article class="hcs-article"></article>',
+            job_number="1",
+            title="Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+            target_keyword="adult electric scooter suspension guide",
+            cluster="Buyer Guides & Product Education",
+            h2_outline=[],
+        )
+
+        contract_blockers = [
+            blocker for blocker in receipt["blockers"]
+            if blocker["code"] == "HCS_HTML_CONTRACT"
+        ]
+        self.assertGreater(len(contract_blockers), 1)
+        self.assertTrue(
+            all(blocker["actual"].startswith("[") for blocker in contract_blockers)
+        )
 
     def test_hcs_article_and_table_are_allowed_model_html(self):
         article = (

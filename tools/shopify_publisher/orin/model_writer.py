@@ -177,7 +177,9 @@ Required output contract:
 - Render section.hcs-faq with exactly the supplied FAQ questions in order. Each
   div.hcs-faq-item must contain one H3 question and one P answer.
 - Finish visible content with section.hcs-cta containing its H2, paragraph, and
-  exactly one a.hcs-button using cta_plan.button_href.
+  exactly one a.hcs-button using cta_plan.button_href. Put the planned CTA H2
+  inside section.hcs-cta, not immediately before it, and do not add a second
+  CTA heading.
 - Do not emit script tags or JSON-LD. ORIN adds validated schema deterministically.
 - Write at least 1,200 visible words, with at least ten useful paragraphs and
   substantial, non-repetitive treatment of every planned section.
@@ -186,6 +188,9 @@ Required output contract:
 - Use the exact target keyword naturally 3-7 times. Keep the H1 exactly equal
   to the approved title.
 - Do not repeat or negate phrases in claims_to_avoid. Rephrase neutrally.
+- Do not mention stock, in-stock status, availability, inventory, delivery,
+  warranties, returns, prices, reviews, or certifications unless that exact
+  fact is explicitly supplied in the approved plan.
 - Do not include placeholders, bracketed instructions, generic filler, inline
   styles, style tags, document wrappers, or visible SEO metadata labels.
 - Use only these HTML tags: a, article, b, blockquote, br, div, em, h1, h2, h3,

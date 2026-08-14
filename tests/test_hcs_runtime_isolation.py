@@ -143,6 +143,7 @@ def test_hcs_normaliser_adds_bound_metadata_and_schema(monkeypatch):
         site_url="https://hcsgadgets.com",
         blog_handle="gadget-blog",
         byline="HCS Gadgets",
+        h2_outline=[],
     )
 
     assert "Meta Title: Adult Scooter Suspension Guide" in output
@@ -150,6 +151,44 @@ def test_hcs_normaliser_adds_bound_metadata_and_schema(monkeypatch):
     assert '"@type":"BlogPosting"' in output
     assert '"@type":"FAQPage"' in output
     assert "https://hcsgadgets.com/blogs/gadget-blog/adult-scooter-suspension-guide" in output
+
+
+def test_hcs_normaliser_binds_approved_h2_ids_and_canonicalises_cta(monkeypatch):
+    monkeypatch.syspath_prepend(str(ORIN_TOOLS))
+    from writer_agent import _normalise_hcs_model_output
+
+    body = """<article class="hcs-article">
+<section class="hcs-content">
+<h2>Introduction</h2><p>Compare the listing and manual.</p>
+<h2 id="cta">Shop at HCS Gadgets</h2>
+<section class="hcs-cta"><h2>Find Products at HCS Gadgets</h2>
+<p>Compare suitable products.</p>
+<a class="hcs-button" href="https://hcsgadgets.com/collections/all-product">Shop now</a>
+</section></section></article>"""
+    output = _normalise_hcs_model_output(
+        body,
+        meta_title="Adult Scooter Suspension Guide",
+        meta_description="Compare adult scooter suspension details using listings and manuals before choosing a model that suits your intended use.",
+        approved_handle="adult-scooter-suspension-guide",
+        target_keyword="adult electric scooter suspension guide",
+        cluster="buying-guide",
+        job_number="1",
+        title="Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+        site_url="https://hcsgadgets.com",
+        blog_handle="gadget-blog",
+        byline="HCS Gadgets",
+        h2_outline=[
+            {"id": "introduction", "h2": "Introduction"},
+            {"id": "cta", "h2": "Shop at HCS Gadgets"},
+        ],
+    )
+
+    assert '<h2 id="introduction">Introduction</h2>' in output
+    assert output.count('<h2 id="cta">Shop at HCS Gadgets</h2>') == 1
+    cta_start = output.index('<section class="hcs-cta">')
+    cta_end = output.index("</section>", cta_start)
+    assert '<h2 id="cta">Shop at HCS Gadgets</h2>' in output[cta_start:cta_end]
+    assert "Find Products at HCS Gadgets" not in output
 
 
 def test_hcs_visible_quality_ignores_json_ld_arrays(monkeypatch):
