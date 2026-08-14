@@ -5,7 +5,7 @@ HCS Gadgets — Product Truth Adapter v1.1
 Production adapter for HCS Gadgets product truth.
 
 Provides:
-- fetch_current_products()    — fetch live from Shopify (GET only)
+- fetch_current_products()    — fetch live public Shopify catalogue data (GET only)
 - normalise(raw_products)     — normalise to canonical schema
 - validate(catalogue)         — schema + freshness validation
 - get_price_range(variants)  — price range semantics
@@ -17,6 +17,11 @@ It must NOT import from automation_state or evidence directories.
 Configuration (required):
     clients/hcs_gadgets/content_engine/hcs_client_config.json
     key: product_truth_max_age_hours (positive number)
+
+The production writer defaults to Shopify's public products JSON endpoint. This
+keeps product truth live without giving the drafting worker an Admin API token.
+The legacy Admin API reader remains available only through an explicit
+``ORIN_HCS_PRODUCT_TRUTH_SOURCE=admin-api`` override for controlled maintenance.
 
 Usage:
     from hcs_product_truth_adapter import HCSProductTruth
@@ -40,6 +45,9 @@ CURRENCY = "GBP"
 # ─── Shopify API ───────────────────────────────────────────────────────────────
 
 CONFIG_PATH = "clients/hcs_gadgets/shopify_config/.env"
+PUBLIC_PRODUCTS_URL = "https://hcsgadgets.com/products.json"
+PUBLIC_PAGE_SIZE = 250
+PUBLIC_MAX_PAGES = 20
 
 def _load_token():
     with open(CONFIG_PATH) as f:
@@ -62,6 +70,51 @@ def shopify_get(path):
             return json.loads(r.read().decode()), r
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"Shopify API error {e.code} on {path}: {e.read().decode()}")
+
+
+def public_shopify_products(page):
+    """Read one public product page without any Shopify credential."""
+    if not isinstance(page, int) or page < 1 or page > PUBLIC_MAX_PAGES:
+        raise ValueError("public Shopify product page is outside the safe range")
+    url = f"{PUBLIC_PRODUCTS_URL}?limit={PUBLIC_PAGE_SIZE}&page={page}"
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "ORIN-HCS-Product-Truth/1.1",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(
+            f"Public Shopify catalogue returned HTTP {exc.code}"
+        ) from exc
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Public Shopify catalogue could not be read") from exc
+    products = payload.get("products") if isinstance(payload, dict) else None
+    if not isinstance(products, list):
+        raise RuntimeError("Public Shopify catalogue response is malformed")
+    return products
+
+
+def prepare_public_product(record):
+    """Bind public storefront records to the canonical active-product schema."""
+    if not isinstance(record, dict):
+        raise RuntimeError("Public Shopify catalogue contains a malformed product")
+    product = dict(record)
+    product["status"] = "active"
+    product_id = product.get("id")
+    variants = []
+    for raw_variant in product.get("variants", []):
+        if not isinstance(raw_variant, dict):
+            raise RuntimeError("Public Shopify catalogue contains a malformed variant")
+        variant = dict(raw_variant)
+        variant["product_id"] = variant.get("product_id") or product_id
+        variants.append(variant)
+    product["variants"] = variants
+    return product
 
 # ─── Schema constants ─────────────────────────────────────────────────────────
 
@@ -440,7 +493,39 @@ class HCSProductTruth:
             self.validation_reason = self.config_validation_reason
 
     def fetch_current_products(self):
-        """Fetch all products from Shopify. Returns raw product list. GET only."""
+        """Fetch all products from the configured read-only Shopify source."""
+        source = os.environ.get(
+            "ORIN_HCS_PRODUCT_TRUTH_SOURCE", "public-storefront"
+        ).strip()
+        if source == "public-storefront":
+            return self.fetch_public_products()
+        if source != "admin-api":
+            raise RuntimeError("Unsupported HCS product-truth source")
+        return self.fetch_admin_products()
+
+    def fetch_public_products(self):
+        """Fetch every publicly listed product without loading a credential."""
+        all_products = []
+        seen_ids = set()
+        for page in range(1, PUBLIC_MAX_PAGES + 1):
+            page_products = public_shopify_products(page)
+            new_products = []
+            for record in page_products:
+                product = prepare_public_product(record)
+                product_id = str(product.get("id", ""))
+                if not product_id or product_id in seen_ids:
+                    continue
+                seen_ids.add(product_id)
+                new_products.append(product)
+            all_products.extend(new_products)
+            if len(page_products) < PUBLIC_PAGE_SIZE:
+                return all_products
+            if not new_products:
+                raise RuntimeError("Public Shopify catalogue pagination repeated a page")
+        raise RuntimeError("Public Shopify catalogue exceeded the safe page limit")
+
+    def fetch_admin_products(self):
+        """Legacy maintenance-only Admin API reader. GET requests only."""
         self.shopify_write_count += 0  # marker; GET only
         all_products = []
         page_info = None

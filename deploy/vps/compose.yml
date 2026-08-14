@@ -318,6 +318,7 @@ services:
       ORIN_MODEL_WRITER_ENABLED: "${ORIN_HCS_MODEL_WRITER_ENABLED:-0}"
       ORIN_WRITER_API_KEY_FILE: /run/secrets/hcs_writer_api_key
       ORIN_WRITER_TIMEOUT_SECONDS: "240"
+      ORIN_HCS_PRODUCT_TRUTH_SOURCE: public-storefront
     secrets:
       - hcs_worker_database_url
       - hcs_writer_api_key
