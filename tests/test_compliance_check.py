@@ -97,3 +97,29 @@ def test_safe_negative_sentence_is_not_tainted_by_later_permission_language(
     assert result.returncode == 0
     assert "STATUS: PASS WITH WARNINGS" in result.stdout
     assert "STATUS: FAIL" not in result.stdout
+
+
+def test_hcs_faq_safe_negative_context_is_recognized(tmp_path: Path) -> None:
+    article = tmp_path / "hcs-article.html"
+    article.write_text(
+        """
+        <section class="hcs-faq">
+          <div class="hcs-faq-item">
+            <h3>Where can an electric scooter be used?</h3>
+            <p>Use it only on suitable private land with the landowner's permission,
+            not on public roads or pavements.</p>
+          </div>
+        </section>
+        """,
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(SCRIPTS[1]), str(article)],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "STATUS: PASS WITH WARNINGS" in result.stdout

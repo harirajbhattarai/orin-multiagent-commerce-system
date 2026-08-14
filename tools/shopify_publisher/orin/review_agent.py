@@ -273,25 +273,51 @@ def blocked_claims_in_text(content: str, claims_to_avoid: list[str]) -> list[str
     return blocked
 
 
-def faq_questions_from_html(content: str) -> list[str]:
+def faq_questions_from_html(
+    content: str,
+    *,
+    client_id: str = "hoverboard_store",
+) -> list[str]:
     """Extract normalized visible questions from canonical FAQ blocks."""
-    matches = re.findall(
-        r'<div\s+class="[^"]*\bhs-faq-q\b[^"]*"[^>]*>(.*?)</div>',
-        content,
-        re.DOTALL | re.IGNORECASE,
-    )
+    if client_id == "hcs_gadgets":
+        faq_sections = re.findall(
+            r'<section\b[^>]*class="[^"]*\bhcs-faq\b[^"]*"[^>]*>(.*?)</section>',
+            content,
+            re.DOTALL | re.IGNORECASE,
+        )
+        matches = []
+        for section in faq_sections:
+            matches.extend(
+                re.findall(
+                    r'<div\b[^>]*class="[^"]*\bhcs-faq-item\b[^"]*"[^>]*>.*?'
+                    r'<h3\b[^>]*>(.*?)</h3>',
+                    section,
+                    re.DOTALL | re.IGNORECASE,
+                )
+            )
+    else:
+        matches = re.findall(
+            r'<div\s+class="[^"]*\bhs-faq-q\b[^"]*"[^>]*>(.*?)</div>',
+            content,
+            re.DOTALL | re.IGNORECASE,
+        )
     return [
         re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", item))).strip()
         for item in matches
     ]
 
 
-def faq_questions_match_plan(content: str, faq_plan: list[dict]) -> bool:
+def faq_questions_match_plan(
+    content: str,
+    faq_plan: list[dict],
+    *,
+    client_id: str = "hoverboard_store",
+) -> bool:
     expected = [
         re.sub(r"\s+", " ", str(item.get("question", ""))).strip()
         for item in faq_plan
     ]
-    return faq_questions_from_html(content) == expected
+    return faq_questions_from_html(content, client_id=client_id) == expected
 
 
 def topic_word_overlap(local_title: str, other_title: str) -> float:
@@ -673,6 +699,13 @@ def review_selected_job_draft(
     """
     # Resolve client-specific paths
     CLIENT_DIR, DRAFTS_DIR, RULES_FILE, DUP_LOG = _get_client_paths(client_context)
+    client_id = (
+        getattr(client_context, "client_id", "hoverboard_store")
+        if client_context is not None
+        else "hoverboard_store"
+    )
+    is_hcs = client_id == "hcs_gadgets"
+    class_prefix = "hcs" if is_hcs else "hs"
     """
     Post-write review for the selected job's local HTML draft.
 
@@ -959,12 +992,19 @@ def review_selected_job_draft(
     structure["h2_present"] = len(h2s) >= 3
 
     # CTA present
-    cta_match = re.search(r'class="[^"]*hs-cta[^"]*"', content, re.IGNORECASE)
+    cta_match = re.search(
+        rf'class="[^"]*{class_prefix}-cta[^"]*"',
+        content,
+        re.IGNORECASE,
+    )
     structure["cta_present"] = bool(cta_match)
 
     # FAQ present (if writer plan requires it)
     faq_plan = writer_plan.get("faq_plan", [])
-    faq_items_in_draft = re.findall(r'class="[^"]*hs-faq-item[^"]*"', content)
+    faq_items_in_draft = re.findall(
+        rf'class="[^"]*{class_prefix}-faq-item[^"]*"',
+        content,
+    )
     structure["faq_required"] = len(faq_plan) > 0
     structure["faq_present_in_draft"] = len(faq_items_in_draft) > 0
     structure["faq_count"] = len(faq_items_in_draft)
@@ -973,6 +1013,7 @@ def review_selected_job_draft(
     structure["faq_questions_match_plan"] = faq_questions_match_plan(
         content,
         faq_plan,
+        client_id=client_id,
     )
 
     # Canonical Hoverboard Store byline requirement (from html_quality_check.py):
@@ -989,11 +1030,29 @@ def review_selected_job_draft(
             brand_byline_check = b[3:].strip()
         elif b:
             brand_byline_check = b.strip()
-    structure["canonical_byline_text_present"] = f"By {brand_byline_check}" in visible_for_byline
+    if is_hcs:
+        schema_byline = re.search(
+            r'"author"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"',
+            content,
+            re.IGNORECASE | re.DOTALL,
+        )
+        structure["canonical_byline_text_present"] = bool(
+            schema_byline and schema_byline.group(1).strip() == brand_byline_check
+        )
+    else:
+        structure["canonical_byline_text_present"] = (
+            f"By {brand_byline_check}" in visible_for_byline
+        )
 
     # Article container
-    structure["hs_article_container"] = 'class="hs-article"' in content or 'class="hs-article ' in content
-    structure["hs_container"] = 'class="hs-container"' in content or 'class="hs-container ' in content
+    structure["hs_article_container"] = (
+        f'class="{class_prefix}-article"' in content
+        or f'class="{class_prefix}-article ' in content
+    )
+    structure["hs_container"] = is_hcs or (
+        'class="hs-container"' in content
+        or 'class="hs-container ' in content
+    )
 
     # ── Internal link checks ──────────────────────────────────────────────────
     links = {}
@@ -1020,7 +1079,13 @@ def review_selected_job_draft(
     links["has_broken_hrefs"] = len(broken_hrefs) > 0
 
     # Local internal links
-    local_hrefs = [h for h in hrefs if h.startswith("/") or "hoverboard-store" in h]
+    client_site_url = str(getattr(client_context, "site_url", "") or "")
+    local_hrefs = [
+        h for h in hrefs
+        if h.startswith("/")
+        or (client_site_url and h.startswith(client_site_url.rstrip("/") + "/"))
+        or (not client_site_url and "hoverboard-store" in h)
+    ]
     links["internal_href_count"] = len(local_hrefs)
 
     # ── HTML quality check ───────────────────────────────────────────────────
@@ -1032,11 +1097,14 @@ def review_selected_job_draft(
             brand_for_check2 = byline2[3:].strip()
         elif byline2:
             brand_for_check2 = byline2.strip()
+    html_quality_args = [f"--brand={brand_for_check2}"]
+    if is_hcs:
+        html_quality_args.append("--hcs")
     html_q_result = run_check(
         TOOLS_DIR / "html_quality_check.py",
         draft_path_obj,
         "html_quality_check",
-        extra_args=[f"--brand={brand_for_check2}"],
+        extra_args=html_quality_args,
     )
 
     # ── Duplicate check (conditionally skipped for new planned articles) ──────
@@ -1154,7 +1222,7 @@ def review_selected_job_draft(
         post_write_warnings.append(f"topic_h1_low_overlap: {list(overlap)}")
     if not structure["canonical_byline_text_present"]:
         post_write_warnings.append(
-            "byline: canonical Hoverboard Store visible text 'By Hoverboard Store' not found in article"
+            f"byline: canonical {brand_byline_check} attribution not found in article"
         )
 
     # ── Make decision ────────────────────────────────────────────────────────

@@ -108,7 +108,7 @@ def normalise(text):
 
 
 def extract_faq_blocks(html):
-    faq_pattern = re.compile(
+    hs_faq_pattern = re.compile(
         r'<div class="hs-faq-item">.*?'
         r'<div class="hs-faq-q">(.*?)</div>.*?'
         r'<div class="hs-faq-a">(.*?)</div>.*?'
@@ -116,7 +116,19 @@ def extract_faq_blocks(html):
         re.DOTALL | re.IGNORECASE,
     )
     blocks = []
-    for m in faq_pattern.finditer(html):
+    for m in hs_faq_pattern.finditer(html):
+        q = normalise(re.sub(r"<[^>]+>", "", m.group(1)))
+        a = normalise(re.sub(r"<[^>]+>", "", m.group(2)))
+        blocks.append((q, a))
+
+    hcs_faq_pattern = re.compile(
+        r'<div\b[^>]*class=["\'][^"\']*\bhcs-faq-item\b[^"\']*["\'][^>]*>.*?'
+        r'<h3\b[^>]*>(.*?)</h3>.*?'
+        r'<p\b[^>]*>(.*?)</p>.*?'
+        r'</div>',
+        re.DOTALL | re.IGNORECASE,
+    )
+    for m in hcs_faq_pattern.finditer(html):
         q = normalise(re.sub(r"<[^>]+>", "", m.group(1)))
         a = normalise(re.sub(r"<[^>]+>", "", m.group(2)))
         blocks.append((q, a))
@@ -215,15 +227,8 @@ def check_non_faq_content(text, sensitive_phrase, label="Sensitive phrase"):
     return "fail", f"{label} '{sensitive_phrase}' found without safe context"
 
 
-def main():
-    if len(sys.argv) < 2:
-        raise SystemExit("Usage: python3 compliance_check.py path/to/article.html")
-
-    path = Path(sys.argv[1])
-    if not path.exists():
-        raise SystemExit(f"File not found: {path}")
-
-    raw_html = path.read_text()
+def analyze_html(raw_html):
+    """Return deterministic UK-compliance failures and warnings for HTML."""
     html = remove_html_comments(raw_html)
     visible = normalise(html)
 
@@ -256,7 +261,7 @@ def main():
 
     # Check SENSITIVE_PHRASES in non-FAQ content
     content_without_faqs = re.sub(
-        r'<div class="hs-faq-item">.*?</div>\s*</div>',
+        r'<div\b[^>]*class=["\'][^"\']*\b(?:hs|hcs)-faq-item\b[^"\']*["\'][^>]*>.*?</div>\s*</div>',
         "",
         html,
         flags=re.DOTALL | re.IGNORECASE,
@@ -269,6 +274,20 @@ def main():
             fails.append(detail)
         elif status == "pass_warn":
             warnings.append(detail)
+
+    return fails, warnings
+
+
+def main():
+    if len(sys.argv) < 2:
+        raise SystemExit("Usage: python3 compliance_check.py path/to/article.html")
+
+    path = Path(sys.argv[1])
+    if not path.exists():
+        raise SystemExit(f"File not found: {path}")
+
+    raw_html = path.read_text()
+    fails, warnings = analyze_html(raw_html)
 
     print("UK Compliance Check")
     print("-------------------")

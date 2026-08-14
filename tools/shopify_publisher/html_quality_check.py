@@ -59,7 +59,7 @@ def main():
     if is_hcs:
         # HCS Gadgets validation
         wrapper_article = 'class="hcs-article"'
-        wrapper_container = 'class="hcs-container"'
+        wrapper_container = None
         wrapper_quick = 'class="hcs-quick-answer"'
         brand_byline = "HCS Gadgets"
         allow_faq_jsonld = True
@@ -74,7 +74,7 @@ def main():
     if wrapper_article not in html:
         issues.append(f"Missing {('hs' if not is_hcs else 'hcs')}-article wrapper.")
 
-    if wrapper_container not in html:
+    if wrapper_container is not None and wrapper_container not in html:
         issues.append(f"Missing {('hs' if not is_hcs else 'hcs')}-container wrapper.")
 
     if not re.search(r"<h1[^>]*>.*?</h1>", html, flags=re.S | re.I):

@@ -25,6 +25,7 @@ from model_writer import (  # noqa: E402
     extract_article_html,
     generate_article,
 )
+from writer_agent import _hcs_model_validation_receipts  # noqa: E402
 
 
 JOB_CONTEXT = {
@@ -165,7 +166,25 @@ class ModelWriterTests(unittest.TestCase):
         self.assertIn('id="good-bad"', user_prompt)
         self.assertIn("div.hcs-table-scroll", user_prompt)
         self.assertIn("Do not emit script tags or JSON-LD", user_prompt)
+        self.assertIn("Do not use the words roads, streets, pavements", user_prompt)
         self.assertIn('"client_id": "hcs_gadgets"', user_prompt)
+
+    def test_hcs_model_validation_blocks_unsafe_public_surface_wording(self):
+        receipt, _ = _hcs_model_validation_receipts(
+            '<article class="hcs-article"><section class="hcs-hero">'
+            '<p class="hcs-eyebrow">Guide</p><h1>Adult Electric Scooter Suspension: '
+            'What UK Buyers Should Compare</h1><p class="hcs-intro">Intro.</p>'
+            '</section><p>Compare performance on smooth pavement.</p></article>',
+            job_number="1",
+            title="Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+            target_keyword="adult electric scooter suspension guide",
+            cluster="Buyer Guides & Product Education",
+            h2_outline=[],
+        )
+
+        codes = {blocker["code"] for blocker in receipt["blockers"]}
+        self.assertIn("HCS_UK_COMPLIANCE", codes)
+        self.assertFalse(receipt["passed"])
 
     def test_hcs_article_and_table_are_allowed_model_html(self):
         article = (

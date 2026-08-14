@@ -195,6 +195,10 @@ Required output contract:
   role, data-*, target, hidden, style, event-handler, or any other attributes.
 - Use only claims supported by the plan or safe general guidance. Do not infer
   performance or suitability from appearance, price, brand, or generic features.
+- For electric scooters, describe riding only on suitable private land with the
+  landowner's permission. Do not use the words roads, streets, pavements, cycle
+  lanes, commuting, or commute anywhere in visible copy, headings, FAQs, or
+  examples. Do not list public-access surfaces even to compare them.
 {retry_instructions}
 """
     return f"""Create the article described by this approved plan:
