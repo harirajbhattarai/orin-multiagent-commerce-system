@@ -324,7 +324,7 @@ services:
         target: /runtime
         read_only: true
       - type: bind
-        source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}
+        source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}/hcs_gadgets
         target: /evidence
     command:
       - serve
