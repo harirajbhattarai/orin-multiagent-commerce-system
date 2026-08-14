@@ -4,12 +4,30 @@ Last updated: 2026-08-14
 
 ## Current phase
 
-HCS Gadgets onboarding has passed its first server-side commissioning gate.
-The durable read-only identity audit verified the exact
-`hcsgadgets-com.myshopify.com` store, `Gadget Blog`, and 86 readable products
-without attempting a Shopify write. HCS remains in maintenance with request
-intake, automation, both Shopify write gates, and scheduler ownership closed;
-there are zero active HCS jobs and zero open HCS incidents.
+HCS Gadgets has passed its first exact-item dry-run commissioning proof. Job 1,
+“Adult Electric Scooter Suspension: What UK Buyers Should Compare,” produced
+durable review draft version 2 in run
+`hcs_20260814T134739Z_ef4654b6` at exact release
+`7877c986df7810dfcf8350c5eeec1a6b02f473f0`. The 1,834-word visible draft
+passed the HTML contract, compliance, topic-identity, and automated post-write
+review checks. The run made zero Shopify calls and creates, published nothing,
+left the queue unchanged, and required no reconciliation.
+
+HCS was immediately returned to maintenance after the proof. Request intake,
+automation, both Shopify write gates, and scheduler ownership are closed; the
+dedicated database role is `NOLOGIN`, the worker is stopped, no Shopify
+credential exists, and there are zero active HCS jobs and zero open HCS
+incidents. The next action is human review of the exact version-bound draft in
+the dashboard. Approval must not be used to contact Shopify until the later
+hidden-draft credential and write-path commissioning stage. Durable public
+evidence is in
+`docs/evidence/2026-08-14-hcs-job1-dry-run-proof.json`; canonical private run
+evidence remains under
+`/docker/orin/evidence/hcs_gadgets/hcs_20260814T134739Z_ef4654b6`.
+
+The proof followed the durable read-only identity audit, which verified the
+exact `hcsgadgets-com.myshopify.com` store, `Gadget Blog`, and 86 readable
+products without attempting a Shopify write.
 
 The first authoritative HCS content plan is now deployed in Supabase from
 merged revision `556a77eff8c97b273d2e9634263e05eeda63ab2a`. It contains exactly
@@ -19,8 +37,8 @@ and the legacy HCS queue. There are no normalized topic or target-keyword
 duplicates. The global keyword identity index now complements the existing
 global topic and generated-body identities. Seeding created no HCS jobs, runs,
 incidents, worker, scheduler, or Shopify action; HCS remains fully closed. The
-next commissioning step is one exact-item dry-run with no Shopify credential.
-Durable public evidence is in
+first exact-item dry-run described above has now completed with no Shopify
+credential. Durable content-plan evidence is in
 `docs/evidence/2026-08-14-hcs-content-plan-production-verification.json`.
 
 The dedicated HCS dry-run worker foundation is now database-scoped rather
@@ -29,8 +47,8 @@ cannot call the global claim function, and can claim only `hcs_gadgets`
 `dry-run` jobs through its dedicated function while both Shopify gates remain
 closed. Exact normalized topic identities and exact generated body hashes are
 globally unique across tenants, blocking accidental cross-client content
-reuse. HCS has not been activated; the corrected immutable no-job image proof
-has passed, and one controlled plan-item dry-run is still required.
+reuse. HCS has not been activated for Shopify writes; the corrected immutable
+no-job image proof and one controlled plan-item dry-run have both passed.
 
 The HCS credential installer and preflight check stage the next proof without
 exposing the database URL or reusing an HBStore credential.

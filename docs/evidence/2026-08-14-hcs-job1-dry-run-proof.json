@@ -1,0 +1,84 @@
+{
+  "schema": "orin.hcs-job1-dry-run-proof/v1",
+  "recorded_at": "2026-08-14T13:48:19Z",
+  "client_id": "hcs_gadgets",
+  "result": "passed",
+  "job": {
+    "plan_item_number": 1,
+    "content_item_id": "e27246fb-ca78-45b8-9d88-d9ba9b6362c7",
+    "execution_job_id": "cf09f4a9-e304-4f08-96fd-629e3eaa44c9",
+    "request_id": "2e258b25-4049-44f9-9a44-326129c14b5f",
+    "source_decision_id": "75b85224-d8cb-4692-9def-ed42a9bc4f8a",
+    "title": "Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+    "attempt": 10
+  },
+  "release": {
+    "code_version": "7877c986df7810dfcf8350c5eeec1a6b02f473f0",
+    "worker_image": "local/orin-worker:7877c986df7810dfcf8350c5eeec1a6b02f473f0",
+    "checkout_clean_and_exact": true,
+    "worker_restart_count": 0,
+    "model": "MiniMax-M3"
+  },
+  "run": {
+    "run_id": "hcs_20260814T134739Z_ef4654b6",
+    "status": "completed",
+    "decision": "job_selected",
+    "requested_mode": "dry-run",
+    "effective_mode": "dry-run",
+    "replayed": false,
+    "replay_disposition": "terminal",
+    "pipeline_exit_code": 0,
+    "error_code": null,
+    "shopify_write_state": "not_attempted",
+    "shopify_article_id": null,
+    "shopify_create_count": 0,
+    "published": false,
+    "queue_changed": false,
+    "reconciliation_status": "not_required"
+  },
+  "draft": {
+    "draft_id": "65bdfcb1-b81b-41d8-abc5-abc8b7f4f130",
+    "content_item_version": 2,
+    "title": "Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+    "body_sha256": "c9845f1a063bc967f7dbd80306e708341df9181cb1ff81149913338b5bb36c28",
+    "visible_word_count": 1834,
+    "meta_title": "Adult Electric Scooter Suspension Guide",
+    "meta_description": "UK guide to adult electric scooter suspension guide. Check specifications, manufacturer guidance and safety information before making an informed decision.",
+    "approval_recorded": false
+  },
+  "quality": {
+    "product_truth_status": "PRODUCT_TRUTH_FRESH",
+    "product_count": 86,
+    "html_contract_failures": 0,
+    "compliance_failures": 0,
+    "topic_identity": "TOPIC_IDENTITY_PASS",
+    "post_write_review": "POST_WRITE_REVIEW_PASSED"
+  },
+  "repairs": [
+    {
+      "pull_request": 152,
+      "summary": "Deterministically repair duplicate generated heading anchors while preserving required container anchors."
+    },
+    {
+      "pull_request": 153,
+      "summary": "Classify exhausted no-write retry attempts as deduplicated warnings instead of reconciliation incidents."
+    }
+  ],
+  "postflight": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "worker_role_login": false,
+    "worker_container_present": false,
+    "shopify_credential_present": false,
+    "active_jobs": 0,
+    "open_incidents": 0
+  },
+  "private_evidence_path": "/docker/orin/evidence/hcs_gadgets/hcs_20260814T134739Z_ef4654b6",
+  "next_action": "Human-review the exact version-bound draft in the dashboard. Keep Shopify credentials and write gates absent until separate hidden-draft commissioning."
+}
