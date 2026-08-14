@@ -180,22 +180,22 @@ def _hcs_model_validation_receipts(
     contract_failures, _, _ = run_hcs_contract_checks(body_html)
     compliance_failures, _ = analyze_html(body_html)
     blockers = []
-    if contract_failures:
+    for failure in contract_failures:
         blockers.append(
             {
                 "code": "HCS_HTML_CONTRACT",
-                "actual": "one or more mandatory HCS structural checks failed",
+                "actual": failure,
                 "expected": (
-                    "satisfy every HCS output-contract requirement, including "
-                    "wrappers, planned H2s, FAQ items, CTA, and deterministic schema"
+                    "satisfy the exact failed HCS output-contract check while preserving "
+                    "every approved heading, FAQ item, CTA, and deterministic schema"
                 ),
             }
         )
-    if compliance_failures:
+    for failure in compliance_failures:
         blockers.append(
             {
                 "code": "HCS_UK_COMPLIANCE",
-                "actual": "unsafe or insufficiently restricted public-use wording detected",
+                "actual": failure,
                 "expected": (
                     "describe electric-scooter riding only on suitable private land "
                     "with the landowner's permission; do not mention roads, streets, "
@@ -336,6 +336,7 @@ def _normalise_hcs_model_output(
     site_url,
     blog_handle,
     byline,
+    h2_outline=(),
 ):
     """Bind HCS metadata and deterministic schema to validated model HTML."""
     article_start = re.search(
@@ -349,6 +350,113 @@ def _normalise_hcs_model_output(
     closing = re.search(r"</article>\s*$", article, flags=re.IGNORECASE)
     if closing is None:
         return body_html
+
+    approved_headings = {
+        str(item.get("h2", "")).strip(): str(item.get("id", "")).strip()
+        for item in h2_outline
+        if str(item.get("h2", "")).strip() and str(item.get("id", "")).strip()
+    }
+
+    def bind_approved_h2_id(match):
+        attrs = match.group("attrs")
+        inner = match.group("inner")
+        visible = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", inner))).strip()
+        approved_id = approved_headings.get(visible)
+        if not approved_id:
+            return match.group(0)
+        attrs = re.sub(
+            r"\s+id\s*=\s*([\"']).*?\1",
+            "",
+            attrs,
+            flags=re.IGNORECASE,
+        )
+        return f'<h2{attrs} id="{approved_id}">{inner}</h2>'
+
+    h2_pattern = re.compile(
+        r"<h2(?P<attrs>\b[^>]*)>(?P<inner>.*?)</h2>",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    article = h2_pattern.sub(bind_approved_h2_id, article)
+
+    cta_heading = next(
+        (
+            (heading, heading_id)
+            for heading, heading_id in approved_headings.items()
+            if heading_id == "cta"
+        ),
+        None,
+    )
+    if cta_heading is not None:
+        approved_cta_text, approved_cta_id = cta_heading
+        canonical_cta_h2 = (
+            f'<h2 id="{approved_cta_id}">{approved_cta_text}</h2>'
+        )
+
+        def canonicalize_cta_section(match):
+            content = match.group("content")
+            if h2_pattern.search(content):
+                content = h2_pattern.sub(
+                    lambda _match: canonical_cta_h2,
+                    content,
+                    count=1,
+                )
+            else:
+                content = "\n" + canonical_cta_h2 + content
+            return match.group("open") + content + match.group("close")
+
+        cta_section_pattern = re.compile(
+            r"(?P<open><section\b[^>]*\bclass\s*=\s*([\"'])[^\"']*"
+            r"\bhcs-cta\b[^\"']*\2[^>]*>)(?P<content>.*?)"
+            r"(?P<close></section>)",
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        article = cta_section_pattern.sub(canonicalize_cta_section, article, count=1)
+
+        # MiniMax sometimes emits the approved CTA H2 immediately before the
+        # CTA wrapper and then invents a second H2 inside it. The approved H2
+        # belongs inside the CTA; remove only that exact adjacent duplicate.
+        adjacent_cta_heading = re.compile(
+            r"<h2\b[^>]*\bid\s*=\s*([\"'])cta\1[^>]*>\s*"
+            + re.escape(approved_cta_text)
+            + r"\s*</h2>\s*(?=<section\b[^>]*\bclass\s*=\s*([\"'])"
+            r"[^\"']*\bhcs-cta\b[^\"']*\2[^>]*>)",
+            flags=re.IGNORECASE | re.DOTALL,
+        )
+        article = adjacent_cta_heading.sub("", article, count=1)
+
+    # The HCS contract permits anchor ids on every H2 and requires them when a
+    # model nests optional split/table blocks inside hcs-content. Bind any
+    # remaining model-authored H2 deterministically so an otherwise valid
+    # article cannot fail merely because an optional heading lacked an anchor.
+    used_h2_ids = set(
+        re.findall(
+            r"<h2\b[^>]*\bid\s*=\s*([\"'])([^\"']+)\1",
+            article,
+            flags=re.IGNORECASE,
+        )
+    )
+    used_h2_ids = {value for _, value in used_h2_ids}
+
+    def bind_missing_h2_id(match):
+        attrs = match.group("attrs")
+        if re.search(r"\bid\s*=", attrs, flags=re.IGNORECASE):
+            return match.group(0)
+        visible = re.sub(
+            r"\s+",
+            " ",
+            unescape(re.sub(r"<[^>]+>", " ", match.group("inner"))),
+        ).strip()
+        anchor = re.sub(r"[^a-z0-9]+", "-", visible.lower()).strip("-")
+        anchor = anchor or "section"
+        candidate = anchor
+        suffix = 2
+        while candidate in used_h2_ids:
+            candidate = f"{anchor}-{suffix}"
+            suffix += 1
+        used_h2_ids.add(candidate)
+        return f'<h2{attrs} id="{candidate}">{match.group("inner")}</h2>'
+
+    article = h2_pattern.sub(bind_missing_h2_id, article)
 
     def text_content(fragment):
         return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", fragment))).strip()
@@ -406,6 +514,11 @@ def _normalise_hcs_model_output(
         + "\n</script>"
         for schema in schemas
     )
+    # Heading and CTA canonicalisation can change the fragment length, so the
+    # original closing-tag match is no longer a safe slice boundary.
+    closing = re.search(r"</article>\s*$", article, flags=re.IGNORECASE)
+    if closing is None:
+        return body_html
     article = article[:closing.start()].rstrip() + "\n\n" + schema_html + "\n</article>"
 
     def comment_value(value):
@@ -1714,6 +1827,7 @@ Job: {job_number}
                     site_url=self.site_url,
                     blog_handle=self.blog_handle,
                     byline=self.byline,
+                    h2_outline=h2_outline,
                 )
             else:
                 full_html = _normalise_model_metadata(
@@ -1788,6 +1902,7 @@ Job: {job_number}
                         site_url=self.site_url,
                         blog_handle=self.blog_handle,
                         byline=self.byline,
+                        h2_outline=h2_outline,
                     )
                 else:
                     full_html = _normalise_model_metadata(
