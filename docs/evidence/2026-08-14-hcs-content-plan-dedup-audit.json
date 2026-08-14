@@ -1,0 +1,63 @@
+{
+  "schema": "orin.hcs-content-plan-dedup-audit/v1",
+  "client_id": "hcs_gadgets",
+  "audit_date": "2026-08-14",
+  "sources": {
+    "hcs_blog_sitemap": "https://hcsgadgets.com/sitemap_blogs_1.xml",
+    "hcs_product_sitemap": "https://hcsgadgets.com/sitemap_products_1.xml",
+    "hcs_collection_sitemap": "https://hcsgadgets.com/sitemap_collections_1.xml",
+    "hcs_article_urls_reviewed": 34,
+    "hcs_product_urls_reviewed": 86,
+    "hcs_collection_urls_reviewed": 14,
+    "hoverboard_store_plan_items_reviewed": 60,
+    "legacy_hcs_queue_items_reviewed": 6
+  },
+  "rejected_intent_groups": [
+    "broad useful gadgets and under-50 gadget roundups",
+    "generic household gadget online buying checklists",
+    "hoverboard law, safety, beginner, battery, beeping, wet weather, certification, price and wheel-size guides",
+    "generic kids electric scooter buying, fit, tyre, storage, brake, range and teenager guides",
+    "generic hoverkart compatibility, setup, strap, seating, steering and storage guides"
+  ],
+  "accepted_count": 30,
+  "accepted_items": [
+    {"item_number":1,"target_date":"2026-08-28","cluster":"Adult scooters / Buyer education","topic":"Adult Electric Scooter Suspension: What UK Buyers Should Compare","target_keyword":"adult electric scooter suspension guide"},
+    {"item_number":2,"target_date":"2026-08-31","cluster":"Adult scooters / Product education","topic":"Electric Scooter IP Ratings and Water Resistance Explained","target_keyword":"electric scooter IP rating explained"},
+    {"item_number":3,"target_date":"2026-09-03","cluster":"Adult scooters / Feature guide","topic":"App-Enabled Electric Scooters: Useful Features, Privacy and Setup Checks","target_keyword":"app enabled electric scooter features"},
+    {"item_number":4,"target_date":"2026-09-06","cluster":"Adult scooters / Maintenance","topic":"Electric Scooter Folding Mechanisms: Safety Checks Before Every Fold","target_keyword":"electric scooter folding mechanism checks"},
+    {"item_number":5,"target_date":"2026-09-09","cluster":"Adult scooters / Fit guide","topic":"Electric Scooter Deck Size and Riding Position: Comfort Checks for Adults","target_keyword":"electric scooter deck size for adults"},
+    {"item_number":6,"target_date":"2026-09-12","cluster":"Adult scooters / Safety features","topic":"Electric Scooter Lights and Reflectors: Visibility Features to Compare","target_keyword":"electric scooter lights and reflectors"},
+    {"item_number":7,"target_date":"2026-09-15","cluster":"Adult scooters / Maintenance","topic":"Adult Electric Scooter Maintenance Schedule: Weekly and Monthly Checks","target_keyword":"adult electric scooter maintenance schedule"},
+    {"item_number":8,"target_date":"2026-09-18","cluster":"Kids scooters / Comparison","topic":"3-Wheel Push Scooter vs Kids Electric Scooter: A Parent's Comparison","target_keyword":"3 wheel scooter vs electric scooter kids"},
+    {"item_number":9,"target_date":"2026-09-21","cluster":"Kids ride-ons / Comparison","topic":"Kids Electric Motorcycle vs Electric Scooter: Which Ride-On Fits?","target_keyword":"kids electric motorcycle vs scooter"},
+    {"item_number":10,"target_date":"2026-09-24","cluster":"Kids scooters / Feature guide","topic":"Speed Modes on Kids Electric Scooters: What Parents Should Check","target_keyword":"kids electric scooter speed modes"},
+    {"item_number":11,"target_date":"2026-09-27","cluster":"Kids scooters / Product comparison","topic":"Revix Nova S150 vs X1 Kids Electric Scooter: Parent Buying Checks","target_keyword":"Revix Nova S150 vs X1 scooter"},
+    {"item_number":12,"target_date":"2026-09-30","cluster":"Kids ride-ons / Product comparison","topic":"Evercross EV12M vs RCB R9X Kids Electric Motorcycle: What to Compare","target_keyword":"Evercross EV12M vs RCB R9X"},
+    {"item_number":13,"target_date":"2026-10-03","cluster":"Hoverkarts / Product comparison","topic":"R1 vs R2 Hoverkart Seats: Fit, Suspension and Buyer Checks","target_keyword":"R1 vs R2 hoverkart seat"},
+    {"item_number":14,"target_date":"2026-10-06","cluster":"Hoverkarts / Buyer guide","topic":"Dual-Seat Hoverkarts: Space, Supervision and Setup Questions","target_keyword":"dual seat hoverkart buying guide"},
+    {"item_number":15,"target_date":"2026-10-09","cluster":"Hoverkarts / Parts support","topic":"Hoverkart Replacement Wheel: How to Identify Wear and Correct Fit","target_keyword":"hoverkart replacement wheel guide"},
+    {"item_number":16,"target_date":"2026-10-12","cluster":"Hoverkarts / Parts support","topic":"Hoverkart Assembly Screw Kits: When Fasteners Need Replacement","target_keyword":"hoverkart replacement screw kit"},
+    {"item_number":17,"target_date":"2026-10-15","cluster":"Hoverkarts / Maintenance","topic":"Hoverkart Replacement Parts Checklist: Wheels, Straps and Fasteners","target_keyword":"hoverkart replacement parts checklist"},
+    {"item_number":18,"target_date":"2026-10-18","cluster":"Hoverkarts / Fit support","topic":"How to Measure a Hoverkart Frame Before Ordering Replacement Parts","target_keyword":"measure hoverkart frame for parts"},
+    {"item_number":19,"target_date":"2026-10-21","cluster":"Hoverboards / Product comparison","topic":"G1 Lite vs Revix RX2: 6.5-Inch Hoverboard Comparison","target_keyword":"G1 Lite vs Revix RX2 hoverboard"},
+    {"item_number":20,"target_date":"2026-10-24","cluster":"Hoverboards / Product guide","topic":"Revix RX1 8.5-Inch Off-Road Hoverboard: Buyer Fit and Checks","target_keyword":"Revix RX1 off road hoverboard guide"},
+    {"item_number":21,"target_date":"2026-10-27","cluster":"Hoverboards / Buyer support","topic":"Refurbished Hoverboards: Condition, Battery and Warranty Checklist","target_keyword":"refurbished hoverboard buying checklist"},
+    {"item_number":22,"target_date":"2026-10-30","cluster":"Hoverboards / Parts support","topic":"Hoverboard Replacement Battery Compatibility: Voltage, Connector and Safety Checks","target_keyword":"hoverboard replacement battery compatibility"},
+    {"item_number":23,"target_date":"2026-11-02","cluster":"Hoverboards / Accessories","topic":"Choosing a Carry Bag for a 6.5-Inch Hoverboard: Fit and Protection","target_keyword":"6.5 inch hoverboard carry bag"},
+    {"item_number":24,"target_date":"2026-11-05","cluster":"Floor care / Comparison","topic":"Spin Mop vs Spray Mop: Which Floor-Cleaning System Fits Your Home?","target_keyword":"spin mop vs spray mop"},
+    {"item_number":25,"target_date":"2026-11-08","cluster":"Home heating / Comparison","topic":"Portable Ceramic Heater vs Electric Fireplace Heater: What to Compare","target_keyword":"ceramic heater vs electric fireplace heater"},
+    {"item_number":26,"target_date":"2026-11-11","cluster":"Home fragrance / Product education","topic":"Waterless Essential Oil Diffusers: How They Work and Where They Fit","target_keyword":"waterless essential oil diffuser guide"},
+    {"item_number":27,"target_date":"2026-11-14","cluster":"Kitchen storage / Buyer guide","topic":"Ceramic Canister Sets: Airtight Lids, Counter Space and Care","target_keyword":"ceramic canister set buying guide"},
+    {"item_number":28,"target_date":"2026-11-17","cluster":"Home cooling / Comparison","topic":"Portable Air Cooler vs Pedestal Fan: Which Fits a UK Room?","target_keyword":"portable air cooler vs pedestal fan"},
+    {"item_number":29,"target_date":"2026-11-20","cluster":"Family games / Comparison","topic":"Magnetic Dartboard vs Soft-Tip Dartboard: A Family Buying Guide","target_keyword":"magnetic vs soft tip dartboard"},
+    {"item_number":30,"target_date":"2026-11-23","cluster":"Fitness and recovery / Buyer guide","topic":"Portable Ice Bath Tubs: Capacity, Setup and Care Checks","target_keyword":"portable ice bath tub buying guide"}
+  ],
+  "safety_state_required": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "allowed_mode": "dry-run"
+  }
+}
