@@ -110,7 +110,9 @@ insert into hidden_results
 select
   'write_gate_disabled',
   not exists (
-    select 1 from orin_private.claim_next_job('worker:hidden:one', 1200)
+    select 1 from orin_private.claim_next_job_for_client(
+      'worker:hidden:one', 'hoverboard_store', 1200
+    )
   );
 reset role;
 
@@ -125,7 +127,9 @@ where client_id = 'hoverboard_store';
 
 set local role orin_worker;
 insert into hidden_claims
-select * from orin_private.claim_next_job('worker:hidden:one', 1200);
+select * from orin_private.claim_next_job_for_client(
+  'worker:hidden:one', 'hoverboard_store', 1200
+);
 reset role;
 
 select is(

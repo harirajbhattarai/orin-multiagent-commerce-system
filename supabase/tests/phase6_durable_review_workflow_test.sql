@@ -23,7 +23,16 @@ select ok(
   'review projection obeys underlying RLS'
 );
 select ok(
-  has_function_privilege('orin_worker', 'orin_private.materialize_next_content_decision()', 'EXECUTE')
+  has_function_privilege(
+    'orin_worker',
+    'orin_private.materialize_next_content_decision_for_client(text)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'orin_worker',
+    'orin_private.materialize_next_content_decision()',
+    'EXECUTE'
+  )
   and not has_function_privilege('authenticated', 'orin_private.materialize_next_content_decision()', 'EXECUTE'),
   'only the narrow worker can consume decisions'
 );
@@ -101,7 +110,7 @@ select is(
 
 reset role;
 set local role orin_worker;
-select * from orin_private.materialize_next_content_decision();
+select * from orin_private.materialize_next_content_decision_for_client('hoverboard_store');
 reset role;
 
 select is(
@@ -139,7 +148,9 @@ where source_job_key like 'decision:%'
 grant select on phase6_materialized_job to orin_worker;
 
 set local role orin_worker;
-select * from orin_private.claim_next_job('worker:review-test', 1200);
+select * from orin_private.claim_next_job_for_client(
+  'worker:review-test', 'hoverboard_store', 1200
+);
 select *
 from orin_private.complete_job_with_review_draft(
   (select job_id from phase6_materialized_job),
@@ -247,7 +258,7 @@ insert into public.content_decisions (
 reset role;
 
 set local role orin_worker;
-select * from orin_private.materialize_next_content_decision();
+select * from orin_private.materialize_next_content_decision_for_client('hoverboard_store');
 reset role;
 
 select is(
@@ -296,7 +307,9 @@ select is(
 );
 
 set local role orin_worker;
-select * from orin_private.claim_next_job('worker:exact-review', 1200);
+select * from orin_private.claim_next_job_for_client(
+  'worker:exact-review', 'hoverboard_store', 1200
+);
 reset role;
 
 select is(

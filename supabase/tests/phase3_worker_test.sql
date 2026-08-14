@@ -29,6 +29,11 @@ select ok(
 select ok(
   has_function_privilege(
     'orin_worker',
+    'orin_private.claim_next_job_for_client(text,text,integer)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'orin_worker',
     'orin_private.claim_next_job(text,integer)',
     'EXECUTE'
   )
@@ -117,7 +122,9 @@ insert into worker_results
 select
   'disabled_claim',
   not exists (
-    select 1 from orin_private.claim_next_job('worker:test:one', 1200)
+    select 1 from orin_private.claim_next_job_for_client(
+      'worker:test:one', 'hoverboard_store', 1200
+    )
   );
 reset role;
 
@@ -137,7 +144,9 @@ where client_id = 'hoverboard_store';
 
 set local role orin_worker;
 insert into worker_claims
-select * from orin_private.claim_next_job('worker:test:one', 1200);
+select * from orin_private.claim_next_job_for_client(
+  'worker:test:one', 'hoverboard_store', 1200
+);
 reset role;
 
 select is(
@@ -161,7 +170,9 @@ select ok(
 
 set local role orin_worker;
 insert into worker_claims
-select * from orin_private.claim_next_job('worker:test:two', 1200);
+select * from orin_private.claim_next_job_for_client(
+  'worker:test:two', 'hoverboard_store', 1200
+);
 reset role;
 
 select is(
@@ -342,7 +353,9 @@ insert into public.content_jobs (
 
 set local role orin_worker;
 insert into worker_claims
-select * from orin_private.claim_next_job('worker:test:cached-one', 1200);
+select * from orin_private.claim_next_job_for_client(
+  'worker:test:cached-one', 'hoverboard_store', 1200
+);
 reset role;
 
 update public.content_jobs
@@ -352,7 +365,9 @@ where request_id = '99999999-9999-4999-8999-999999999999';
 
 set local role orin_worker;
 insert into worker_claims
-select * from orin_private.claim_next_job('worker:test:cached-two', 1200);
+select * from orin_private.claim_next_job_for_client(
+  'worker:test:cached-two', 'hoverboard_store', 1200
+);
 reset role;
 
 select is(
