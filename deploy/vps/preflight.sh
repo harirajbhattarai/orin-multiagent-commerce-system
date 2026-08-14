@@ -193,6 +193,19 @@ if [[ "${require_secrets}" == true ]]; then
     echo "evidence directory must be mode 0700 and owned by the runtime UID" >&2
     exit 1
   fi
+  if [[ "${require_hcs_worker_secret}" == true ]]; then
+    hcs_evidence_root="${ORIN_EVIDENCE_ROOT}/hcs_gadgets"
+    if [[ ! -d "${hcs_evidence_root}" || -L "${hcs_evidence_root}" ]]; then
+      echo "HCS evidence directory is missing or unsafe: ${hcs_evidence_root}" >&2
+      exit 1
+    fi
+    if [[ "$(stat -c %a "${hcs_evidence_root}")" != "700" \
+          || "$(stat -c %u "${hcs_evidence_root}")" != "10005" \
+          || "$(stat -c %g "${hcs_evidence_root}")" != "${ORIN_RUNTIME_GID}" ]]; then
+      echo "HCS evidence directory must be mode 0700 and owned by 10005:${ORIN_RUNTIME_GID}" >&2
+      exit 1
+    fi
+  fi
 fi
 
 echo "ORIN deployment preflight passed; no service was started"

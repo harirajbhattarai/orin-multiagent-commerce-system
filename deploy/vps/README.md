@@ -257,6 +257,7 @@ install it interactively:
 
 ```bash
 deploy/vps/install_hcs_worker_db_secret.sh
+deploy/vps/prepare_hcs_worker_storage.sh
 deploy/vps/preflight.sh --require-secrets --require-hcs-worker-secret
 ```
 
@@ -272,7 +273,10 @@ deploy/vps/build_hcs_worker.sh
 
 The installer writes only
 `/docker/orin/secrets/hcs_worker_database_url`, owned by UID `10005` with mode
-`0400`, and refuses to overwrite an existing file. Keep HCS in maintenance,
+`0400`, and refuses to overwrite an existing file. The storage preparation
+creates only `/docker/orin/evidence/hcs_gadgets`, owned by UID `10005` with
+mode `0700`; the HCS container mounts that private directory at `/evidence`
+instead of receiving access to Hoverboard Store evidence. Keep HCS in maintenance,
 with request intake, automation, both Shopify write gates, and scheduler
 ownership closed, while proving that the dedicated daemon can return
 `no_job_due`. Return the database role to `NOLOGIN`, stop the daemon, and
