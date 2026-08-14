@@ -142,6 +142,15 @@ def test_hcs_worker_secret_installer_and_preflight_are_uid_scoped():
     assert "[hcs_worker_database_url]=10005" in preflight
 
 
+def test_hcs_worker_build_fails_if_source_commit_and_image_tag_diverge():
+    build = Path("deploy/vps/build_hcs_worker.sh").read_text(encoding="utf-8")
+    assert 'actual_sha="$(git -c safe.directory=' in build
+    assert 'if [[ "${actual_sha}" != "${deploy_sha}" ]]' in build
+    assert 'image="local/orin-worker:${deploy_sha}"' in build
+    assert 'if [[ "${image_revision}" != "${deploy_sha}" ]]' in build
+    assert '"serve", "--client-id", "hcs_gadgets"' in build
+
+
 def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():
     trigger = COMPOSE.split("  scheduler-trigger:", 1)[1].split(
         "\n  control-api:", 1
