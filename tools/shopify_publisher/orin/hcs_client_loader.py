@@ -15,7 +15,38 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
+from workspace_paths import content_queue_path, source_root, workspace_root
+
 REGISTRY_PATH = Path(__file__).parent / "client_registry.json"
+
+
+def _runtime_path(configured: str | None) -> str | None:
+    """Resolve one client-data path inside the explicitly scoped runtime root."""
+    if not configured:
+        return None
+    runtime = workspace_root()
+    client_runtime = (runtime / "clients" / "hcs_gadgets").resolve()
+    candidate = Path(configured).expanduser()
+    resolved = candidate.resolve() if candidate.is_absolute() else (runtime / candidate).resolve()
+    if not resolved.is_relative_to(client_runtime):
+        raise RuntimeError("HCS runtime path escapes the dedicated client subtree")
+    return str(resolved)
+
+
+def _source_path(configured: str | None) -> str | None:
+    """Resolve one immutable implementation path from the worker image."""
+    if not configured:
+        return None
+    candidate = Path(configured).expanduser()
+    immutable_root = source_root()
+    resolved = (
+        candidate.resolve()
+        if candidate.is_absolute()
+        else (immutable_root / candidate).resolve()
+    )
+    if not resolved.is_relative_to(immutable_root):
+        raise RuntimeError("HCS implementation path escapes immutable source")
+    return str(resolved)
 
 # ─── Registry Loader ──────────────────────────────────────────────────────────
 
@@ -61,14 +92,26 @@ def get_hcs_client_config() -> dict:
         }
 
     client_id = config.get("client_id")
-    pt_adapter_path = config.get("product_truth_adapter")
-    pt_normalised_path = config.get("product_truth_normalised")
-    pt_link_map_path = config.get("product_truth_link_map")
+    pt_adapter_path = _source_path(config.get("product_truth_adapter"))
+    pt_normalised_path = _runtime_path(config.get("product_truth_normalised"))
+    pt_link_map_path = _runtime_path(config.get("product_truth_link_map"))
     pt_max_age = config.get("product_truth_max_age_hours")
-    queue_path = config.get("queue_path")
+    queue_path = str(content_queue_path(client_id="hcs_gadgets"))
 
     result = {
         **config,
+        "client_root": _runtime_path(config.get("client_root")),
+        "queue_path": queue_path,
+        "drafts_path": _runtime_path(config.get("drafts_path")),
+        "automation_state_path": _runtime_path(config.get("automation_state_path")),
+        "product_truth_adapter": pt_adapter_path,
+        "product_truth_normalised": pt_normalised_path,
+        "product_truth_link_map": pt_link_map_path,
+        "brand_rules_path": _runtime_path(config.get("brand_rules_path")),
+        "writing_rules_path": _runtime_path(config.get("writing_rules_path")),
+        "design_rules_path": _runtime_path(config.get("design_rules_path")),
+        "html_rules_path": _runtime_path(config.get("html_rules_path")),
+        "compliance_rules_path": _runtime_path(config.get("compliance_rules_path")),
         "loaded": True,
         "error": None,
     }

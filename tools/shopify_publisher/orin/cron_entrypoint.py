@@ -35,7 +35,7 @@ from datetime import datetime, date, timezone
 
 AGENTS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(AGENTS_DIR))
-from workspace_paths import content_queue_path, workspace_root
+from workspace_paths import content_queue_path, source_root, workspace_root
 
 # Default to the repository/workspace containing this script. An explicit
 # override is available for controlled deployments and tests; production code
@@ -167,7 +167,15 @@ if CLIENT_ROUTE == "hcs_gadgets":
         _hcs_args.append(f"--as-of-date={AS_OF_DATE}")
     if JSON_MODE:
         _hcs_args.append("--json")
-    _hcs_result = subprocess.run(_hcs_args, capture_output=True, text=True, cwd=str(BASE_DIR))
+    # HCS runs from immutable image source. Its database queue projection and
+    # dedicated client subtree are resolved explicitly; it must never require
+    # traversal of the shared runtime workspace root.
+    _hcs_result = subprocess.run(
+        _hcs_args,
+        capture_output=True,
+        text=True,
+        cwd=str(source_root()),
+    )
     if JSON_MODE:
         print(_hcs_result.stdout)
     else:

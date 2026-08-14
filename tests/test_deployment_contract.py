@@ -125,6 +125,12 @@ def test_hcs_worker_is_dedicated_dry_run_and_has_no_shopify_secret():
     assert 'ORIN_MODEL_WRITER_ENABLED: "0"' in worker
     assert "SHOPIFY_ACCESS_TOKEN" not in worker
     assert (
+        "source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"
+        in worker
+    )
+    assert "target: /runtime/clients/hcs_gadgets" in worker
+    assert "source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}\n" not in worker
+    assert (
         "source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}/hcs_gadgets"
         in worker
     )
@@ -149,6 +155,9 @@ def test_hcs_worker_secret_installer_and_preflight_are_uid_scoped():
     assert "--require-hcs-worker-secret" in preflight
     assert "[hcs_worker_database_url]=10005" in preflight
     assert 'hcs_evidence_root="${ORIN_EVIDENCE_ROOT}/hcs_gadgets"' in preflight
+    assert 'hcs_runtime_root="${ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"' in preflight
+    assert "product_truth_normalised.json" in preflight
+    assert "product_truth_link_map.json" in preflight
     assert 'target="${evidence_root}/hcs_gadgets"' in storage
     assert 'install -d -m 0700 -o 10005 -g "${runtime_gid}"' in storage
 

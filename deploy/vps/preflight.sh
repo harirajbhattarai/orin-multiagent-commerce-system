@@ -195,6 +195,7 @@ if [[ "${require_secrets}" == true ]]; then
   fi
   if [[ "${require_hcs_worker_secret}" == true ]]; then
     hcs_evidence_root="${ORIN_EVIDENCE_ROOT}/hcs_gadgets"
+    hcs_runtime_root="${ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"
     if [[ ! -d "${hcs_evidence_root}" || -L "${hcs_evidence_root}" ]]; then
       echo "HCS evidence directory is missing or unsafe: ${hcs_evidence_root}" >&2
       exit 1
@@ -205,6 +206,20 @@ if [[ "${require_secrets}" == true ]]; then
       echo "HCS evidence directory must be mode 0700 and owned by 10005:${ORIN_RUNTIME_GID}" >&2
       exit 1
     fi
+    if [[ ! -d "${hcs_runtime_root}" || -L "${hcs_runtime_root}" ]]; then
+      echo "HCS client runtime directory is missing or unsafe: ${hcs_runtime_root}" >&2
+      exit 1
+    fi
+    for relative_path in \
+      content_engine/automation_state/product_truth/product_truth_normalised.json \
+      content_engine/automation_state/product_truth/product_truth_link_map.json; do
+      if [[ ! -f "${hcs_runtime_root}/${relative_path}" \
+            || -L "${hcs_runtime_root}/${relative_path}" \
+            || ! -r "${hcs_runtime_root}/${relative_path}" ]]; then
+        echo "HCS read-only runtime input is missing or unsafe: ${hcs_runtime_root}/${relative_path}" >&2
+        exit 1
+      fi
+    done
   fi
 fi
 

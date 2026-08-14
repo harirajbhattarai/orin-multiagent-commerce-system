@@ -320,8 +320,8 @@ services:
       - hcs_worker_database_url
     volumes:
       - type: bind
-        source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}
-        target: /runtime
+        source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets
+        target: /runtime/clients/hcs_gadgets
         read_only: true
       - type: bind
         source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}/hcs_gadgets
