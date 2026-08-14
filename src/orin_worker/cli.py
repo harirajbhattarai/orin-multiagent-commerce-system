@@ -137,6 +137,8 @@ def build_parser() -> argparse.ArgumentParser:
 def _add_execution_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--client-id",
+        required=True,
+        choices=("hoverboard_store", "hcs_gadgets"),
         help="bind this worker to one database client and dry-run claim path",
     )
     parser.add_argument("--workspace-root", type=Path)

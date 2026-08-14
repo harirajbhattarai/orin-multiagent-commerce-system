@@ -20,6 +20,16 @@ class PostgresWorkerRepository:
         expected_role: str = "orin_worker",
         client_id: str | None = None,
     ) -> None:
+        if client_id not in {"hoverboard_store", "hcs_gadgets"}:
+            raise ValueError("worker database access requires an explicit supported client")
+        expected_client_role = {
+            "hoverboard_store": "orin_worker",
+            "hcs_gadgets": "orin_hcs_worker",
+        }[client_id]
+        if expected_role != expected_client_role:
+            raise ValueError(
+                f"database role {expected_role} cannot serve client {client_id}"
+            )
         self.engine = engine
         self.expected_role = expected_role
         self.client_id = client_id
@@ -34,11 +44,20 @@ class PostgresWorkerRepository:
     def claim_next(self, *, worker_id: str, lease_seconds: int) -> ClaimedJob | None:
         with self.engine.begin() as connection:
             self._assert_narrow_role(connection)
-            if self.client_id is None:
+            if self.client_id == "hoverboard_store":
                 statement = text(
-                    "select * from orin_private.claim_next_job(:worker_id, :lease_seconds)"
+                    """
+                    select *
+                    from orin_private.claim_next_job_for_client(
+                      :worker_id, :client_id, :lease_seconds
+                    )
+                    """
                 )
-                parameters = {"worker_id": worker_id, "lease_seconds": lease_seconds}
+                parameters = {
+                    "worker_id": worker_id,
+                    "client_id": self.client_id,
+                    "lease_seconds": lease_seconds,
+                }
             else:
                 statement = text(
                     """
@@ -71,11 +90,16 @@ class PostgresWorkerRepository:
         """Turn at most one eligible dashboard decision into a gated job."""
         with self.engine.begin() as connection:
             self._assert_narrow_role(connection)
-            if self.client_id is None:
+            if self.client_id == "hoverboard_store":
                 statement = text(
-                    "select * from orin_private.materialize_next_content_decision()"
+                    """
+                    select *
+                    from orin_private.materialize_next_content_decision_for_client(
+                      :client_id
+                    )
+                    """
                 )
-                parameters = {}
+                parameters = {"client_id": self.client_id}
             else:
                 statement = text(
                     """
