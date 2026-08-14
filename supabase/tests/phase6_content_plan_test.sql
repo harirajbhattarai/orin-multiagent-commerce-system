@@ -188,7 +188,9 @@ grant insert, select on phase6_claim, phase6_snapshot to orin_worker;
 
 set local role orin_worker;
 insert into phase6_claim
-select * from orin_private.claim_next_job('worker:phase6:test', 1200);
+select * from orin_private.claim_next_job_for_client(
+  'worker:phase6:test', 'hoverboard_store', 1200
+);
 insert into phase6_snapshot
 select orin_private.get_content_plan_snapshot(
   (select job_id from phase6_claim limit 1),

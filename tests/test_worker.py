@@ -157,22 +157,37 @@ def test_no_due_job_is_a_successful_noop():
 
 def test_manual_worker_accepts_only_an_iso_as_of_date():
     parsed = build_parser().parse_args(
-        ["once", "--as-of-date", "2026-08-08"]
+        ["once", "--client-id", "hoverboard_store", "--as-of-date", "2026-08-08"]
     )
     assert parsed.as_of_date == "2026-08-08"
 
     with pytest.raises(SystemExit):
-        build_parser().parse_args(["once", "--as-of-date", "08/08/2026"])
+        build_parser().parse_args(
+            ["once", "--client-id", "hoverboard_store", "--as-of-date", "08/08/2026"]
+        )
 
 
 def test_manual_worker_accepts_only_a_positive_job_number():
-    parsed = build_parser().parse_args(["once", "--job-number", "029"])
+    parsed = build_parser().parse_args(
+        ["once", "--client-id", "hoverboard_store", "--job-number", "029"]
+    )
     assert parsed.job_number == "29"
 
     with pytest.raises(SystemExit):
-        build_parser().parse_args(["once", "--job-number", "0"])
+        build_parser().parse_args(
+            ["once", "--client-id", "hoverboard_store", "--job-number", "0"]
+        )
     with pytest.raises(SystemExit):
-        build_parser().parse_args(["once", "--job-number", "job29"])
+        build_parser().parse_args(
+            ["once", "--client-id", "hoverboard_store", "--job-number", "job29"]
+        )
+
+
+def test_worker_requires_an_explicit_supported_client_binding():
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["serve", "--worker-id", "orin-hbstore-prod"])
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["once", "--client-id", "unknown_client"])
 
 
 def test_automatic_worker_has_fixed_execution_scope():
@@ -491,14 +506,33 @@ class RoleEngine:
 
 
 def test_repository_rejects_an_overprivileged_database_role():
-    repository = PostgresWorkerRepository(RoleEngine("postgres"))  # type: ignore[arg-type]
-
-    with pytest.raises(RuntimeError, match="required=orin_worker, received=postgres"):
-        repository.ping()
+    with pytest.raises(ValueError, match="cannot serve client hoverboard_store"):
+        PostgresWorkerRepository(  # type: ignore[arg-type]
+            RoleEngine("postgres"),
+            expected_role="postgres",
+            client_id="hoverboard_store",
+        )
 
 
 def test_repository_accepts_only_the_narrow_worker_role():
-    repository = PostgresWorkerRepository(RoleEngine("orin_worker"))  # type: ignore[arg-type]
+    repository = PostgresWorkerRepository(  # type: ignore[arg-type]
+        RoleEngine("orin_worker"), client_id="hoverboard_store"
+    )
+
+    repository.ping()
+
+
+def test_repository_rejects_an_unbound_worker():
+    with pytest.raises(ValueError, match="explicit supported client"):
+        PostgresWorkerRepository(RoleEngine("orin_worker"))  # type: ignore[arg-type]
+
+
+def test_repository_binds_hcs_to_its_dedicated_role():
+    repository = PostgresWorkerRepository(  # type: ignore[arg-type]
+        RoleEngine("orin_hcs_worker"),
+        expected_role="orin_hcs_worker",
+        client_id="hcs_gadgets",
+    )
 
     repository.ping()
 
