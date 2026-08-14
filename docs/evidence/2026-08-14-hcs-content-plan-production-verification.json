@@ -1,0 +1,48 @@
+{
+  "schema": "orin.hcs-content-plan-production-verification/v1",
+  "client_id": "hcs_gadgets",
+  "verified_at": "2026-08-14T01:47:00Z",
+  "review": {
+    "pull_request": 141,
+    "merged_revision": "556a77eff8c97b273d2e9634263e05eeda63ab2a",
+    "github_actions_run": 31761457944,
+    "dashboard_ci": "passed",
+    "application_ci": "passed",
+    "database_ci": "passed"
+  },
+  "migration": {
+    "name": "hcs_deduplicated_content_plan",
+    "applied": true,
+    "source_document": "docs/HCS_CONTENT_PLAN.md",
+    "source_revision": "a7d335cb18098c338ed1285f525d90a4eae42f8ede9294570335321c36653029",
+    "global_keyword_identity_index": true
+  },
+  "plan": {
+    "items": 30,
+    "planned_items": 30,
+    "item_number_min": 1,
+    "item_number_max": 30,
+    "target_date_min": "2026-08-28",
+    "target_date_max": "2026-11-23",
+    "first_expected_draft_date": "2026-08-14",
+    "normalized_topic_duplicates": 0,
+    "normalized_keyword_duplicates": 0
+  },
+  "production_state": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "jobs": 0,
+    "runs": 0,
+    "active_incidents": 0
+  },
+  "advisors": {
+    "new_security_findings": 0,
+    "pre_existing_security_warning": "auth_leaked_password_protection",
+    "performance_findings": "pre-existing unused-index informational notices only"
+  },
+  "conclusion": "The reviewed 30-item HCS plan is authoritative and deduplicated. Seeding changed no execution or Shopify gate and created no work. The next step is a controlled single-item dry-run without a Shopify credential."
+}

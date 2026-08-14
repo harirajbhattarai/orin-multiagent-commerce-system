@@ -11,14 +11,26 @@ without attempting a Shopify write. HCS remains in maintenance with request
 intake, automation, both Shopify write gates, and scheduler ownership closed;
 there are zero active HCS jobs and zero open HCS incidents.
 
+The first authoritative HCS content plan is now deployed in Supabase from
+merged revision `556a77eff8c97b273d2e9634263e05eeda63ab2a`. It contains exactly
+30 planned items dated 2026-08-28 through 2026-11-23. The audit compared the
+live HCS blog, product, and collection sitemaps with all 60 HBStore plan items
+and the legacy HCS queue. There are no normalized topic or target-keyword
+duplicates. The global keyword identity index now complements the existing
+global topic and generated-body identities. Seeding created no HCS jobs, runs,
+incidents, worker, scheduler, or Shopify action; HCS remains fully closed. The
+next commissioning step is one exact-item dry-run with no Shopify credential.
+Durable public evidence is in
+`docs/evidence/2026-08-14-hcs-content-plan-production-verification.json`.
+
 The dedicated HCS dry-run worker foundation is now database-scoped rather
 than relying on a worker name. The new `orin_hcs_worker` role starts `NOLOGIN`,
 cannot call the global claim function, and can claim only `hcs_gadgets`
 `dry-run` jobs through its dedicated function while both Shopify gates remain
 closed. Exact normalized topic identities and exact generated body hashes are
 globally unique across tenants, blocking accidental cross-client content
-reuse. HCS has not been activated; a corrected immutable image build and
-controlled dry-run proof are still required.
+reuse. HCS has not been activated; the corrected immutable no-job image proof
+has passed, and one controlled plan-item dry-run is still required.
 
 The HCS credential installer and preflight check stage the next proof without
 exposing the database URL or reusing an HBStore credential.
