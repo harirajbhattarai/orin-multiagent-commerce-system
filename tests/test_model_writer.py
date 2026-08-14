@@ -25,7 +25,10 @@ from model_writer import (  # noqa: E402
     extract_article_html,
     generate_article,
 )
-from writer_agent import _hcs_model_validation_receipts  # noqa: E402
+from writer_agent import (  # noqa: E402
+    _hcs_model_validation_receipts,
+    _normalise_hcs_model_output,
+)
 
 
 JOB_CONTEXT = {
@@ -205,6 +208,87 @@ class ModelWriterTests(unittest.TestCase):
         self.assertGreater(len(contract_blockers), 1)
         self.assertTrue(
             all(blocker["actual"].startswith("[") for blocker in contract_blockers)
+        )
+
+    def test_hcs_normalizer_keeps_good_bad_anchor_on_do_component(self):
+        article = (
+            '<article class="hcs-article"><section class="hcs-content">'
+            '<h2 id="good-bad">Helpful Habits vs. Common Pitfalls</h2>'
+            '<div class="hcs-split"><div class="hcs-do">'
+            '<h2 id="good-bad">Helpful Habits</h2><ul><li>Read the manual.</li></ul>'
+            '</div><div class="hcs-dont"><h2>Common Pitfalls</h2>'
+            '<ul><li>Do not guess.</li></ul></div></div>'
+            '</section></article>'
+        )
+
+        normalized = _normalise_hcs_model_output(
+            article,
+            meta_title="Adult Electric Scooter Suspension Guide",
+            meta_description=(
+                "UK guide to adult electric scooter suspension. Check specs, "
+                "safety information and manufacturer guidance before deciding."
+            ),
+            approved_handle="adult-electric-scooter-suspension-guide",
+            target_keyword="adult electric scooter suspension guide",
+            cluster="Buyer Guides & Product Education",
+            job_number="1",
+            title="Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+            site_url="https://hcsgadgets.com",
+            blog_handle="gadget-blog",
+            byline="HCS Gadgets",
+            h2_outline=[],
+        )
+
+        self.assertEqual(normalized.count('id="good-bad"'), 1)
+        self.assertIn(
+            '<h2 id="helpful-habits-vs-common-pitfalls">'
+            'Helpful Habits vs. Common Pitfalls</h2>',
+            normalized,
+        )
+        self.assertIn(
+            '<div class="hcs-do"><h2 id="good-bad">Helpful Habits</h2>',
+            normalized,
+        )
+
+    def test_hcs_normalizer_keeps_cta_anchor_inside_cta_component(self):
+        article = (
+            '<article class="hcs-article"><section class="hcs-content">'
+            '<h2 id="cta">Find Practical Products at HCS Gadgets</h2>'
+            '</section><section class="hcs-cta">'
+            '<h2>Browse HCS Gadgets</h2><p>Compare the collection.</p>'
+            '<a class="hcs-button" href="https://hcsgadgets.com/collections/all">'
+            'Shop at HCS Gadgets</a></section></article>'
+        )
+
+        normalized = _normalise_hcs_model_output(
+            article,
+            meta_title="Adult Electric Scooter Suspension Guide",
+            meta_description=(
+                "UK guide to adult electric scooter suspension. Check specs, "
+                "safety information and manufacturer guidance before deciding."
+            ),
+            approved_handle="adult-electric-scooter-suspension-guide",
+            target_keyword="adult electric scooter suspension guide",
+            cluster="Buyer Guides & Product Education",
+            job_number="1",
+            title="Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+            site_url="https://hcsgadgets.com",
+            blog_handle="gadget-blog",
+            byline="HCS Gadgets",
+            h2_outline=[
+                {"id": "cta", "h2": "Shop at HCS Gadgets", "label": "Shop now"}
+            ],
+        )
+
+        self.assertEqual(normalized.count('id="cta"'), 1)
+        self.assertIn(
+            '<h2 id="find-practical-products-at-hcs-gadgets">'
+            'Find Practical Products at HCS Gadgets</h2>',
+            normalized,
+        )
+        self.assertIn(
+            '<section class="hcs-cta"><h2 id="cta">Shop at HCS Gadgets</h2>',
+            normalized,
         )
 
     def test_hcs_article_and_table_are_allowed_model_html(self):

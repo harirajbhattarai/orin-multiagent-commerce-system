@@ -458,6 +458,94 @@ def _normalise_hcs_model_output(
 
     article = h2_pattern.sub(bind_missing_h2_id, article)
 
+    # A model can repeat an otherwise valid anchor on a descriptive heading
+    # immediately before the component that owns that anchor.  Keep the
+    # contract-owned anchor on the component heading and rename only the
+    # duplicate headings.  This is deterministic structural repair, not a
+    # content rewrite: visible copy and the required component anchor remain
+    # unchanged.
+    h2_matches = list(h2_pattern.finditer(article))
+    h2_ids_by_index = []
+    occurrences_by_id = {}
+    for index, match in enumerate(h2_matches):
+        id_match = re.search(
+            r"\bid\s*=\s*([\"'])([^\"']+)\1",
+            match.group("attrs"),
+            flags=re.IGNORECASE,
+        )
+        h2_id = id_match.group(2) if id_match is not None else None
+        h2_ids_by_index.append(h2_id)
+        if h2_id:
+            occurrences_by_id.setdefault(h2_id, []).append(index)
+
+    preferred_owner_scope = {
+        "good-bad": re.compile(
+            r'<div\b[^>]*\bclass\s*=\s*([\"\'])[^\"\']*\bhcs-do\b'
+            r'[^\"\']*\1[^>]*>.*?</div>',
+            flags=re.IGNORECASE | re.DOTALL,
+        ),
+        "cta": re.compile(
+            r'<section\b[^>]*\bclass\s*=\s*([\"\'])[^\"\']*\bhcs-cta\b'
+            r'[^\"\']*\1[^>]*>.*?</section>',
+            flags=re.IGNORECASE | re.DOTALL,
+        ),
+    }
+    owner_index_by_id = {}
+    for duplicate_id, indexes in occurrences_by_id.items():
+        if len(indexes) < 2:
+            continue
+        owner_index = indexes[0]
+        scope_pattern = preferred_owner_scope.get(duplicate_id)
+        if scope_pattern is not None:
+            scope = scope_pattern.search(article)
+            if scope is not None:
+                scoped_indexes = [
+                    index
+                    for index in indexes
+                    if scope.start() <= h2_matches[index].start() < scope.end()
+                ]
+                if len(scoped_indexes) == 1:
+                    owner_index = scoped_indexes[0]
+        owner_index_by_id[duplicate_id] = owner_index
+
+    if owner_index_by_id:
+        used_h2_ids = {
+            h2_id for h2_id in h2_ids_by_index if h2_id is not None
+        }
+        current_index = -1
+
+        def deduplicate_h2_id(match):
+            nonlocal current_index
+            current_index += 1
+            duplicate_id = h2_ids_by_index[current_index]
+            owner_index = owner_index_by_id.get(duplicate_id)
+            if owner_index is None or current_index == owner_index:
+                return match.group(0)
+
+            visible = re.sub(
+                r"\s+",
+                " ",
+                unescape(re.sub(r"<[^>]+>", " ", match.group("inner"))),
+            ).strip()
+            anchor = re.sub(r"[^a-z0-9]+", "-", visible.lower()).strip("-")
+            anchor = anchor or "section"
+            candidate = anchor
+            suffix = 2
+            while candidate in used_h2_ids:
+                candidate = f"{anchor}-{suffix}"
+                suffix += 1
+            used_h2_ids.add(candidate)
+            attrs = re.sub(
+                r"\bid\s*=\s*([\"']).*?\1",
+                f'id="{candidate}"',
+                match.group("attrs"),
+                count=1,
+                flags=re.IGNORECASE,
+            )
+            return f'<h2{attrs}>{match.group("inner")}</h2>'
+
+        article = h2_pattern.sub(deduplicate_h2_id, article)
+
     def text_content(fragment):
         return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", fragment))).strip()
 
