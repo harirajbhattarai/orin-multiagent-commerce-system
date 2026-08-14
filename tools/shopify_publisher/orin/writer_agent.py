@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 import sys
 _AGENTS_DIR = Path(__file__).parent
 sys.path.insert(0, str(_AGENTS_DIR))
+_SOURCE_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(_SOURCE_ROOT))
 
 from content_quality_gate import CONTRACT_VERSION, DEFAULT_CONTRACT, evaluate_article_quality
 from model_writer import ModelWriterError, generate_article, model_writer_enabled
@@ -158,6 +160,64 @@ def _model_validation_receipts(
         cluster=cluster,
         approved_h2_plan=h2_outline,
         output_html=body_html,
+    )
+    return quality_receipt, topic_receipt
+
+
+def _hcs_model_validation_receipts(
+    body_html,
+    *,
+    job_number,
+    title,
+    target_keyword,
+    cluster,
+    h2_outline,
+):
+    """Evaluate HCS structure, UK compliance, and topic identity pre-write."""
+    from hcs_html_contract_validator import run_checks as run_hcs_contract_checks
+    from tools.shopify_publisher.compliance_check import analyze_html
+
+    contract_failures, _, _ = run_hcs_contract_checks(body_html)
+    compliance_failures, _ = analyze_html(body_html)
+    blockers = []
+    if contract_failures:
+        blockers.append(
+            {
+                "code": "HCS_HTML_CONTRACT",
+                "actual": "one or more mandatory HCS structural checks failed",
+                "expected": (
+                    "satisfy every HCS output-contract requirement, including "
+                    "wrappers, planned H2s, FAQ items, CTA, and deterministic schema"
+                ),
+            }
+        )
+    if compliance_failures:
+        blockers.append(
+            {
+                "code": "HCS_UK_COMPLIANCE",
+                "actual": "unsafe or insufficiently restricted public-use wording detected",
+                "expected": (
+                    "describe electric-scooter riding only on suitable private land "
+                    "with the landowner's permission; do not mention roads, streets, "
+                    "pavements, cycle lanes, commuting, or other public-access surfaces"
+                ),
+            }
+        )
+    quality_receipt = {
+        "passed": not blockers,
+        "blockers": blockers,
+        "metrics": {
+            "hcs_contract_failure_count": len(contract_failures),
+            "uk_compliance_failure_count": len(compliance_failures),
+        },
+    }
+    topic_receipt = run_topic_identity_gate(
+        job_id=job_number,
+        expected_topic=title,
+        target_keyword=target_keyword,
+        cluster=cluster,
+        approved_h2_plan=h2_outline,
+        output_html=_html_without_schema_scripts(body_html),
     )
     return quality_receipt, topic_receipt
 
@@ -1670,14 +1730,13 @@ Job: {job_number}
             writer_provider = model_result.provider
             model_response_id = model_result.response_id
             if self.is_hcs:
-                initial_quality = {"passed": True, "blockers": [], "metrics": {}}
-                initial_topic = run_topic_identity_gate(
-                    job_id=job_number,
-                    expected_topic=title,
+                initial_quality, initial_topic = _hcs_model_validation_receipts(
+                    full_html,
+                    job_number=job_number,
+                    title=title,
                     target_keyword=target_keyword,
                     cluster=cluster,
-                    approved_h2_plan=h2_outline,
-                    output_html=_html_without_schema_scripts(full_html),
+                    h2_outline=h2_outline,
                 )
             else:
                 initial_quality, initial_topic = _model_validation_receipts(
@@ -1701,6 +1760,10 @@ Job: {job_number}
                 not initial_quality["passed"]
                 or initial_topic["decision"] == TOPIC_IDENTITY_BLOCK
             )
+            if self.is_hcs and validation_failed and retry_budget_used:
+                raise ModelWriterError(
+                    "HCS model article failed final contract validation"
+                )
             if validation_failed and not retry_budget_used:
                 retry_result = generate_article(
                     job_context=job_ctx,
@@ -1740,14 +1803,13 @@ Job: {job_number}
                 writer_provider = retry_result.provider
                 model_response_id = retry_result.response_id
                 if self.is_hcs:
-                    retry_quality = {"passed": True, "blockers": [], "metrics": {}}
-                    retry_topic = run_topic_identity_gate(
-                        job_id=job_number,
-                        expected_topic=title,
+                    retry_quality, retry_topic = _hcs_model_validation_receipts(
+                        full_html,
+                        job_number=job_number,
+                        title=title,
                         target_keyword=target_keyword,
                         cluster=cluster,
-                        approved_h2_plan=h2_outline,
-                        output_html=_html_without_schema_scripts(full_html),
+                        h2_outline=h2_outline,
                     )
                 else:
                     retry_quality, retry_topic = _model_validation_receipts(
@@ -1767,6 +1829,13 @@ Job: {job_number}
                         retry_topic,
                     )
                 )
+                if self.is_hcs and (
+                    not retry_quality["passed"]
+                    or retry_topic["decision"] == TOPIC_IDENTITY_BLOCK
+                ):
+                    raise ModelWriterError(
+                        "HCS model article failed final contract validation"
+                    )
 
         # ── Write to output path ──────────────────────────────────────────
         output_path.parent.mkdir(parents=True, exist_ok=True)

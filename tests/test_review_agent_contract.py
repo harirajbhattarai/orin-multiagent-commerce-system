@@ -81,3 +81,24 @@ def test_faq_questions_must_match_the_approved_plan_in_order():
 
     assert faq_questions_match_plan(matching_html, plan)
     assert not faq_questions_match_plan(stale_html, plan)
+
+
+def test_hcs_faq_questions_match_the_approved_plan_in_order():
+    plan = [
+        {"question": "What should I compare before buying?"},
+        {"question": "Where should I check the model guidance?"},
+    ]
+    matching_html = (
+        '<section class="hcs-faq">'
+        '<div class="hcs-faq-item"><h3>What should I compare before buying?</h3>'
+        '<p>Compare the exact listing and manual.</p></div>'
+        '<div class="hcs-faq-item"><h3>Where should I check the model guidance?</h3>'
+        '<p>Use the product label and manufacturer manual.</p></div>'
+        '</section>'
+    )
+
+    assert faq_questions_match_plan(
+        matching_html,
+        plan,
+        client_id="hcs_gadgets",
+    )
