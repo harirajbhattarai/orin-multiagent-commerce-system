@@ -251,7 +251,9 @@ test("ships the canonical HCS stylesheet without HBStore selectors", async () =>
   assert.match(css, /\.hcs-article\s*\{/);
   assert.match(css, /\.hcs-hero\s*\{/);
   assert.match(css, /\.hcs-cta\s*\{/);
-  assert.match(css, /\.hcs-button\s*\{/);
+  assert.match(css, /\.hcs-button(?:\s*,|\s*\{)/);
+  assert.equal(css.includes("@import"), false);
+  assert.equal(css.includes("overflow: hidden !important;\n  background-color: var(--hcs-bg)"), false);
   assert.equal(css.includes(".hs-article"), false);
   assert.equal(css.includes(".hs-cta"), false);
 });
