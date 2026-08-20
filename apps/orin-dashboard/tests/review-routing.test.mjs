@@ -8,6 +8,11 @@ import {
   selectRouteBoundReviewArticle,
 } from "../src/reviewArticle.js";
 import { approvalAvailability, deriveOperationalState } from "../src/operationalState.js";
+import {
+  authoritativeClientIdentity,
+  reviewPresentationForClient,
+  validateArticleHtmlForClient,
+} from "../src/clientPresentation.js";
 
 const data = {
   nextArticle: { id: 33, readingTime: "Concept review", qualityScore: null },
@@ -199,4 +204,54 @@ test("reads only the scheduler-health columns granted to dashboard users", async
     "state,scheduler_owner,last_heartbeat_at,updated_at",
   );
   assert.equal(query[1].includes("details"), false);
+});
+
+test("uses client-specific review labels instead of leaking HBStore policy", () => {
+  const hcs = reviewPresentationForClient({ id: "hcs_gadgets", name: "HCS GADGETS" });
+  const hbstore = reviewPresentationForClient({ id: "hoverboard_store", name: "Hoverboard Store" });
+
+  assert.equal(hcs.policyLabel, "Reviewed against HCS Gadgets policy");
+  assert.equal(hcs.articleLabel, "HCS GADGETS GUIDE");
+  assert.equal(hcs.previewTheme, "hcs-gadgets");
+  assert.equal(hbstore.policyLabel, "Reviewed against Hoverboard Store policy");
+  assert.notEqual(hcs.policyLabel, hbstore.policyLabel);
+});
+
+test("fails closed when article HTML belongs to another client", () => {
+  const hcsClient = { id: "hcs_gadgets", name: "HCS GADGETS" };
+  const hbstoreClient = { id: "hoverboard_store", name: "Hoverboard Store" };
+
+  assert.equal(validateArticleHtmlForClient('<article class="hcs-article"></article>', hcsClient).ok, true);
+  assert.equal(validateArticleHtmlForClient('<div class="hs-article"></div>', hcsClient).ok, false);
+  assert.equal(validateArticleHtmlForClient('<div class="hs-article"></div>', hbstoreClient).ok, true);
+  assert.equal(validateArticleHtmlForClient('<article class="hcs-article"></article>', hbstoreClient).ok, false);
+  assert.equal(validateArticleHtmlForClient("<article></article>", hcsClient).ok, false);
+});
+
+test("uses the database tenant identity instead of stale snapshot branding", () => {
+  const identity = authoritativeClientIdentity(
+    { id: "hoverboard_store", name: "Hoverboard Store", plan: "Pilot workspace" },
+    { client_id: "hcs_gadgets", display_name: "HCS GADGETS", status: "maintenance" },
+  );
+
+  assert.deepEqual(identity, {
+    id: "hcs_gadgets",
+    name: "HCS GADGETS",
+    plan: "Pilot workspace",
+    status: "maintenance",
+  });
+});
+
+test("ships the canonical HCS stylesheet without HBStore selectors", async () => {
+  const css = await readFile(
+    new URL("../../../clients/hcs_gadgets/shopify_theme/hcs-article.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(css, /\.hcs-article\s*\{/);
+  assert.match(css, /\.hcs-hero\s*\{/);
+  assert.match(css, /\.hcs-cta\s*\{/);
+  assert.match(css, /\.hcs-button\s*\{/);
+  assert.equal(css.includes(".hs-article"), false);
+  assert.equal(css.includes(".hs-cta"), false);
 });

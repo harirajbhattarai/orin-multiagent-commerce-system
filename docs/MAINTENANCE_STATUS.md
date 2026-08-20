@@ -1,8 +1,24 @@
 # ORIN maintenance status
 
-Last updated: 2026-08-14
+Last updated: 2026-08-20
 
 ## Current phase
+
+The dashboard's HCS review path is now tenant-isolated from Hoverboard Store.
+Authoritative database identity overrides stale snapshot branding, HCS reviews
+use HCS-specific policy copy and the canonical `hcs-*` design contract, and a
+cross-client or unknown article wrapper disables approval instead of rendering
+or executing it. The canonical HCS article stylesheet is stored at
+`clients/hcs_gadgets/shopify_theme/hcs-article.css` and is used by the
+version-bound dashboard preview.
+
+The public HCS Shopify theme inspection found no loaded `hcs-*` stylesheet.
+Therefore HCS remains in maintenance and its hidden-draft approval path remains
+closed. The next controlled step is to install that exact scoped stylesheet in
+the HCS theme, verify it on a non-live test surface, and only then run one
+version-bound hidden-draft proof. No Shopify write was attempted during this
+dashboard isolation work. Durable evidence is in
+`docs/evidence/2026-08-20-hcs-dashboard-theme-isolation.json`.
 
 HCS Gadgets has passed its first exact-item dry-run commissioning proof. Job 1,
 “Adult Electric Scooter Suspension: What UK Buyers Should Compare,” produced

@@ -44,6 +44,21 @@ import {
 } from "./reviewArticle.js";
 import { approvalAvailability } from "./operationalState.js";
 import { Onboarding } from "./Onboarding.jsx";
+import {
+  reviewPresentationForClient,
+  validateArticleHtmlForClient,
+} from "./clientPresentation.js";
+import hcsArticleCss from "../../../clients/hcs_gadgets/shopify_theme/hcs-article.css?inline";
+
+const BASE_DRAFT_PREVIEW_CSS = `
+  html { background: #f4f6f7; }
+  body { margin: 0; padding: 28px; color: #283a46; font: 16px/1.7 Georgia, serif; }
+  h1, h2, h3 { color: #172a37; line-height: 1.25; }
+  a { color: #0b7f68; }
+  img { max-width: 100%; height: auto; }
+  script { display: none; }
+  @media (max-width: 720px) { body { padding: 12px; } }
+`;
 
 function readPath(path = window.location.pathname) {
   if (path.startsWith("/onboarding")) return "onboarding";
@@ -564,11 +579,19 @@ function Review({ data, jobId, navigate, dataSource }) {
     ? "approve_hidden_draft"
     : article.reviewKind === "concept" ? "approve_concept" : null;
   const approve = () => approvalKind && saveDecision(approvalKind);
-  const approvalState = approvalAvailability(data.operations, article.reviewKind);
   const approvalLabel = article.reviewKind === "draft"
     ? "Approve unpublished Shopify draft"
     : article.reviewKind === "concept" ? "Approve concept for drafting" : "Revision required";
-  const draftDocument = article.bodyHtml ? `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><style>body{margin:0;padding:32px;color:#283a46;font:16px/1.7 Georgia,serif}h1,h2,h3{color:#172a37;line-height:1.25}a{color:#0b7f68}img{max-width:100%;height:auto}</style></head><body>${article.bodyHtml}</body></html>` : null;
+  const presentation = reviewPresentationForClient(data.client);
+  const htmlIsolation = validateArticleHtmlForClient(article.bodyHtml, data.client);
+  const runtimeApprovalState = approvalAvailability(data.operations, article.reviewKind);
+  const approvalState = article.bodyHtml && !htmlIsolation.ok
+    ? { allowed: false, reason: htmlIsolation.reason }
+    : runtimeApprovalState;
+  const clientPreviewCss = presentation.previewTheme === "hcs-gadgets" ? hcsArticleCss : "";
+  const draftDocument = article.bodyHtml && htmlIsolation.ok
+    ? `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><style>${BASE_DRAFT_PREVIEW_CSS}${clientPreviewCss}</style></head><body>${article.bodyHtml}</body></html>`
+    : null;
 
   const submitChanges = () => {
     if (!note.trim()) return;
@@ -596,17 +619,22 @@ function Review({ data, jobId, navigate, dataSource }) {
       <div className="review-layout">
         <article className="article-preview">
           <header className="article-header">
-            <span className="article-label">PARENT BUYING GUIDE</span>
+            <span className="article-label">{presentation.articleLabel}</span>
             <h1>{article.title}</h1>
             <p>{article.dek}</p>
             <div className="article-byline">
               <span className="author-mark"><Robot size={17} weight="duotone" /></span>
-              <span><strong>Prepared by ORIN</strong><small>Reviewed against HBStore policy</small></span>
+              <span><strong>Prepared by ORIN</strong><small>{presentation.policyLabel}</small></span>
               <span className="article-length"><Clock size={15} /> {article.readingTime}</span>
             </div>
           </header>
 
-          {draftDocument ? (
+          {article.bodyHtml && !htmlIsolation.ok ? (
+            <div className="article-contract-error" role="alert">
+              <WarningCircle size={23} weight="duotone" />
+              <div><strong>Client design contract mismatch</strong><span>{htmlIsolation.reason} Shopify approval remains unavailable until this draft is regenerated correctly.</span></div>
+            </div>
+          ) : draftDocument ? (
             <iframe className="draft-preview-frame" title={`Full draft preview for ${article.title}`} sandbox="" srcDoc={draftDocument} />
           ) : <div className="article-body">
             {article.sections.map((section) => (

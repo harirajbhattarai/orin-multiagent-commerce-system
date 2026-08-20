@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { dashboardData } from "../data.js";
 import { functionInvokeError } from "../functionErrors.js";
 import { deriveOperationalState } from "../operationalState.js";
+import { authoritativeClientIdentity } from "../clientPresentation.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -40,6 +41,7 @@ function normalizeSnapshot(snapshot, { client, runtime, health }) {
   });
   return {
     ...snapshot,
+    client: authoritativeClientIdentity(snapshot.client, client),
     nextArticle: snapshot.nextArticle?.id ? snapshot.nextArticle : null,
     article: snapshot.article?.id ? snapshot.article : null,
     operations: {
