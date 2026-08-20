@@ -1,0 +1,35 @@
+{
+  "schema": "orin.hcs-dashboard-theme-isolation/v1",
+  "recorded_at": "2026-08-20",
+  "client_id": "hcs_gadgets",
+  "result": "dashboard_isolated_theme_install_pending",
+  "dashboard": {
+    "database_identity_authoritative": true,
+    "client_policy_copy_isolated": true,
+    "article_wrapper_required": "article.hcs-article",
+    "cross_client_wrapper_rejected": "div.hs-article",
+    "unknown_design_contract_fails_closed": true,
+    "approval_disabled_on_contract_mismatch": true,
+    "canonical_stylesheet": "clients/hcs_gadgets/shopify_theme/hcs-article.css"
+  },
+  "shopify_theme_observation": {
+    "surface": "public HCS Gadgets article and loaded theme stylesheets",
+    "article_url": "https://hcsgadgets.com/blogs/gadget-blog/best-hoverboards-electric-scooters-in-the-uk-2026-hcs-gadgets",
+    "hcs_selectors_loaded": false,
+    "theme_mutated": false
+  },
+  "validation": {
+    "dashboard_tests": "20 passed",
+    "sites_worker_tests": "4 passed",
+    "dashboard_build": "passed",
+    "python_regression_suite": "passed",
+    "git_diff_check": "passed"
+  },
+  "safety": {
+    "hcs_status": "maintenance",
+    "shopify_write_attempted": false,
+    "shopify_theme_write_attempted": false,
+    "hidden_draft_approval_ready": false
+  },
+  "next_action": "Install the exact scoped HCS stylesheet on a controlled HCS Shopify theme surface, verify rendering, then run one version-bound hidden-draft proof with the write gate closed immediately afterward."
+}
