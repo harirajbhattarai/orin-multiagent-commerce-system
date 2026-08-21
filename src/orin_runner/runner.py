@@ -584,8 +584,12 @@ def run_client(
     """Run one idempotent client request and return its final-result payload."""
     if client_id not in SUPPORTED_CLIENTS:
         raise UnsupportedClientError(f"unsupported client: {client_id}")
-    if client_id == "hcs_gadgets" and mode != "dry-run":
-        raise UnsupportedClientError("hcs_gadgets is commissioned for dry-run only")
+    if client_id == "hcs_gadgets" and mode != "dry-run" and not (
+        mode == "hidden-draft" and durable_db_mode
+    ):
+        raise UnsupportedClientError(
+            "hcs_gadgets hidden drafts require the durable approval-bound worker path"
+        )
     if job_number is not None:
         if not re.fullmatch(r"[1-9][0-9]*", job_number):
             raise ValueError("job_number must be a positive integer")

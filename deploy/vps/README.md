@@ -246,11 +246,14 @@ The worker receives only the token file path. The store domain, pinned API
 version, and blog ID are non-secret reviewed Compose configuration. OpenClaw
 does not receive or mount this secret.
 
-### HCS dedicated dry-run worker
+### HCS dedicated approval-only worker
 
-The HCS worker uses its own `orin_hcs_worker` database role and never receives
-a Shopify credential. Create a unique password for that role without putting
-it in chat, Git, shell history, OpenClaw, or a container environment variable.
+The HCS worker uses its own `orin_hcs_worker` database role. Its normal path is
+dry-run. A separate HCS-only token file may be mounted only for a controlled,
+exactly approved unpublished-draft transaction; broad Shopify writes and live
+publishing remain unavailable. Create a unique password for the database role
+without putting it in chat, Git, shell history, OpenClaw, or a container
+environment variable.
 Temporarily change only `orin_hcs_worker` from `NOLOGIN` to `LOGIN` in the
 Supabase SQL editor, build a complete session-pooler URL for that role, and
 install it interactively:
@@ -258,9 +261,10 @@ install it interactively:
 ```bash
 deploy/vps/install_hcs_worker_db_secret.sh
 deploy/vps/install_hcs_writer_secret.sh
+deploy/vps/install_hcs_shopify_secret.sh
 deploy/vps/prepare_hcs_worker_storage.sh
 deploy/vps/preflight.sh --require-secrets --require-hcs-worker-secret \
-  --require-hcs-writer-secret
+  --require-hcs-writer-secret --require-hcs-shopify-secret
 ```
 
 Build the HCS image only through the provenance-checking wrapper. The exported
@@ -278,16 +282,21 @@ The database installer writes only
 `0400`, and refuses to overwrite an existing file. The writer installer stores
 the platform model credential separately at
 `/docker/orin/secrets/hcs_writer_api_key`, also owned by UID `10005` with mode
-`0400`. It grants no Shopify capability and is mounted only into the HCS
-worker. The storage preparation
+`0400`. The Shopify installer stores the HCS Admin API token separately at
+`/docker/orin/secrets/hcs_shopify_access_token`, owned by UID `10005` with mode
+`0400`; it refuses to overwrite an existing token and is mounted only into the
+HCS worker. The storage preparation
 creates only `/docker/orin/evidence/hcs_gadgets`, owned by UID `10005` with
 mode `0700`; the HCS container mounts that private directory at `/evidence`
 instead of receiving access to Hoverboard Store evidence. Keep HCS in maintenance,
 with request intake, automation, both Shopify write gates, and scheduler
 ownership closed, while proving that the dedicated daemon can return
-`no_job_due`. Return the database role to `NOLOGIN`, stop the daemon, and
-remove the secret after the proof unless the next controlled commissioning
-step begins immediately.
+`no_job_due`. For a hidden-draft proof, enable only the narrow
+`approved_draft_writes_enabled` gate after an exact version-and-hash-bound
+human approval exists. Keep `shopify_writes_enabled=false`. Return the database
+role to `NOLOGIN`, stop the daemon, close all gates, and remove the HCS Shopify
+secret after the proof unless the next controlled commissioning step begins
+immediately.
 
 ## Portable evidence sync
 

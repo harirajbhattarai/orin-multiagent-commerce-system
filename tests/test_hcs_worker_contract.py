@@ -4,6 +4,9 @@ from pathlib import Path
 MIGRATION = Path(
     "supabase/migrations/20260814003000_hcs_dedicated_dry_run_worker.sql"
 ).read_text(encoding="utf-8")
+PROMOTION = Path(
+    "supabase/migrations/20260821073106_hcs_approved_hidden_draft_worker.sql"
+).read_text(encoding="utf-8")
 
 
 def test_hcs_role_is_nologin_and_can_only_use_scoped_claim_functions():
@@ -21,3 +24,18 @@ def test_cross_client_exact_topic_and_body_reuse_is_blocked():
     assert "content_plan_items_global_topic_identity_idx" in MIGRATION
     assert "content_drafts_global_body_identity_idx" in MIGRATION
     assert "create unique index" in MIGRATION
+
+
+def test_hcs_promotion_is_tenant_bound_and_approval_only():
+    assert "p_client_id is distinct from 'hcs_gadgets'" in PROMOTION
+    assert "candidate.client_id = p_client_id" in PROMOTION
+    assert "candidate.requested_mode = 'hidden-draft'" in PROMOTION
+    assert "settings.approved_draft_writes_enabled" in PROMOTION
+    assert "not settings.shopify_writes_enabled" in PROMOTION
+    assert "candidate.approved_draft_id is not null" in PROMOTION
+    assert "candidate.approved_body_sha256 is not null" in PROMOTION
+    assert "decision.decision = 'approve_hidden_draft'" in PROMOTION
+    assert "decision.processing_status = 'consumed'" in PROMOTION
+    assert "grant execute on function orin_private.claim_next_hcs_job_for_client" in PROMOTION
+    assert "to orin_hcs_worker" in PROMOTION
+    assert "to orin_worker" not in PROMOTION

@@ -9,6 +9,7 @@ require_watchdog_secret=false
 require_evidence_secret=false
 require_hcs_worker_secret=false
 require_hcs_writer_secret=false
+require_hcs_shopify_secret=false
 for argument in "$@"; do
   case "${argument}" in
     --require-secrets)
@@ -42,8 +43,12 @@ for argument in "$@"; do
       require_secrets=true
       require_hcs_writer_secret=true
       ;;
+    --require-hcs-shopify-secret)
+      require_secrets=true
+      require_hcs_shopify_secret=true
+      ;;
     *)
-      echo "usage: $0 [--require-secrets] [--require-shopify-secret] [--require-writer-secret] [--require-scheduler-secret] [--require-watchdog-secret] [--require-evidence-secret] [--require-hcs-worker-secret] [--require-hcs-writer-secret]" >&2
+      echo "usage: $0 [--require-secrets] [--require-shopify-secret] [--require-writer-secret] [--require-scheduler-secret] [--require-watchdog-secret] [--require-evidence-secret] [--require-hcs-worker-secret] [--require-hcs-writer-secret] [--require-hcs-shopify-secret]" >&2
       exit 2
       ;;
   esac
@@ -151,6 +156,7 @@ if [[ "${require_secrets}" == true ]]; then
     [evidence_service_key]="${ORIN_RUNTIME_UID}"
     [hcs_worker_database_url]=10005
     [hcs_writer_api_key]=10005
+    [hcs_shopify_access_token]=10005
   )
   secret_names=(control_database_url worker_database_url)
   if [[ "${require_scheduler_secret}" == true ]]; then
@@ -173,6 +179,9 @@ if [[ "${require_secrets}" == true ]]; then
   fi
   if [[ "${require_hcs_writer_secret}" == true ]]; then
     secret_names+=(hcs_writer_api_key)
+  fi
+  if [[ "${require_hcs_shopify_secret}" == true ]]; then
+    secret_names+=(hcs_shopify_access_token)
   fi
   for secret_name in "${secret_names[@]}"; do
     secret_path="${ORIN_SECRETS_DIR}/${secret_name}"
