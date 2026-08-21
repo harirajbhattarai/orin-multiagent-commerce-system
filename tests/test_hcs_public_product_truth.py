@@ -83,8 +83,8 @@ def test_hcs_worker_explicitly_uses_public_product_truth():
     compose = (REPO_ROOT / "deploy" / "vps" / "compose.yml").read_text(
         encoding="utf-8"
     )
-    worker = compose.split("  hcs-worker-daemon:", 1)[1].split(
-        "\n  evidence-sync:", 1
+    worker = compose.split("  hcs-dry-run-worker-daemon:", 1)[1].split(
+        "\n  hcs-approval-worker:", 1
     )[0]
 
     assert "ORIN_HCS_PRODUCT_TRUTH_SOURCE: public-storefront" in worker

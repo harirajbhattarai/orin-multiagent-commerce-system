@@ -39,7 +39,7 @@ temporary="$(mktemp "${secrets_dir}/.hcs_shopify_access_token.XXXXXX")"
 cleanup() { rm -f -- "${temporary}"; }
 trap cleanup EXIT
 printf '%s\n' "${first}" > "${temporary}"
-chown 10005:"${runtime_gid}" "${temporary}"
+chown 10006:"${runtime_gid}" "${temporary}"
 chmod 0400 "${temporary}"
 mv -n -- "${temporary}" "${target}"
 trap - EXIT

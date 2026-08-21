@@ -537,6 +537,16 @@ def test_repository_binds_hcs_to_its_dedicated_role():
     repository.ping()
 
 
+def test_repository_binds_hcs_shopify_to_its_approval_only_role():
+    repository = PostgresWorkerRepository(  # type: ignore[arg-type]
+        RoleEngine("orin_hcs_shopify_worker"),
+        expected_role="orin_hcs_shopify_worker",
+        client_id="hcs_gadgets",
+    )
+
+    repository.ping()
+
+
 def test_worker_reads_database_url_from_private_file(tmp_path, monkeypatch):
     secret = tmp_path / "database_url"
     secret.write_text("postgresql://orin_worker:secret@example.test/postgres\n")

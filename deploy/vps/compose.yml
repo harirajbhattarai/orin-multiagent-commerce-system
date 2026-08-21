@@ -287,8 +287,8 @@ services:
         max-size: 10m
         max-file: "3"
 
-  hcs-worker-daemon:
-    profiles: ["hcs-automatic-worker"]
+  hcs-dry-run-worker-daemon:
+    profiles: ["hcs-dry-run-worker"]
     image: local/orin-worker:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
     pull_policy: never
     build:
@@ -323,11 +323,9 @@ services:
       HCS_GADGETS_SHOPIFY_STORE_DOMAIN: hcsgadgets-com.myshopify.com
       HCS_GADGETS_SHOPIFY_API_VERSION: "2026-07"
       HCS_GADGETS_SHOPIFY_BLOG_ID: "89150259452"
-      HCS_GADGETS_SHOPIFY_ACCESS_TOKEN_FILE: /run/secrets/hcs_shopify_access_token
     secrets:
       - hcs_worker_database_url
       - hcs_writer_api_key
-      - hcs_shopify_access_token
     volumes:
       - type: bind
         source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets
@@ -350,6 +348,68 @@ services:
       - "15"
       - --error-backoff-seconds
       - "60"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  hcs-approval-worker:
+    profiles: ["hcs-approval-worker"]
+    image: local/orin-worker:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
+    pull_policy: never
+    build:
+      context: ${ORIN_PROJECT_ROOT:?set ORIN_PROJECT_ROOT}
+      dockerfile: Dockerfile.worker
+      args:
+        VERSION: ${ORIN_DEPLOY_SHA}
+        VCS_REF: ${ORIN_DEPLOY_SHA}
+    init: true
+    user: "10006:${ORIN_RUNTIME_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.00
+    restart: "no"
+    stop_grace_period: 300s
+    environment:
+      ORIN_WORKER_DATABASE_URL_FILE: /run/secrets/hcs_shopify_worker_database_url
+      ORIN_WORKER_DATABASE_ROLE: orin_hcs_shopify_worker
+      ORIN_REPO_ROOT: /app
+      ORIN_WORKSPACE_ROOT: /runtime
+      ORIN_MODEL_WRITER_ENABLED: "0"
+      ORIN_HCS_PRODUCT_TRUTH_SOURCE: public-storefront
+      ORIN_HCS_PRODUCT_TRUTH_MAX_AGE_HOURS: "24"
+      HCS_GADGETS_SHOPIFY_STORE_DOMAIN: hcsgadgets-com.myshopify.com
+      HCS_GADGETS_SHOPIFY_API_VERSION: "2026-07"
+      HCS_GADGETS_SHOPIFY_BLOG_ID: "89150259452"
+      HCS_GADGETS_SHOPIFY_ACCESS_TOKEN_FILE: /run/secrets/hcs_shopify_access_token
+    secrets:
+      - hcs_shopify_worker_database_url
+      - hcs_shopify_access_token
+    volumes:
+      - type: bind
+        source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets
+        target: /runtime/clients/hcs_gadgets
+        read_only: true
+      - type: bind
+        source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}/hcs_gadgets/approval
+        target: /evidence
+    command:
+      - once
+      - --client-id
+      - hcs_gadgets
+      - --workspace-root
+      - /runtime
+      - --artifact-root
+      - /evidence
+      - --worker-id
+      - orin-hcs-approval
     logging:
       driver: json-file
       options:
@@ -413,6 +473,8 @@ secrets:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/worker_database_url
   hcs_worker_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hcs_worker_database_url
+  hcs_shopify_worker_database_url:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hcs_shopify_worker_database_url
   hcs_writer_api_key:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hcs_writer_api_key
   hcs_shopify_access_token:

@@ -9,6 +9,7 @@ require_watchdog_secret=false
 require_evidence_secret=false
 require_hcs_worker_secret=false
 require_hcs_writer_secret=false
+require_hcs_approval_worker_secret=false
 require_hcs_shopify_secret=false
 for argument in "$@"; do
   case "${argument}" in
@@ -43,12 +44,16 @@ for argument in "$@"; do
       require_secrets=true
       require_hcs_writer_secret=true
       ;;
+    --require-hcs-approval-worker-secret)
+      require_secrets=true
+      require_hcs_approval_worker_secret=true
+      ;;
     --require-hcs-shopify-secret)
       require_secrets=true
       require_hcs_shopify_secret=true
       ;;
     *)
-      echo "usage: $0 [--require-secrets] [--require-shopify-secret] [--require-writer-secret] [--require-scheduler-secret] [--require-watchdog-secret] [--require-evidence-secret] [--require-hcs-worker-secret] [--require-hcs-writer-secret] [--require-hcs-shopify-secret]" >&2
+      echo "usage: $0 [--require-secrets] [--require-shopify-secret] [--require-writer-secret] [--require-scheduler-secret] [--require-watchdog-secret] [--require-evidence-secret] [--require-hcs-worker-secret] [--require-hcs-writer-secret] [--require-hcs-approval-worker-secret] [--require-hcs-shopify-secret]" >&2
       exit 2
       ;;
   esac
@@ -156,7 +161,8 @@ if [[ "${require_secrets}" == true ]]; then
     [evidence_service_key]="${ORIN_RUNTIME_UID}"
     [hcs_worker_database_url]=10005
     [hcs_writer_api_key]=10005
-    [hcs_shopify_access_token]=10005
+    [hcs_shopify_worker_database_url]=10006
+    [hcs_shopify_access_token]=10006
   )
   secret_names=(control_database_url worker_database_url)
   if [[ "${require_scheduler_secret}" == true ]]; then
@@ -179,6 +185,9 @@ if [[ "${require_secrets}" == true ]]; then
   fi
   if [[ "${require_hcs_writer_secret}" == true ]]; then
     secret_names+=(hcs_writer_api_key)
+  fi
+  if [[ "${require_hcs_approval_worker_secret}" == true ]]; then
+    secret_names+=(hcs_shopify_worker_database_url)
   fi
   if [[ "${require_hcs_shopify_secret}" == true ]]; then
     secret_names+=(hcs_shopify_access_token)
@@ -211,17 +220,18 @@ if [[ "${require_secrets}" == true ]]; then
     echo "evidence directory must be mode 0700 and owned by the runtime UID" >&2
     exit 1
   fi
-  if [[ "${require_hcs_worker_secret}" == true ]]; then
+  if [[ "${require_hcs_worker_secret}" == true \
+        || "${require_hcs_approval_worker_secret}" == true ]]; then
     hcs_evidence_root="${ORIN_EVIDENCE_ROOT}/hcs_gadgets"
     hcs_runtime_root="${ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"
     if [[ ! -d "${hcs_evidence_root}" || -L "${hcs_evidence_root}" ]]; then
       echo "HCS evidence directory is missing or unsafe: ${hcs_evidence_root}" >&2
       exit 1
     fi
-    if [[ "$(stat -c %a "${hcs_evidence_root}")" != "700" \
+    if [[ "$(stat -c %a "${hcs_evidence_root}")" != "710" \
           || "$(stat -c %u "${hcs_evidence_root}")" != "10005" \
           || "$(stat -c %g "${hcs_evidence_root}")" != "${ORIN_RUNTIME_GID}" ]]; then
-      echo "HCS evidence directory must be mode 0700 and owned by 10005:${ORIN_RUNTIME_GID}" >&2
+      echo "HCS evidence directory must be mode 0710 and owned by 10005:${ORIN_RUNTIME_GID}" >&2
       exit 1
     fi
     if [[ ! -d "${hcs_runtime_root}" || -L "${hcs_runtime_root}" ]]; then
@@ -238,6 +248,17 @@ if [[ "${require_secrets}" == true ]]; then
         exit 1
       fi
     done
+    if [[ "${require_hcs_approval_worker_secret}" == true ]]; then
+      hcs_approval_evidence_root="${hcs_evidence_root}/approval"
+      if [[ ! -d "${hcs_approval_evidence_root}" \
+            || -L "${hcs_approval_evidence_root}" \
+            || "$(stat -c %a "${hcs_approval_evidence_root}")" != "700" \
+            || "$(stat -c %u "${hcs_approval_evidence_root}")" != "10006" \
+            || "$(stat -c %g "${hcs_approval_evidence_root}")" != "${ORIN_RUNTIME_GID}" ]]; then
+        echo "HCS approval evidence directory must be mode 0700 and owned by 10006:${ORIN_RUNTIME_GID}" >&2
+        exit 1
+      fi
+    fi
   fi
 fi
 

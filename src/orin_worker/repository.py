@@ -22,11 +22,11 @@ class PostgresWorkerRepository:
     ) -> None:
         if client_id not in {"hoverboard_store", "hcs_gadgets"}:
             raise ValueError("worker database access requires an explicit supported client")
-        expected_client_role = {
-            "hoverboard_store": "orin_worker",
-            "hcs_gadgets": "orin_hcs_worker",
+        expected_client_roles = {
+            "hoverboard_store": {"orin_worker"},
+            "hcs_gadgets": {"orin_hcs_worker", "orin_hcs_shopify_worker"},
         }[client_id]
-        if expected_role != expected_client_role:
+        if expected_role not in expected_client_roles:
             raise ValueError(
                 f"database role {expected_role} cannot serve client {client_id}"
             )
@@ -58,11 +58,25 @@ class PostgresWorkerRepository:
                     "client_id": self.client_id,
                     "lease_seconds": lease_seconds,
                 }
+            elif self.expected_role == "orin_hcs_worker":
+                statement = text(
+                    """
+                    select *
+                    from orin_private.claim_next_dry_run_job_for_client(
+                      :worker_id, :client_id, :lease_seconds
+                    )
+                    """
+                )
+                parameters = {
+                    "worker_id": worker_id,
+                    "client_id": self.client_id,
+                    "lease_seconds": lease_seconds,
+                }
             else:
                 statement = text(
                     """
                     select *
-                    from orin_private.claim_next_hcs_job_for_client(
+                    from orin_private.claim_next_hcs_approved_draft_job_for_client(
                       :worker_id, :client_id, :lease_seconds
                     )
                     """
@@ -100,11 +114,21 @@ class PostgresWorkerRepository:
                     """
                 )
                 parameters = {"client_id": self.client_id}
+            elif self.expected_role == "orin_hcs_worker":
+                statement = text(
+                    """
+                    select *
+                    from orin_private.materialize_next_dry_run_decision_for_client(
+                      :client_id
+                    )
+                    """
+                )
+                parameters = {"client_id": self.client_id}
             else:
                 statement = text(
                     """
                     select *
-                    from orin_private.materialize_next_hcs_content_decision_for_client(
+                    from orin_private.materialize_next_hcs_approved_draft_decision_for_client(
                       :client_id
                     )
                     """
