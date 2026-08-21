@@ -1,0 +1,85 @@
+{
+  "captured_at": "2026-08-21T10:38:33Z",
+  "client_id": "hcs_gadgets",
+  "release": {
+    "merge_commit": "209669ae25bce94b7ab2c79b584caae3f412dbd4",
+    "pull_request": 158,
+    "checkout_clean": true,
+    "image_revision_verified": true
+  },
+  "database": {
+    "migration": "20260821101933_hcs_split_worker_roles",
+    "migration_recorded": true,
+    "dry_run_role": {
+      "name": "orin_hcs_worker",
+      "login": true,
+      "superuser": false,
+      "create_database": false,
+      "create_role": false,
+      "bypass_rls": false,
+      "can_materialize_dry_run": true,
+      "can_claim_dry_run": true,
+      "can_materialize_approved_draft": false,
+      "can_claim_approved_draft": false,
+      "can_use_legacy_mixed_mode_functions": false
+    },
+    "shopify_role": {
+      "name": "orin_hcs_shopify_worker",
+      "login": false,
+      "superuser": false,
+      "create_database": false,
+      "create_role": false,
+      "bypass_rls": false,
+      "can_materialize_dry_run": false,
+      "can_claim_dry_run": false,
+      "can_materialize_approved_draft": true,
+      "can_claim_approved_draft": true,
+      "can_use_legacy_mixed_mode_functions": false
+    }
+  },
+  "runtime_gates": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "max_concurrency": 1,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null
+  },
+  "dry_run_worker": {
+    "service": "hcs-dry-run-worker-daemon",
+    "container": "orin-control-hcs-dry-run-worker-daemon-1",
+    "image": "local/orin-worker:209669ae25bce94b7ab2c79b584caae3f412dbd4",
+    "user": "10005:1000",
+    "status": "running",
+    "restart_count": 0,
+    "worker_id": "orin-hcs-prod",
+    "observed_no_job_due_receipts": 2,
+    "shopify_access_token_environment_present": false,
+    "shopify_access_token_mount_present": false,
+    "mounted_secrets": [
+      "hcs_worker_database_url",
+      "hcs_writer_api_key"
+    ]
+  },
+  "approval_worker": {
+    "persistent_container_present": false,
+    "database_secret_present": false,
+    "shopify_secret_present": false,
+    "role_login": false
+  },
+  "effects_since_worker_start": {
+    "jobs_created": 0,
+    "runs_created": 0,
+    "incidents_created": 0,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "shopify_writes_possible": false
+  },
+  "cleanup": {
+    "obsolete_stopped_container_removed": "orin-control-hcs-worker-daemon-1"
+  },
+  "result": "passed"
+}
