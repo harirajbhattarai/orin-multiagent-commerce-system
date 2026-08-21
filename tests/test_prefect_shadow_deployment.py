@@ -157,6 +157,9 @@ def test_hcs_owner_worker_and_schedule_are_isolated_and_disabled():
     assert 'profiles: ["hcs-owner-worker"]' in worker
     assert 'user: "10007:10007"' in worker
     assert "hcs_owner_database_url" in worker
+    assert "source: hcs_prefect_api_auth" in worker
+    assert "target: prefect_api_auth" in worker
+    assert "- prefect_api_auth" not in worker
     assert "orin_hcs_prefect_scheduler" in worker
     assert "owner_database_url" not in worker.replace("hcs_owner_database_url", "")
     assert "shopify" not in worker.lower()
@@ -178,6 +181,17 @@ def test_hcs_owner_worker_and_schedule_are_isolated_and_disabled():
     assert 'chown 10007:10007 "${temporary}"' in installer
     assert "--require-hcs-owner-secret" in preflight
     assert "[hcs_owner_database_url]=10007" in preflight
+    assert "[hcs_prefect_api_auth]=10007" in preflight
+    assert "hcs_owner_database_url hcs_prefect_api_auth" in preflight
+    assert "HCS Prefect API auth copy does not match" in preflight
+
+    api_auth_installer = Path(
+        "deploy/prefect-shadow/prepare_hcs_api_auth_secret.sh"
+    ).read_text(encoding="utf-8")
+    assert 'source_path="${secrets_dir}/prefect_api_auth"' in api_auth_installer
+    assert 'target="${secrets_dir}/hcs_prefect_api_auth"' in api_auth_installer
+    assert 'chown 10007:10007 "${temporary}"' in api_auth_installer
+    assert 'chmod 0400 "${temporary}"' in api_auth_installer
 
 
 def test_hcs_bootstrap_cannot_mutate_hbstore_prefect_objects():

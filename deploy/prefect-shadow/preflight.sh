@@ -65,6 +65,7 @@ declare -A expected_uid=(
   [prefect_postgres_password]=999
   [prefect_server_database_password]=10004
   [prefect_api_auth]=10004
+  [hcs_prefect_api_auth]=10007
   [shadow_database_url]=10004
   [owner_database_url]=10004
   [hcs_owner_database_url]=10007
@@ -81,7 +82,7 @@ if [[ "${require_owner_secret}" == true ]]; then
   secret_names+=(owner_database_url)
 fi
 if [[ "${require_hcs_owner_secret}" == true ]]; then
-  secret_names+=(hcs_owner_database_url)
+  secret_names+=(hcs_owner_database_url hcs_prefect_api_auth)
 fi
 for name in "${secret_names[@]}"; do
   path="${ORIN_PREFECT_SECRETS_DIR}/${name}"
@@ -102,6 +103,12 @@ for name in "${secret_names[@]}"; do
     exit 1
   fi
 done
+if [[ "${require_hcs_owner_secret}" == true ]] && ! cmp -s \
+  "${ORIN_PREFECT_SECRETS_DIR}/prefect_api_auth" \
+  "${ORIN_PREFECT_SECRETS_DIR}/hcs_prefect_api_auth"; then
+  echo "HCS Prefect API auth copy does not match the server credential" >&2
+  exit 1
+fi
 if ! cmp -s \
   "${ORIN_PREFECT_SECRETS_DIR}/prefect_postgres_password" \
   "${ORIN_PREFECT_SECRETS_DIR}/prefect_server_database_password"; then

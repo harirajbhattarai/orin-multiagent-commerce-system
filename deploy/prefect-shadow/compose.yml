@@ -262,7 +262,8 @@ services:
       ORIN_HCS_PREFECT_OWNER_DATABASE_ROLE: orin_hcs_prefect_scheduler
       DO_NOT_TRACK: "1"
     secrets:
-      - prefect_api_auth
+      - source: hcs_prefect_api_auth
+        target: prefect_api_auth
       - hcs_owner_database_url
     command: ["hcs-owner-worker"]
     healthcheck:
@@ -284,6 +285,8 @@ secrets:
     file: ${ORIN_PREFECT_SECRETS_DIR:?set ORIN_PREFECT_SECRETS_DIR}/prefect_server_database_password
   prefect_api_auth:
     file: ${ORIN_PREFECT_SECRETS_DIR:?set ORIN_PREFECT_SECRETS_DIR}/prefect_api_auth
+  hcs_prefect_api_auth:
+    file: ${ORIN_PREFECT_SECRETS_DIR:?set ORIN_PREFECT_SECRETS_DIR}/hcs_prefect_api_auth
   shadow_database_url:
     file: ${ORIN_PREFECT_SECRETS_DIR:?set ORIN_PREFECT_SECRETS_DIR}/shadow_database_url
   owner_database_url:
