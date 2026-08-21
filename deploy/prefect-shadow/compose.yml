@@ -2,7 +2,7 @@ name: orin-prefect-shadow
 
 services:
   prefect-postgres:
-    profiles: ["server", "bootstrap", "shadow-worker", "owner-worker", "hcs-owner-worker"]
+    profiles: ["server", "bootstrap", "hcs-bootstrap", "shadow-worker", "owner-worker", "hcs-owner-worker"]
     image: postgres:16.10-bookworm@sha256:38471f330eb885e04de130b768d6db4e10469e2311879c7e5c699f6d2d8a1c74
     user: "999:999"
     read_only: true
@@ -43,7 +43,7 @@ services:
         max-file: "3"
 
   prefect-server:
-    profiles: ["server", "bootstrap", "shadow-worker", "owner-worker", "hcs-owner-worker"]
+    profiles: ["server", "bootstrap", "hcs-bootstrap", "shadow-worker", "owner-worker", "hcs-owner-worker"]
     image: local/orin-prefect-shadow:${ORIN_PREFECT_DEPLOY_SHA:?set ORIN_PREFECT_DEPLOY_SHA}
     pull_policy: never
     build:
@@ -120,6 +120,34 @@ services:
     secrets:
       - prefect_api_auth
     command: ["bootstrap"]
+
+  prefect-hcs-bootstrap:
+    profiles: ["hcs-bootstrap"]
+    image: local/orin-prefect-shadow:${ORIN_PREFECT_DEPLOY_SHA:?set ORIN_PREFECT_DEPLOY_SHA}
+    pull_policy: never
+    init: true
+    user: "10004:10004"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+      - /home/orin-prefect/.prefect:rw,noexec,nosuid,size=16m,uid=10004,gid=10004
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 384m
+    cpus: 0.30
+    restart: "no"
+    depends_on:
+      prefect-server:
+        condition: service_healthy
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+      DO_NOT_TRACK: "1"
+    secrets:
+      - prefect_api_auth
+    command: ["hcs-bootstrap"]
 
   prefect-shadow-worker:
     profiles: ["shadow-worker"]

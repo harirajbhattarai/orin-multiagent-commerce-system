@@ -25,6 +25,10 @@ case "${mode}" in
     export PREFECT_API_AUTH_STRING="${api_auth}"
     exec python -m orin_prefect_shadow.bootstrap
     ;;
+  hcs-bootstrap)
+    export PREFECT_API_AUTH_STRING="${api_auth}"
+    exec python -c 'from orin_prefect_shadow.bootstrap import bootstrap_hcs; bootstrap_hcs()'
+    ;;
   worker)
     export PREFECT_API_AUTH_STRING="${api_auth}"
     exec prefect worker start \
@@ -55,7 +59,7 @@ case "${mode}" in
       --install-policy never
     ;;
   *)
-    echo "usage: entrypoint.sh {server|bootstrap|worker|owner-worker|hcs-owner-worker}" >&2
+    echo "usage: entrypoint.sh {server|bootstrap|hcs-bootstrap|worker|owner-worker|hcs-owner-worker}" >&2
     exit 2
     ;;
 esac

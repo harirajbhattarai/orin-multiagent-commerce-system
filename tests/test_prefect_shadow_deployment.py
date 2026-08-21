@@ -28,7 +28,7 @@ def service(name: str, next_name: str | None) -> str:
 
 
 def test_every_prefect_service_is_disabled_by_default_and_pinned():
-    assert COMPOSE.count("profiles:") == 6
+    assert COMPOSE.count("profiles:") == 7
     assert ":latest" not in COMPOSE
     assert "prefecthq/prefect:3.8.1" not in COMPOSE
     assert "postgres:16.10-bookworm@sha256:" in COMPOSE
@@ -87,12 +87,15 @@ def test_owner_worker_has_only_its_fixed_scheduler_secret_and_is_resilient():
 
 
 def test_bootstrap_and_worker_do_not_receive_prefect_database_password():
-    bootstrap = service("prefect-bootstrap", "prefect-shadow-worker")
+    bootstrap = service("prefect-bootstrap", "prefect-hcs-bootstrap")
+    hcs_bootstrap = service("prefect-hcs-bootstrap", "prefect-shadow-worker")
     worker = service("prefect-shadow-worker", "prefect-owner-worker")
     owner = service("prefect-owner-worker", "prefect-hcs-owner-worker")
     hcs_owner = service("prefect-hcs-owner-worker", None).split("\nsecrets:", 1)[0]
     assert "prefect_server_database_password" not in bootstrap
     assert "prefect_postgres_password" not in bootstrap
+    assert "prefect_server_database_password" not in hcs_bootstrap
+    assert "prefect_postgres_password" not in hcs_bootstrap
     assert "prefect_server_database_password" not in worker
     assert "prefect_postgres_password" not in worker
     assert "prefect_server_database_password" not in owner
@@ -175,6 +178,28 @@ def test_hcs_owner_worker_and_schedule_are_isolated_and_disabled():
     assert 'chown 10007:10007 "${temporary}"' in installer
     assert "--require-hcs-owner-secret" in preflight
     assert "[hcs_owner_database_url]=10007" in preflight
+
+
+def test_hcs_bootstrap_cannot_mutate_hbstore_prefect_objects():
+    hcs_bootstrap_service = service(
+        "prefect-hcs-bootstrap", "prefect-shadow-worker"
+    )
+    hcs_bootstrap_code = BOOTSTRAP.split("def bootstrap_hcs()", 1)[1].split(
+        "\ndef main()", 1
+    )[0]
+    assert 'profiles: ["hcs-bootstrap"]' in hcs_bootstrap_service
+    assert 'command: ["hcs-bootstrap"]' in hcs_bootstrap_service
+    assert "prefect_api_auth" in hcs_bootstrap_service
+    assert "owner_database_url" not in hcs_bootstrap_service
+    assert "shopify" not in hcs_bootstrap_service.lower()
+    assert "hcs-bootstrap)" in ENTRYPOINT
+    assert "bootstrap_hcs; bootstrap_hcs()" in ENTRYPOINT
+    assert "_hcs_scheduler_deployment().apply()" in hcs_bootstrap_code
+    assert "_verify_hcs()" in hcs_bootstrap_code
+    assert "hbstore_" not in hcs_bootstrap_code
+    assert "orin-owner-process" not in hcs_bootstrap_code
+    assert "orin-shadow-process" not in hcs_bootstrap_code
+    assert "ORIN_HCS_PREFECT_BOOTSTRAP_OK" in hcs_bootstrap_code
 
 
 def test_hcs_scheduler_database_boundary_is_fixed_and_dry_run_only():
