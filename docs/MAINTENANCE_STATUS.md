@@ -1,5 +1,32 @@
 # ORIN maintenance status
 
+## HCS provider-quota recovery completed — 2026-08-21
+
+After the MiniMax Token Plan was upgraded, a minimal credential-bound probe
+returned HTTP 200 from the pinned `MiniMax-M3` model. ORIN then released only
+the already queued HCS scheduler job; Prefect scheduling and both Shopify
+write gates remained disabled. The persistent automatic HCS worker claimed
+the preserved final attempt and completed run
+`hcs_20260821T151050Z_242c4fb2` at exact data-plane release
+`209669ae25bce94b7ab2c79b584caae3f412dbd4`.
+
+The run generated the 2,214-word Job 2 review draft, “Electric Scooter IP
+Ratings and Water Resistance Explained.” Product truth was fresh with 86
+readable products, the HTML and topic-identity gates passed, and the
+post-write review passed. The run made zero Shopify calls and creates,
+published nothing, left the queue hash unchanged, and required no
+reconciliation. The source job is terminal completed with one durable job,
+three total attempts, and exactly one canonical terminal run.
+
+HCS was immediately returned to maintenance with intake, automation, both
+Shopify gates, and scheduler ownership closed. The Prefect owner and HCS
+watchdog remain stopped, the normal 11:30 schedule remains inactive, and
+there are zero active jobs and zero open incidents. The quota recovery and
+durable retry passed, but recurring activation is still withheld because the
+original one-attempt fresh-date invariant was not met. Durable recovery
+evidence is in
+`docs/evidence/2026-08-21-hcs-prefect-quota-recovery.json`.
+
 ## HCS automatic scheduler proof blocked by provider quota — 2026-08-21
 
 The near-term HCS Prefect one-shot ran automatically at 15:47

@@ -1,0 +1,85 @@
+{
+  "schema": "orin.hcs-prefect-quota-recovery/v1",
+  "status": "completed",
+  "observed_at": "2026-08-21T15:11:23Z",
+  "client_id": "hcs_gadgets",
+  "quota_probe": {
+    "provider": "minimax",
+    "model": "MiniMax-M3",
+    "http_status": 200,
+    "has_choices": true
+  },
+  "database_job": {
+    "job_id": "ee8f64cc-c594-4f4b-abf8-0f80c0e24330",
+    "request_id": "a3728082-3d59-5d47-85e9-09da3a3c206f",
+    "source_job_key": "scheduler:orin-hcs-prod:2026-08-21",
+    "requested_mode": "dry-run",
+    "payload": {},
+    "status": "completed",
+    "attempt_count": 3,
+    "max_attempts": 3,
+    "last_error_code": null
+  },
+  "terminal_run": {
+    "run_id": "hcs_20260821T151050Z_242c4fb2",
+    "status": "completed",
+    "decision": "job_selected",
+    "selected_job": "2",
+    "selected_title": "Electric Scooter IP Ratings and Water Resistance Explained",
+    "requested_mode": "dry-run",
+    "effective_mode": "dry-run",
+    "code_version": "209669ae25bce94b7ab2c79b584caae3f412dbd4",
+    "pipeline_exit_code": 0,
+    "error_code": null,
+    "replay_disposition": "terminal",
+    "shopify_write_state": "not_attempted",
+    "shopify_create_count": 0,
+    "shopify_published": false,
+    "queue_changed": false,
+    "reconciliation_status": "not_required"
+  },
+  "content_receipt": {
+    "writer_provider": "minimax",
+    "writer_model": "MiniMax-M3",
+    "model_attempts": 1,
+    "word_count": 2214,
+    "html_sha256": "b8b652f36555cc14f3a80c1afec249b9fb58e5391b4e092bc003ae28a5b4aee1",
+    "quality_gate_passed": true,
+    "topic_identity_gate": "TOPIC_IDENTITY_PASS",
+    "post_write_review": "POST_WRITE_REVIEW_PASSED",
+    "product_truth_status": "PRODUCT_TRUTH_FRESH",
+    "product_count": 86,
+    "shopify_call_count": 0,
+    "queue_sha256_before": "7be2b3171f55003ec00018a6402876b0b541334439870261b579ef2b71ce8059",
+    "queue_sha256_after": "7be2b3171f55003ec00018a6402876b0b541334439870261b579ef2b71ce8059"
+  },
+  "artifact": {
+    "path": "/docker/orin/evidence/hcs_gadgets/hcs_20260821T151050Z_242c4fb2",
+    "final_result_regular_file": true,
+    "final_result_mode": "0600"
+  },
+  "safe_shutdown": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "max_concurrency": 1,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "hcs_prefect_owner_worker_running": false,
+    "hcs_watchdog_running": false,
+    "normal_prefect_schedule_active": false,
+    "active_jobs": 0,
+    "open_incidents": 0
+  },
+  "commissioning_result": {
+    "quota_recovery_passed": true,
+    "durable_retry_passed": true,
+    "automatic_trigger_previously_verified": true,
+    "single_attempt_fresh_date_proof_passed": false,
+    "recurring_activation_authorized": false
+  },
+  "next_action": "Run one fresh-date automatic Prefect one-shot with the normal schedule inactive and both Shopify gates false. Activate the recurring 11:30 dry-run and 11:45 read-only watchdog only if that fresh job completes in one attempt."
+}
