@@ -4,6 +4,30 @@ Last updated: 2026-08-21
 
 ## Current phase
 
+HCS Gadgets now has separate persistent dry-run and temporary Shopify-approval
+worker boundaries at exact merged release
+`209669ae25bce94b7ab2c79b584caae3f412dbd4`. Migration
+`20260821101933_hcs_split_worker_roles` is applied. The persistent
+`orin_hcs_worker` role can log in but can execute only the HCS dry-run
+materialize/claim pair; it cannot execute the approval-only or legacy
+mixed-mode paths. The separate `orin_hcs_shopify_worker` role remains
+`NOLOGIN`, can execute only exact approval-bound Shopify replay functions, and
+cannot execute dry-run or legacy mixed-mode paths.
+
+The persistent `hcs-dry-run-worker-daemon` is running as UID 10005 from the
+exact release image with restart count zero. It mounts only the HCS worker
+database URL and model-writer API key; it has no Shopify access-token
+environment variable or mount. With HCS still in maintenance and every intake,
+automation, Shopify, and scheduler gate closed, it emitted consecutive
+`no_job_due` receipts and created zero jobs, runs, or incidents. The approval
+worker is not running and both of its secret files are absent. The obsolete
+stopped mixed worker container was removed. Durable deployment evidence is in
+`docs/evidence/2026-08-21-hcs-split-worker-deployment-proof.json`.
+
+The next HCS commissioning step is a separate tenant-bound recurring dry-run
+schedule and read-only watchdog. No HCS schedule is active yet, and recurring
+Shopify writes remain out of scope.
+
 HCS Gadgets has passed its first exact, approval-bound unpublished Shopify-draft
 proof. The HCS-specific stylesheet was installed by the store owner before the
 transaction. Dashboard approval `b799266a-13b1-4fe8-b1ea-088b545050f7` bound
@@ -17,11 +41,13 @@ the sent, stored, and fetched HTML hashes matched, reconciliation passed, and
 the content queue did not change. The store owner then independently confirmed
 the hidden draft in Shopify Admin.
 
-HCS was immediately returned to maintenance. Request intake, automation, both
-Shopify write gates, and scheduler ownership are closed; `orin_hcs_worker` is
-`NOLOGIN`; the dedicated worker is stopped with restart count zero; the
-temporary HCS Shopify token was securely deleted; and there are zero active
-jobs and zero open incidents. Durable public evidence is in
+Immediately after that approval proof, HCS was returned to maintenance. Request
+intake, automation, both Shopify write gates, and scheduler ownership were
+closed; `orin_hcs_worker` was returned to `NOLOGIN`; the proof worker was
+stopped; the temporary HCS Shopify token was securely deleted; and there were
+zero active jobs and zero open incidents. The newer split-worker deployment
+described above intentionally re-enabled only the persistent dry-run role while
+leaving every runtime gate closed. Durable public approval evidence is in
 `docs/evidence/2026-08-21-hcs-job1-approval-only-hidden-draft-proof.json`;
 canonical private evidence remains under
 `/docker/orin/evidence/hcs_gadgets/hcs_20260821T093123Z_b6d42df0`.
