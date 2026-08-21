@@ -72,6 +72,7 @@ is separately approved.
 
    ```bash
    deploy/prefect-shadow/install_hcs_owner_db_secret.sh
+   deploy/prefect-shadow/prepare_hcs_api_auth_secret.sh
    deploy/prefect-shadow/preflight.sh --require-hcs-owner-secret \
      --allow-running-server
    deploy/vps/install_hcs_watchdog_db_secret.sh
