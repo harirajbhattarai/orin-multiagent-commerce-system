@@ -1,5 +1,38 @@
 # ORIN maintenance status
 
+## HCS recurring Prefect dry-run ownership activated — 2026-08-22
+
+The fresh-date HCS Prefect proof ran automatically at 00:02 Europe/London
+from exact clean control-plane release
+`d65061377813e8e4f6a618f4ba30a6d773045738`. Prefect created exactly one
+auto-scheduled flow run with parameters `{}`, run count one, and no retries.
+It returned `accepted` with `replayed=false` and created source key
+`scheduler:orin-hcs-prod:2026-08-22` exactly once. The persistent HCS worker
+claimed it automatically and completed one durable job, run, and attempt at
+data-plane release `209669ae25bce94b7ab2c79b584caae3f412dbd4`.
+
+Run `hcs_20260821T230213Z_22d3fd37` selected Job 3, “App-Enabled Electric
+Scooters: Useful Features, Privacy and Setup Checks.” Its 2,252-word MiniMax
+M3 draft passed product-truth, HTML, topic-identity, post-write review, and UK
+compliance checks. The proof made zero Shopify calls and creates, published
+nothing, left the queue snapshot unchanged, and required no reconciliation.
+There are zero active HCS jobs and zero open incidents.
+
+Recurring dry-run ownership is now active through the isolated
+`orin-hcs-owner-process` Prefect pool and `orin-hcs-prefect-scheduler`
+deployment. Only schedule `hcs-daily-dry-run` is active, at 11:30
+Europe/London with concurrency one. The immutable HCS owner worker is healthy
+with zero restarts. HCS is active with intake and automation enabled in
+`dry-run` mode under owner `prefect:orin-hcs-prod`; both the broad Shopify
+write gate and the approval-only draft gate remain disabled.
+
+The separate read-only HCS watchdog is healthy with zero restarts. Its fixed
+client returned `ORIN_WATCHDOG_BEFORE_DEADLINE` during pre-deadline
+verification, and OpenClaw schedule `2932b8f8-bbb6-4cd0-b98d-8fc15a271760`
+is enabled at 11:45 Europe/London with delivery disabled. Durable activation
+evidence is in
+`docs/evidence/2026-08-22-hcs-prefect-fresh-date-production-activation.json`.
+
 ## HCS provider-quota recovery completed — 2026-08-21
 
 After the MiniMax Token Plan was upgraded, a minimal credential-bound probe
@@ -79,7 +112,7 @@ Shopify write gates, and scheduler ownership closed. No production state was
 opened by this implementation step. The commissioning contract is in
 `docs/HCS_SCHEDULER_WATCHDOG.md`.
 
-Last updated: 2026-08-21
+Last updated: 2026-08-22
 
 ## Current phase
 
