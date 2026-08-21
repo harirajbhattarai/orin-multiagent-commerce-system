@@ -1,0 +1,96 @@
+{
+  "schema": "orin.hcs-prefect-one-shot-proof/v1",
+  "status": "blocked",
+  "observed_at": "2026-08-21T14:50:58Z",
+  "client_id": "hcs_gadgets",
+  "control_plane_revision": "d65061377813e8e4f6a618f4ba30a6d773045738",
+  "data_plane_revision": "209669ae25bce94b7ab2c79b584caae3f412dbd4",
+  "prefect": {
+    "pool_id": "be46e4f5-0df9-49ea-af81-da899c030d22",
+    "deployment_id": "8762accc-48b5-4b37-a8de-180c5ccfc65f",
+    "one_shot_schedule_id": "f90ff7f4-3c12-433b-b7b6-ede6a6516d46",
+    "one_shot_schedule_slug": "hcs-one-shot-proof-2026-08-21",
+    "scheduled_local_time": "2026-08-21T15:47:00+01:00",
+    "flow_run_id": "01a024c6-4f9b-7c6f-a7f3-d52e115a1f53",
+    "flow_run_name": "tricky-mussel",
+    "created_by": "SCHEDULE",
+    "parameters": {},
+    "run_count": 1,
+    "state": "Completed",
+    "receipt_status": "accepted",
+    "replayed": false
+  },
+  "database_job": {
+    "job_id": "ee8f64cc-c594-4f4b-abf8-0f80c0e24330",
+    "request_id": "a3728082-3d59-5d47-85e9-09da3a3c206f",
+    "source_job_key": "scheduler:orin-hcs-prod:2026-08-21",
+    "requested_mode": "dry-run",
+    "payload": {},
+    "status": "queued",
+    "attempt_count": 2,
+    "max_attempts": 3,
+    "preserved_for_retry": true
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "run_id": "hcs_20260821T144711Z_02318b8a",
+      "status": "failed",
+      "replay_disposition": "retry",
+      "provider_http_status": 429,
+      "provider_error_type": "rate_limit_error",
+      "provider_error_code": 2056,
+      "shopify_write_state": "not_attempted",
+      "shopify_create_count": 0,
+      "shopify_published": false,
+      "queue_changed": false,
+      "reconciliation_status": "not_required"
+    },
+    {
+      "attempt": 2,
+      "run_id": "hcs_20260821T145031Z_f37776c5",
+      "status": "failed",
+      "replay_disposition": "retry",
+      "provider_http_status": 429,
+      "provider_error_type": "rate_limit_error",
+      "provider_error_code": 2056,
+      "shopify_write_state": "not_attempted",
+      "shopify_create_count": 0,
+      "shopify_published": false,
+      "queue_changed": false,
+      "reconciliation_status": "not_required"
+    }
+  ],
+  "blocker": {
+    "component": "MiniMax M3 writer provider",
+    "classification": "account_quota",
+    "message": "Token Plan usage limit reached; upgrade the Token Plan or purchase Credits for more usage.",
+    "retry_after": null
+  },
+  "safe_shutdown": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "prefect_pool_paused": true,
+    "prefect_deployment_paused": true,
+    "normal_prefect_schedule_active": false,
+    "one_shot_schedule_deleted": true,
+    "hcs_prefect_owner_worker_running": false,
+    "hcs_watchdog_running": false,
+    "hcs_openclaw_watchdog_enabled": false,
+    "active_leased_or_running_jobs": 0,
+    "open_incidents": 0
+  },
+  "proof_result": {
+    "automatic_trigger_verified": true,
+    "automatic_worker_claim_verified": true,
+    "terminal_zero_write_run_verified": false,
+    "recurring_activation_authorized": false
+  },
+  "next_action": "Restore MiniMax API quota without changing the credential, then allow the preserved job's final automatic dry-run attempt under closed Shopify gates. A fresh-date automatic one-shot proof is still required before recurring HCS schedule activation because this proof used two failed attempts."
+}

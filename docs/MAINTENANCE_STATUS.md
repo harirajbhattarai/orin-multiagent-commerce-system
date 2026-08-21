@@ -1,5 +1,33 @@
 # ORIN maintenance status
 
+## HCS automatic scheduler proof blocked by provider quota — 2026-08-21
+
+The near-term HCS Prefect one-shot ran automatically at 15:47
+Europe/London from exact control-plane release
+`d65061377813e8e4f6a618f4ba30a6d773045738`. Prefect created exactly one
+scheduled flow run with parameters `{}`, run count one, and no retries. The
+flow completed successfully, returned `accepted` with `replayed=false`, and
+created exactly one durable dry-run job under source key
+`scheduler:orin-hcs-prod:2026-08-21`.
+
+The persistent HCS worker automatically claimed that job at exact data-plane
+release `209669ae25bce94b7ab2c79b584caae3f412dbd4`, but MiniMax M3 rejected
+both bounded attempts with HTTP 429 and provider code 2056 because the account
+Token Plan usage limit had been reached. Both attempts made zero Shopify
+calls and creates, published nothing, left the queue unchanged, and required
+no reconciliation. The job remains durably queued at attempt two of three so
+the final retry is not consumed before quota is restored.
+
+HCS was immediately returned to maintenance. Intake, automation, both Shopify
+write gates, and scheduler ownership are closed; the Prefect pool and
+deployment are paused; the normal 11:30 schedule remains inactive; the spent
+one-shot schedule was deleted; and the HCS Prefect owner and watchdog services
+were stopped. There are zero leased/running HCS jobs and zero open incidents.
+Recurring HCS scheduling is not authorized until quota is restored, the
+preserved job completes safely, and a fresh-date one-shot passes the original
+single-attempt invariant. Durable evidence is in
+`docs/evidence/2026-08-21-hcs-prefect-one-shot-quota-block.json`.
+
 ## HCS scheduler/watchdog implementation — 2026-08-21
 
 The isolated HCS scheduling architecture is now implemented on branch
