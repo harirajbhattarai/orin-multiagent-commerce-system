@@ -56,6 +56,19 @@ class ShopifyRuntimeConfig:
     access_token: str
     api_version: str
     blog_id: str
+    author_name: str
+
+
+_SHOPIFY_CLIENT_CONFIG = {
+    "hoverboard_store": {
+        "prefix": "HOVERBOARD_STORE_SHOPIFY",
+        "author_name": "Hoverboard Store",
+    },
+    "hcs_gadgets": {
+        "prefix": "HCS_GADGETS_SHOPIFY",
+        "author_name": "HCS Gadgets",
+    },
+}
 
 
 def _required_text(value: object, *, label: str) -> str:
@@ -122,13 +135,17 @@ def approved_review_draft_from_snapshot(
     )
 
 
-def load_shopify_runtime_config() -> ShopifyRuntimeConfig:
+def load_shopify_runtime_config(*, client_id: str) -> ShopifyRuntimeConfig:
     """Load the narrow hidden-draft credential contract without exposing secrets."""
-    store_domain = os.environ.get("HOVERBOARD_STORE_SHOPIFY_STORE_DOMAIN", "")
-    api_version = os.environ.get("HOVERBOARD_STORE_SHOPIFY_API_VERSION", "")
-    blog_id = os.environ.get("HOVERBOARD_STORE_SHOPIFY_BLOG_ID", "")
-    direct_token = os.environ.get("HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN", "")
-    token_file = os.environ.get("HOVERBOARD_STORE_SHOPIFY_ACCESS_TOKEN_FILE", "")
+    client_config = _SHOPIFY_CLIENT_CONFIG.get(client_id)
+    if client_config is None:
+        raise ReviewedDraftContractError("Shopify client configuration is not supported")
+    prefix = client_config["prefix"]
+    store_domain = os.environ.get(f"{prefix}_STORE_DOMAIN", "")
+    api_version = os.environ.get(f"{prefix}_API_VERSION", "")
+    blog_id = os.environ.get(f"{prefix}_BLOG_ID", "")
+    direct_token = os.environ.get(f"{prefix}_ACCESS_TOKEN", "")
+    token_file = os.environ.get(f"{prefix}_ACCESS_TOKEN_FILE", "")
     if (
         not store_domain
         or "/" in store_domain
@@ -148,6 +165,7 @@ def load_shopify_runtime_config() -> ShopifyRuntimeConfig:
         access_token=access_token,
         api_version=api_version,
         blog_id=f"gid://shopify/Blog/{int(blog_id)}",
+        author_name=client_config["author_name"],
     )
 
 
@@ -160,7 +178,7 @@ def ensure_approved_review_draft(
     transport: GraphQLTransport | None = None,
 ) -> DraftResult:
     """Create or reconcile exactly one unpublished copy of the approved HTML."""
-    runtime = config or load_shopify_runtime_config()
+    runtime = config or load_shopify_runtime_config(client_id=client_id)
     graphql = transport or GraphQLHTTPTransport(
         store_domain=runtime.store_domain,
         access_token=runtime.access_token,
@@ -172,7 +190,7 @@ def ensure_approved_review_draft(
             title=approved.title,
             body_html=approved.body_html,
             handle=approved.handle,
-            author_name="Hoverboard Store",
+            author_name=runtime.author_name,
             idempotency_key=f"{client_id}:{request_id}",
         )
     )

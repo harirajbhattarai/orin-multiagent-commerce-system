@@ -93,14 +93,14 @@ def test_python_api_rejects_unsupported_client_before_pipeline_or_evidence(
     assert artifact_root.exists() is False
 
 
-def test_hcs_runner_is_dry_run_only_before_pipeline_or_evidence(tmp_path):
+def test_hcs_hidden_draft_requires_durable_worker_before_pipeline_or_evidence(tmp_path):
     command, preview_path, counter_path = fake_pipeline(
         tmp_path,
         {"blocked": False, "planner_decision": "no_job_due"},
     )
     artifact_root = tmp_path / "hcs-artifacts"
 
-    with pytest.raises(ValueError, match="dry-run only"):
+    with pytest.raises(ValueError, match="durable approval-bound worker path"):
         run_client(
             client_id="hcs_gadgets",
             request_id=str(uuid.uuid4()),
@@ -644,6 +644,72 @@ def test_database_hidden_draft_uses_exact_reviewed_html_without_pipeline(
     assert evidence["approved_canonical_body_sha256"] == body_sha256
     assert evidence["fetched_canonical_body_sha256"] == body_sha256
     assert evidence["body_canonicalization"] == "shopify-safe-html-serialization/v3"
+
+
+def test_hcs_database_hidden_draft_uses_only_the_durable_approved_path(
+    tmp_path, monkeypatch
+):
+    body = '<article class="hcs-article"><h1>Approved HCS article</h1></article>'
+    body_sha256 = hashlib.sha256(body.encode()).hexdigest()
+    content_plan = {
+        "schema": "orin.content-plan-snapshot/v1",
+        "client_id": "hcs_gadgets",
+        "selected_item_id": "dededede-dede-4ede-8ede-dededededede",
+        "selected_item_number": 1,
+        "items": [
+            {
+                "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+                "item_number": 1,
+                "status": "local_draft_created",
+                "topic": "Approved HCS article",
+                "target_date": "2026-08-14",
+            }
+        ],
+        "approved_draft": {
+            "draft_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+            "content_item_version": 2,
+            "source_run_id": "hcs_20260814T134739Z_ef4654b6",
+            "title": "Approved HCS article",
+            "body_html": body,
+            "body_sha256": body_sha256,
+            "handle": "approved-hcs-article",
+        },
+    }
+    observed = {}
+
+    def ensure(approved, *, client_id, request_id):
+        observed["client_id"] = client_id
+        observed["body"] = approved.body_html
+        return DraftResult(
+            article_id="gid://shopify/Article/9101",
+            numeric_article_id=9101,
+            handle="approved-hcs-article",
+            create_count=1,
+            reconciliation_status="reconciled",
+            shopify_write_state="article_observed",
+            idempotency_marker=f"orin-v1:{client_id}:{request_id}",
+            body_sha256=body_sha256,
+            canonical_body_sha256=body_sha256,
+        )
+
+    monkeypatch.setattr("orin_runner.runner.ensure_approved_review_draft", ensure)
+    result = run_client(
+        client_id="hcs_gadgets",
+        request_id=str(uuid.uuid4()),
+        mode="hidden-draft",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        content_plan_snapshot=content_plan,
+        pipeline_command=["/must/not/run"],
+    )
+
+    assert observed == {"client_id": "hcs_gadgets", "body": body}
+    assert result["status"] == "completed"
+    assert result["shopify_article_id"] == "9101"
+    assert result["shopify_published"] is False
 
 
 def test_database_hidden_draft_rejects_tampered_review_body_before_shopify(

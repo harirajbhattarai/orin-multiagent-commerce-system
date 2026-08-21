@@ -62,7 +62,7 @@ class PostgresWorkerRepository:
                 statement = text(
                     """
                     select *
-                    from orin_private.claim_next_dry_run_job_for_client(
+                    from orin_private.claim_next_hcs_job_for_client(
                       :worker_id, :client_id, :lease_seconds
                     )
                     """
@@ -104,7 +104,7 @@ class PostgresWorkerRepository:
                 statement = text(
                     """
                     select *
-                    from orin_private.materialize_next_dry_run_decision_for_client(
+                    from orin_private.materialize_next_hcs_content_decision_for_client(
                       :client_id
                     )
                     """

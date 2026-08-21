@@ -113,7 +113,7 @@ def test_automatic_worker_is_fixed_scope_and_not_publicly_routed():
     assert "/var/run/docker.sock" not in worker
 
 
-def test_hcs_worker_is_dedicated_dry_run_and_has_no_shopify_secret():
+def test_hcs_worker_is_dedicated_and_has_an_isolated_shopify_secret():
     worker = COMPOSE.split("  hcs-worker-daemon:", 1)[1].split(
         "\n  evidence-sync:", 1
     )[0]
@@ -126,7 +126,12 @@ def test_hcs_worker_is_dedicated_dry_run_and_has_no_shopify_secret():
     assert "ORIN_WRITER_API_KEY_FILE: /run/secrets/hcs_writer_api_key" in worker
     assert "ORIN_WRITER_TIMEOUT_SECONDS: \"240\"" in worker
     assert "hcs_writer_api_key" in worker
-    assert "SHOPIFY_ACCESS_TOKEN" not in worker
+    assert "HCS_GADGETS_SHOPIFY_STORE_DOMAIN: hcsgadgets-com.myshopify.com" in worker
+    assert 'HCS_GADGETS_SHOPIFY_API_VERSION: "2026-07"' in worker
+    assert 'HCS_GADGETS_SHOPIFY_BLOG_ID: "89150259452"' in worker
+    assert "HCS_GADGETS_SHOPIFY_ACCESS_TOKEN_FILE: /run/secrets/hcs_shopify_access_token" in worker
+    assert "hcs_shopify_access_token" in worker
+    assert "HOVERBOARD_STORE_SHOPIFY" not in worker
     assert (
         "source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"
         in worker
@@ -154,6 +159,9 @@ def test_hcs_worker_secret_installer_and_preflight_are_uid_scoped():
     writer_installer = Path("deploy/vps/install_hcs_writer_secret.sh").read_text(
         encoding="utf-8"
     )
+    shopify_installer = Path("deploy/vps/install_hcs_shopify_secret.sh").read_text(
+        encoding="utf-8"
+    )
     assert 'target="${secrets_dir}/hcs_worker_database_url"' in installer
     assert '"${first}" != *"orin_hcs_worker"*' in installer
     assert 'chown 10005:10005 "${temporary}"' in installer
@@ -165,6 +173,11 @@ def test_hcs_worker_secret_installer_and_preflight_are_uid_scoped():
     assert 'chmod 0400 "${temporary}"' in writer_installer
     assert "--require-hcs-writer-secret" in preflight
     assert "[hcs_writer_api_key]=10005" in preflight
+    assert 'target="${secrets_dir}/hcs_shopify_access_token"' in shopify_installer
+    assert 'chown 10005:"${runtime_gid}" "${temporary}"' in shopify_installer
+    assert 'chmod 0400 "${temporary}"' in shopify_installer
+    assert "--require-hcs-shopify-secret" in preflight
+    assert "[hcs_shopify_access_token]=10005" in preflight
     assert 'hcs_evidence_root="${ORIN_EVIDENCE_ROOT}/hcs_gadgets"' in preflight
     assert 'hcs_runtime_root="${ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"' in preflight
     assert "product_truth_normalised.json" in preflight

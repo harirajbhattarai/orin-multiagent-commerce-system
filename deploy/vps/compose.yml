@@ -320,9 +320,14 @@ services:
       ORIN_WRITER_TIMEOUT_SECONDS: "240"
       ORIN_HCS_PRODUCT_TRUTH_SOURCE: public-storefront
       ORIN_HCS_PRODUCT_TRUTH_MAX_AGE_HOURS: "24"
+      HCS_GADGETS_SHOPIFY_STORE_DOMAIN: hcsgadgets-com.myshopify.com
+      HCS_GADGETS_SHOPIFY_API_VERSION: "2026-07"
+      HCS_GADGETS_SHOPIFY_BLOG_ID: "89150259452"
+      HCS_GADGETS_SHOPIFY_ACCESS_TOKEN_FILE: /run/secrets/hcs_shopify_access_token
     secrets:
       - hcs_worker_database_url
       - hcs_writer_api_key
+      - hcs_shopify_access_token
     volumes:
       - type: bind
         source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets
@@ -410,6 +415,8 @@ secrets:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hcs_worker_database_url
   hcs_writer_api_key:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hcs_writer_api_key
+  hcs_shopify_access_token:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hcs_shopify_access_token
   hoverboard_shopify_access_token:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hoverboard_shopify_access_token
   writer_api_key:
