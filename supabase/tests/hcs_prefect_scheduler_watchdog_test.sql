@@ -44,6 +44,26 @@ create temporary table hcs_scheduler_test_results (
 ) on commit drop;
 grant insert, select on hcs_scheduler_test_results to orin_hcs_prefect_scheduler;
 
+-- CI starts from the canonical seed, which intentionally contains only the
+-- production HBStore tenant. Create an isolated, fully closed HCS fixture so
+-- the scheduler assertions exercise gate behavior rather than missing setup.
+insert into public.clients (client_id, display_name, status)
+values ('hcs_gadgets', 'HCS Gadgets', 'maintenance');
+
+insert into public.client_runtime_settings (
+  client_id,
+  request_intake_enabled,
+  automation_enabled,
+  shopify_writes_enabled,
+  approved_draft_writes_enabled,
+  max_concurrency,
+  allowed_mode
+)
+values ('hcs_gadgets', false, false, false, false, 1, 'dry-run');
+
+insert into public.scheduler_health (client_id, state, scheduler_owner)
+values ('hcs_gadgets', 'disabled', null);
+
 set local role orin_hcs_prefect_scheduler;
 do $$
 begin
