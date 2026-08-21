@@ -12,6 +12,9 @@ OWNER_MIGRATION = Path(
 SCHEDULER_MIGRATION = Path(
     "supabase/migrations/20260811082754_phase7_prefect_recurring_dry_run.sql"
 ).read_text(encoding="utf-8")
+HCS_SCHEDULER_MIGRATION = Path(
+    "supabase/migrations/20260821104348_hcs_prefect_scheduler_watchdog.sql"
+).read_text(encoding="utf-8")
 BOOTSTRAP = Path("src/orin_prefect_shadow/bootstrap.py").read_text(
     encoding="utf-8"
 )
@@ -25,7 +28,7 @@ def service(name: str, next_name: str | None) -> str:
 
 
 def test_every_prefect_service_is_disabled_by_default_and_pinned():
-    assert COMPOSE.count("profiles:") == 5
+    assert COMPOSE.count("profiles:") == 6
     assert ":latest" not in COMPOSE
     assert "prefecthq/prefect:3.8.1" not in COMPOSE
     assert "postgres:16.10-bookworm@sha256:" in COMPOSE
@@ -65,7 +68,7 @@ def test_shadow_worker_has_only_its_read_only_database_secret():
 
 
 def test_owner_worker_has_only_its_fixed_scheduler_secret_and_is_resilient():
-    worker = service("prefect-owner-worker", None).split("\nsecrets:", 1)[0]
+    worker = service("prefect-owner-worker", "prefect-hcs-owner-worker")
     assert "owner_database_url" in worker
     assert "prefect_api_auth" in worker
     assert "shopify" not in worker.lower()
@@ -86,13 +89,16 @@ def test_owner_worker_has_only_its_fixed_scheduler_secret_and_is_resilient():
 def test_bootstrap_and_worker_do_not_receive_prefect_database_password():
     bootstrap = service("prefect-bootstrap", "prefect-shadow-worker")
     worker = service("prefect-shadow-worker", "prefect-owner-worker")
-    owner = service("prefect-owner-worker", None).split("\nsecrets:", 1)[0]
+    owner = service("prefect-owner-worker", "prefect-hcs-owner-worker")
+    hcs_owner = service("prefect-hcs-owner-worker", None).split("\nsecrets:", 1)[0]
     assert "prefect_server_database_password" not in bootstrap
     assert "prefect_postgres_password" not in bootstrap
     assert "prefect_server_database_password" not in worker
     assert "prefect_postgres_password" not in worker
     assert "prefect_server_database_password" not in owner
     assert "prefect_postgres_password" not in owner
+    assert "prefect_server_database_password" not in hcs_owner
+    assert "prefect_postgres_password" not in hcs_owner
 
 
 def test_database_role_has_one_function_and_no_direct_table_grants():
@@ -141,3 +147,46 @@ def test_daily_prefect_schedule_is_exact_and_disabled_by_default():
     assert "paused=True" in BOOTSTRAP
     assert "active=False" in BOOTSTRAP
     assert "CANCEL_NEW" in BOOTSTRAP
+
+
+def test_hcs_owner_worker_and_schedule_are_isolated_and_disabled():
+    worker = service("prefect-hcs-owner-worker", None).split("\nsecrets:", 1)[0]
+    assert 'profiles: ["hcs-owner-worker"]' in worker
+    assert 'user: "10007:10007"' in worker
+    assert "hcs_owner_database_url" in worker
+    assert "orin_hcs_prefect_scheduler" in worker
+    assert "owner_database_url" not in worker.replace("hcs_owner_database_url", "")
+    assert "shopify" not in worker.lower()
+    assert "writer_api_key" not in worker
+    assert "--pool orin-hcs-owner-process" in ENTRYPOINT
+    assert "--name orin-hcs-prefect-scheduler-1" in ENTRYPOINT
+    assert 'HCS_SCHEDULER_CRON = "30 11 * * *"' in BOOTSTRAP
+    assert 'HCS_SCHEDULER_TIMEZONE = "Europe/London"' in BOOTSTRAP
+    assert 'HCS_SCHEDULER_SLUG = "hcs-daily-dry-run"' in BOOTSTRAP
+    assert "hcs_daily_scheduler_flow.to_deployment" in BOOTSTRAP
+    installer = Path(
+        "deploy/prefect-shadow/install_hcs_owner_db_secret.sh"
+    ).read_text(encoding="utf-8")
+    preflight = Path("deploy/prefect-shadow/preflight.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'target="${secrets_dir}/hcs_owner_database_url"' in installer
+    assert '"${first}" != *"orin_hcs_prefect_scheduler"*' in installer
+    assert 'chown 10007:10007 "${temporary}"' in installer
+    assert "--require-hcs-owner-secret" in preflight
+    assert "[hcs_owner_database_url]=10007" in preflight
+
+
+def test_hcs_scheduler_database_boundary_is_fixed_and_dry_run_only():
+    assert "create role orin_hcs_prefect_scheduler" in HCS_SCHEDULER_MIGRATION
+    assert "enqueue_hcs_prefect_scheduled_job()" in HCS_SCHEDULER_MIGRATION
+    assert "grant select" not in HCS_SCHEDULER_MIGRATION.split(
+        "grant usage on schema public to orin_hcs_watchdog", 1
+    )[0].lower()
+    assert "prefect:orin-hcs-prod" in HCS_SCHEDULER_MIGRATION
+    assert "settings.approved_draft_writes_enabled" in HCS_SCHEDULER_MIGRATION
+    assert "v_access.approved_draft_writes_enabled" in HCS_SCHEDULER_MIGRATION
+    assert "v_access.shopify_writes_enabled" in HCS_SCHEDULER_MIGRATION
+    assert "v_access.allowed_mode <> 'dry-run'" in HCS_SCHEDULER_MIGRATION
+    assert "pg_advisory_xact_lock" in HCS_SCHEDULER_MIGRATION
+    assert "'scheduler:orin-hcs-prod:'" in HCS_SCHEDULER_MIGRATION

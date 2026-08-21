@@ -124,6 +124,38 @@ def test_database_errors_are_redacted_and_fail_closed():
         assert "sensitive" not in json.dumps(response)
 
 
+def test_hcs_socket_uses_a_distinct_fixed_request():
+    with tempfile.TemporaryDirectory(
+        prefix="orin-hcs-watchdog-", dir="/tmp"
+    ) as directory:
+        socket_path = Path(directory) / "watchdog.sock"
+        capability = FakeCapability()
+        hcs_request = b"CHECK ORIN-HCS WATCHDOG V1\n"
+        server = build_server(
+            socket_path=socket_path,
+            socket_directory_mode=0o710,
+            socket_mode=0o620,
+            allowed_peer_uid=os.getuid(),
+            peer_uid_resolver=lambda _: os.getuid(),
+            capability=capability,
+            request_line=hcs_request,
+        )
+        try:
+            rejected_thread = serve_once(server)
+            rejected = request(socket_path, REQUEST_LINE)
+            rejected_thread.join(timeout=2)
+            assert rejected["code"] == "ORIN_WATCHDOG_INVALID_REQUEST"
+            assert capability.calls == 0
+
+            accepted_thread = serve_once(server)
+            accepted = request(socket_path, hcs_request)
+            accepted_thread.join(timeout=2)
+            assert accepted["status"] == "healthy"
+            assert capability.calls == 1
+        finally:
+            server.server_close()
+
+
 def test_socket_rejects_unapproved_peer():
     with tempfile.TemporaryDirectory(prefix="orin-watchdog-", dir="/tmp") as directory:
         socket_path = Path(directory) / "watchdog.sock"

@@ -9,7 +9,7 @@ from pathlib import Path
 from prefect import flow, get_run_logger
 from prefect.artifacts import create_markdown_artifact
 
-from .repository import DailyOwnerRepository, OwnerRepository
+from .repository import DailyOwnerRepository, HcsDailyOwnerRepository, OwnerRepository
 
 
 @flow(
@@ -77,6 +77,43 @@ def hbstore_daily_scheduler_flow() -> dict[str, object]:
     create_markdown_artifact(
         key="orin-hbstore-prefect-scheduler",
         description="Daily dry-run Prefect scheduler receipt.",
+        markdown=f"```json\n{rendered}\n```",
+    )
+    return result
+
+
+@flow(
+    name="orin-hcs-prefect-scheduler",
+    description=(
+        "Fixed-HCS daily dry-run enqueue; never receives Shopify credentials."
+    ),
+    log_prints=True,
+    retries=0,
+    persist_result=False,
+)
+def hcs_daily_scheduler_flow() -> dict[str, object]:
+    database_url_file = Path(
+        os.environ.get(
+            "ORIN_HCS_PREFECT_OWNER_DATABASE_URL_FILE",
+            "/run/secrets/hcs_owner_database_url",
+        )
+    )
+    expected_role = os.environ.get(
+        "ORIN_HCS_PREFECT_OWNER_DATABASE_ROLE", "orin_hcs_prefect_scheduler"
+    )
+    receipt = HcsDailyOwnerRepository(
+        database_url_file, expected_role=expected_role
+    ).enqueue().as_json()
+    result: dict[str, object] = {
+        "schema": "orin.prefect-scheduler/v1",
+        "status": "accepted",
+        **receipt,
+    }
+    rendered = json.dumps(result, sort_keys=True, indent=2)
+    get_run_logger().info("ORIN_HCS_PREFECT_SCHEDULER_RESULT %s", rendered)
+    create_markdown_artifact(
+        key="orin-hcs-prefect-scheduler",
+        description="Daily credential-free HCS dry-run scheduler receipt.",
         markdown=f"```json\n{rendered}\n```",
     )
     return result

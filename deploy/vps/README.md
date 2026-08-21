@@ -220,6 +220,26 @@ Set `ORIN_WATCHDOG_DEPLOY_SHA` to the separately reviewed watchdog commit.
 Do not change `ORIN_DEPLOY_SHA` or replace the proven worker and
 scheduler-trigger images merely to commission the watchdog.
 
+### HCS read-only watchdog
+
+HCS uses a separate `hcs-watchdog` profile, database role, secret, socket, and
+fixed OpenClaw client. It observes only the HCS 11:30 dry-run schedule and is
+disabled by default. Install its unique credential only after the reviewed HCS
+scheduler/watchdog migration is applied:
+
+```bash
+deploy/vps/install_hcs_watchdog_db_secret.sh
+deploy/vps/hcs_watchdog_preflight.sh
+deploy/vps/hcs_watchdog_preflight.sh --require-image
+```
+
+The secret is `/docker/orin/secrets/hcs_watchdog_database_url`, owned by
+`10008:10008` with mode `0400`. The service receives no Shopify or writer
+credential. Its OpenClaw client is
+`deploy/openclaw/orin-hcs-watchdog/bin/orin_hcs_watchdog_check.py`; it accepts
+no arguments. Follow `docs/HCS_SCHEDULER_WATCHDOG.md` and keep the eventual
+11:45 schedule disabled until the automatic scheduler proof passes.
+
 ## Credential handoff — user action required
 
 Create independent random passwords for `orin_api` and `orin_worker` without

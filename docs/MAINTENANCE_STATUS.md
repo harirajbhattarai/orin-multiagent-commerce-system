@@ -1,5 +1,29 @@
 # ORIN maintenance status
 
+## HCS scheduler/watchdog implementation — 2026-08-21
+
+The isolated HCS scheduling architecture is now implemented on branch
+`codex/hcs-prefect-scheduler-watchdog` and remains undeployed pending database
+CI and review. It adds a distinct `orin_hcs_prefect_scheduler` role with one
+fixed zero-argument enqueue function, a separate `orin-hcs-owner-process`
+Prefect pool and worker, and a disabled daily schedule at 11:30
+Europe/London. The scheduler has no table access and no Shopify credential;
+its database function refuses to enqueue unless both Shopify write gates are
+closed and all dry-run ownership invariants pass.
+
+A distinct `orin_hcs_watchdog` role and `hcs-watchdog` service are also
+implemented. RLS exposes only HCS runtime and receipt rows, with no mutations,
+enqueue functions, incident access, or Hoverboard Store visibility. The fixed
+watchdog deadline is 11:45 Europe/London. Both the Prefect schedule and
+watchdog are disabled by default and require a near-term automatic proof
+before recurring activation.
+
+The existing HCS content worker remains healthy and credential-free with
+respect to Shopify. HCS remains in maintenance with intake, automation, both
+Shopify write gates, and scheduler ownership closed. No production state was
+opened by this implementation step. The commissioning contract is in
+`docs/HCS_SCHEDULER_WATCHDOG.md`.
+
 Last updated: 2026-08-21
 
 ## Current phase
