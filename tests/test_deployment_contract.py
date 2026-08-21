@@ -12,12 +12,13 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert 'profiles: ["hcs-approval-worker"]' in COMPOSE
     assert 'profiles: ["scheduler-trigger"]' in COMPOSE
     assert 'profiles: ["watchdog"]' in COMPOSE
+    assert 'profiles: ["hcs-watchdog"]' in COMPOSE
     assert 'profiles: ["evidence-sync"]' in COMPOSE
     assert '"127.0.0.1:${ORIN_API_PORT:-58080}:8000"' in COMPOSE
     assert "traefik." not in COMPOSE.lower()
     assert "50083" not in COMPOSE
     assert "network_mode: host" not in COMPOSE
-    assert COMPOSE.count("pull_policy: never") == 8
+    assert COMPOSE.count("pull_policy: never") == 9
     assert ":latest" not in COMPOSE
 
 
@@ -26,10 +27,10 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert "/data/.openclaw" not in COMPOSE
     assert "privileged:" not in COMPOSE
     assert COMPOSE.count("read_only: true") >= 6
-    assert COMPOSE.count('cap_drop: ["ALL"]') == 8
-    assert COMPOSE.count("no-new-privileges:true") == 8
+    assert COMPOSE.count('cap_drop: ["ALL"]') == 9
+    assert COMPOSE.count("no-new-privileges:true") == 9
     assert COMPOSE.count('restart: "no"') == 5
-    assert COMPOSE.count("restart: unless-stopped") == 3
+    assert COMPOSE.count("restart: unless-stopped") == 4
 
 
 def test_database_credentials_are_file_backed_and_role_separated():
@@ -43,12 +44,50 @@ def test_database_credentials_are_file_backed_and_role_separated():
         "ORIN_WATCHDOG_DATABASE_URL_FILE: /run/secrets/watchdog_database_url"
         in COMPOSE
     )
+    assert "ORIN_WATCHDOG_DATABASE_URL_FILE: /run/secrets/hcs_watchdog_database_url" in COMPOSE
     assert "ORIN_DATABASE_URL:" not in COMPOSE
     assert "ORIN_WORKER_DATABASE_URL:" not in COMPOSE
     assert "ORIN_SCHEDULER_DATABASE_URL:" not in COMPOSE
     assert "ORIN_WATCHDOG_DATABASE_URL:" not in COMPOSE
     assert "service_role" not in COMPOSE
     assert "postgresql://" not in COMPOSE
+
+
+def test_hcs_watchdog_is_fixed_read_only_and_has_no_shopify_surface():
+    watchdog = COMPOSE.split("  hcs-watchdog:", 1)[1].split(
+        "\n  scheduler-trigger:", 1
+    )[0]
+    assert 'user: "10008:${ORIN_RUNTIME_GID:-1000}"' in watchdog
+    assert "ORIN_WATCHDOG_DATABASE_ROLE: orin_hcs_watchdog" in watchdog
+    assert "ORIN_WATCHDOG_CLIENT_ID: hcs_gadgets" in watchdog
+    assert "ORIN_WATCHDOG_SCHEDULER_OWNER: prefect:orin-hcs-prod" in watchdog
+    assert "ORIN_WATCHDOG_SCHEDULE_NAME: orin-hcs-prod" in watchdog
+    assert 'ORIN_WATCHDOG_EXPECTED_LOCAL_MINUTE: "30"' in watchdog
+    assert "ORIN_WATCHDOG_REQUIRE_APPROVED_DRAFT_WRITES_DISABLED" in watchdog
+    assert 'ORIN_WATCHDOG_DRY_RUN_ONLY: "true"' in watchdog
+    assert "CHECK ORIN-HCS WATCHDOG V1" in watchdog
+    assert "shopify_access_token" not in watchdog
+    assert "writer_api_key" not in watchdog
+    installer = Path("deploy/vps/install_hcs_watchdog_db_secret.sh").read_text(
+        encoding="utf-8"
+    )
+    preflight = Path("deploy/vps/preflight.sh").read_text(encoding="utf-8")
+    focused_preflight = Path("deploy/vps/hcs_watchdog_preflight.sh").read_text(
+        encoding="utf-8"
+    )
+    client = Path(
+        "deploy/openclaw/orin-hcs-watchdog/bin/orin_hcs_watchdog_check.py"
+    ).read_text(encoding="utf-8")
+    assert 'target="${secrets_dir}/hcs_watchdog_database_url"' in installer
+    assert '"${first}" != *"orin_hcs_watchdog"*' in installer
+    assert 'chown 10008:10008 "${temporary}"' in installer
+    assert "--require-hcs-watchdog-secret" in preflight
+    assert "[hcs_watchdog_database_url]=10008" in preflight
+    assert "hcs_watchdog_database_url" in focused_preflight
+    assert "10008:10008 mode 0400" in focused_preflight
+    assert "hcs-watchdog" in focused_preflight
+    assert "orin-hcs-watchdog.sock" in client
+    assert 'REQUEST_LINE = b"CHECK ORIN-HCS WATCHDOG V1\\n"' in client
 
 
 def test_shopify_credential_is_file_backed_and_namespaced():

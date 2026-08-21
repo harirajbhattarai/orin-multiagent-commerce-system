@@ -12,7 +12,7 @@ import struct
 import sys
 import threading
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from typing import Protocol
 
@@ -23,7 +23,7 @@ from orin_control.repository import create_database_engine
 from orin_control.secrets import read_private_secret
 from orin_watchdog.models import WatchdogResult
 from orin_watchdog.repository import WatchdogRepository
-from orin_watchdog.service import CLIENT_ID, evaluate, source_job_key
+from orin_watchdog.service import WatchdogPolicy, evaluate, source_job_key
 
 
 REQUEST_LINE = b"CHECK ORIN-HBSTORE WATCHDOG V1\n"
@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     socket_directory_mode: int = 0o710
     socket_mode: int = 0o620
     allowed_peer_uid: int = 1000
+    client_id: str = "hoverboard_store"
+    scheduler_owner: str = "prefect:orin-hbstore-prod"
+    schedule_name: str = "orin-hbstore-prod"
+    expected_local_hour: int = 11
+    expected_local_minute: int = 0
+    grace_minutes: int = 15
+    require_approved_draft_writes_disabled: bool = False
+    dry_run_only: bool = False
+    request_line: str = "CHECK ORIN-HBSTORE WATCHDOG V1"
 
     @model_validator(mode="after")
     def require_one_database_url_source(self) -> "Settings":
@@ -54,6 +63,20 @@ class Settings(BaseSettings):
                 "configure exactly one of ORIN_WATCHDOG_DATABASE_URL "
                 "or ORIN_WATCHDOG_DATABASE_URL_FILE"
             )
+        if (
+            not self.client_id
+            or not self.schedule_name
+            or not self.scheduler_owner
+        ):
+            raise ValueError("watchdog fixed identity must be configured")
+        if not 0 <= self.expected_local_hour <= 23:
+            raise ValueError("watchdog expected hour is invalid")
+        if not 0 <= self.expected_local_minute <= 59:
+            raise ValueError("watchdog expected minute is invalid")
+        if not 1 <= self.grace_minutes <= 120:
+            raise ValueError("watchdog grace period is invalid")
+        if "\n" in self.request_line or "\r" in self.request_line:
+            raise ValueError("watchdog request line must be one line")
         return self
 
     def resolved_database_url(self) -> str:
@@ -62,24 +85,49 @@ class Settings(BaseSettings):
         assert self.database_url_file is not None
         return read_private_secret(self.database_url_file, label="watchdog database URL")
 
+    def policy(self) -> WatchdogPolicy:
+        return WatchdogPolicy(
+            client_id=self.client_id,
+            scheduler_owner=self.scheduler_owner,
+            schedule_name=self.schedule_name,
+            expected_local_time=time(
+                hour=self.expected_local_hour,
+                minute=self.expected_local_minute,
+            ),
+            grace_period=timedelta(minutes=self.grace_minutes),
+            require_approved_draft_writes_disabled=(
+                self.require_approved_draft_writes_disabled
+            ),
+            allowed_modes=(
+                frozenset({"dry-run"})
+                if self.dry_run_only
+                else frozenset({"dry-run", "hidden-draft"})
+            ),
+        )
+
+    def encoded_request_line(self) -> bytes:
+        return self.request_line.encode("ascii") + b"\n"
+
 
 class DatabaseWatchdog:
     def __init__(
         self,
         repository: WatchdogRepository,
         *,
+        policy: WatchdogPolicy,
         now_provider: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self.repository = repository
+        self.policy = policy
         self.now_provider = now_provider
 
     def check(self) -> WatchdogResult:
         now = self.now_provider()
         snapshot = self.repository.snapshot(
-            client_id=CLIENT_ID,
-            source_job_key=source_job_key(now),
+            client_id=self.policy.client_id,
+            source_job_key=source_job_key(now, policy=self.policy),
         )
-        return evaluate(snapshot, now=now)
+        return evaluate(snapshot, now=now, policy=self.policy)
 
     def close(self) -> None:
         self.repository.close()
@@ -117,7 +165,7 @@ class WatchdogHandler(socketserver.StreamRequestHandler):
 
     def _handle_authorized_peer(self) -> dict[str, object]:
         line = self.rfile.readline(128)
-        if line != REQUEST_LINE:
+        if line != self.server.request_line:  # type: ignore[attr-defined]
             return failed_response("ORIN_WATCHDOG_INVALID_REQUEST")
         try:
             return result_response(self.server.capability.check())  # type: ignore[attr-defined]
@@ -135,10 +183,12 @@ class WatchdogServer(socketserver.UnixStreamServer):
         capability: WatchdogCapability,
         allowed_peer_uid: int,
         peer_uid_resolver: Callable[[socket.socket], int],
+        request_line: bytes,
     ) -> None:
         self.capability = capability
         self.allowed_peer_uid = allowed_peer_uid
         self.peer_uid_resolver = peer_uid_resolver
+        self.request_line = request_line
         super().__init__(str(socket_path), WatchdogHandler)
 
 
@@ -177,6 +227,7 @@ def build_server(
     socket_mode: int,
     allowed_peer_uid: int,
     capability: WatchdogCapability,
+    request_line: bytes = REQUEST_LINE,
     peer_uid_resolver: Callable[[socket.socket], int] = _connected_peer_uid,
 ) -> WatchdogServer:
     if socket_directory_mode != 0o710:
@@ -185,12 +236,15 @@ def build_server(
         raise ValueError("watchdog socket mode must be 0620")
     if allowed_peer_uid < 1:
         raise ValueError("watchdog peer UID must be a non-root account")
+    if not request_line.endswith(b"\n") or len(request_line) > 127:
+        raise ValueError("watchdog request line is invalid")
     _prepare_socket_path(socket_path, socket_directory_mode)
     server = WatchdogServer(
         socket_path,
         capability,
         allowed_peer_uid,
         peer_uid_resolver,
+        request_line,
     )
     os.chmod(socket_path, socket_mode)
     return server
@@ -201,13 +255,14 @@ def main() -> int:
     engine = create_database_engine(settings.resolved_database_url(), pool_size=1)
     repository = WatchdogRepository(engine, expected_role=settings.database_role)
     repository.ping()
-    capability = DatabaseWatchdog(repository)
+    capability = DatabaseWatchdog(repository, policy=settings.policy())
     server = build_server(
         socket_path=settings.socket_path,
         socket_directory_mode=settings.socket_directory_mode,
         socket_mode=settings.socket_mode,
         allowed_peer_uid=settings.allowed_peer_uid,
         capability=capability,
+        request_line=settings.encoded_request_line(),
     )
 
     def stop(_: int, __: object) -> None:

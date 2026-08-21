@@ -135,3 +135,41 @@ def test_daily_owner_repository_uses_fixed_zero_argument_function(
     assert "enqueue_hoverboard_prefect_scheduled_job()" in cursor.queries[1]
     assert "commissioning" not in cursor.queries[1]
     assert "%s" not in cursor.queries[1]
+
+
+def test_hcs_daily_owner_repository_uses_fixed_hcs_function(monkeypatch, tmp_path):
+    secret = tmp_path / "hcs_owner_database_url"
+    secret.write_text(
+        "postgresql://orin_hcs_prefect_scheduler:secret@example/db\n"
+    )
+    cursor = FakeCursor(
+        [
+            ("orin_hcs_prefect_scheduler",),
+            (
+                UUID("55555555-5555-5555-8555-555555555555"),
+                "hcs_gadgets",
+                UUID("66666666-6666-5666-8666-666666666666"),
+                "dry-run",
+                "queued",
+                datetime(2026, 8, 21, 10, 30, tzinfo=UTC),
+                datetime(2026, 8, 21, 10, 30, tzinfo=UTC),
+                False,
+            ),
+        ]
+    )
+    monkeypatch.setattr(
+        repository.psycopg,
+        "connect",
+        lambda url, autocommit: FakeConnection(cursor),
+    )
+
+    receipt = repository.HcsDailyOwnerRepository(
+        secret, expected_role="orin_hcs_prefect_scheduler"
+    ).enqueue()
+
+    assert receipt.client_id == "hcs_gadgets"
+    assert receipt.requested_mode == "dry-run"
+    assert receipt.replayed is False
+    assert "enqueue_hcs_prefect_scheduled_job()" in cursor.queries[1]
+    assert "hoverboard" not in cursor.queries[1]
+    assert "%s" not in cursor.queries[1]

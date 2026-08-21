@@ -3,14 +3,16 @@ set -euo pipefail
 
 require_shadow_secret=false
 require_owner_secret=false
+require_hcs_owner_secret=false
 allow_running_server=false
 for argument in "$@"; do
   case "${argument}" in
     --require-shadow-secret) require_shadow_secret=true ;;
     --require-owner-secret) require_owner_secret=true ;;
+    --require-hcs-owner-secret) require_hcs_owner_secret=true ;;
     --allow-running-server) allow_running_server=true ;;
     *)
-      echo "usage: $0 [--require-shadow-secret] [--require-owner-secret] [--allow-running-server]" >&2
+      echo "usage: $0 [--require-shadow-secret] [--require-owner-secret] [--require-hcs-owner-secret] [--allow-running-server]" >&2
       exit 2
       ;;
   esac
@@ -65,6 +67,7 @@ declare -A expected_uid=(
   [prefect_api_auth]=10004
   [shadow_database_url]=10004
   [owner_database_url]=10004
+  [hcs_owner_database_url]=10007
 )
 secret_names=(
   prefect_postgres_password
@@ -76,6 +79,9 @@ if [[ "${require_shadow_secret}" == true ]]; then
 fi
 if [[ "${require_owner_secret}" == true ]]; then
   secret_names+=(owner_database_url)
+fi
+if [[ "${require_hcs_owner_secret}" == true ]]; then
+  secret_names+=(hcs_owner_database_url)
 fi
 for name in "${secret_names[@]}"; do
   path="${ORIN_PREFECT_SECRETS_DIR}/${name}"

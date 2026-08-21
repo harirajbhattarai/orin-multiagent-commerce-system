@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time, timedelta
 from uuid import UUID
 
 import pytest
 
 from orin_watchdog.models import WatchdogSnapshot
-from orin_watchdog.service import evaluate, source_job_key
+from orin_watchdog.service import WatchdogPolicy, evaluate, source_job_key
 
 
 AFTER_DEADLINE = datetime(2026, 7, 30, 10, 20, tzinfo=UTC)
@@ -229,3 +229,45 @@ def test_hidden_draft_allows_at_most_one_unpublished_create():
         now=AFTER_DEADLINE,
     )
     assert unsafe.code == "ORIN_SCHEDULED_RUN_INVARIANT_VIOLATION"
+
+
+def test_hcs_policy_uses_separate_identity_time_and_closed_approval_gate():
+    policy = WatchdogPolicy(
+        client_id="hcs_gadgets",
+        scheduler_owner="prefect:orin-hcs-prod",
+        schedule_name="orin-hcs-prod",
+        expected_local_time=time(hour=11, minute=30),
+        grace_period=timedelta(minutes=15),
+        require_approved_draft_writes_disabled=True,
+        allowed_modes=frozenset({"dry-run"}),
+    )
+    snapshot = replace(
+        healthy_snapshot(),
+        approved_draft_writes_enabled=False,
+        scheduler_owner="prefect:orin-hcs-prod",
+    )
+    now = datetime(2026, 8, 21, 10, 46, tzinfo=UTC)
+
+    result = evaluate(snapshot, now=now, policy=policy)
+
+    assert result.status == "healthy"
+    assert result.client_id == "hcs_gadgets"
+    assert result.source_job_key == "scheduler:orin-hcs-prod:2026-08-21"
+    assert result.expected_at.endswith("11:30:00+01:00")
+    assert result.deadline_at.endswith("11:45:00+01:00")
+    unsafe = evaluate(
+        replace(snapshot, approved_draft_writes_enabled=True),
+        now=now,
+        policy=policy,
+    )
+    assert unsafe.code == "ORIN_SCHEDULER_NOT_ACTIVE"
+    hidden_mode = evaluate(
+        replace(
+            snapshot,
+            allowed_mode="hidden-draft",
+            shopify_writes_enabled=True,
+        ),
+        now=now,
+        policy=policy,
+    )
+    assert hidden_mode.code == "ORIN_SCHEDULER_NOT_ACTIVE"

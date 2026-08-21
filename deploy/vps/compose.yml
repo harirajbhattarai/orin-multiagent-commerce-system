@@ -55,6 +55,63 @@ services:
         max-size: 10m
         max-file: "3"
 
+  hcs-watchdog:
+    profiles: ["hcs-watchdog"]
+    image: local/orin-watchdog:${ORIN_WATCHDOG_DEPLOY_SHA:?set ORIN_WATCHDOG_DEPLOY_SHA}
+    pull_policy: never
+    init: true
+    user: "10008:${ORIN_RUNTIME_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 0.25
+    restart: unless-stopped
+    stop_grace_period: 10s
+    environment:
+      ORIN_WATCHDOG_DATABASE_URL_FILE: /run/secrets/hcs_watchdog_database_url
+      ORIN_WATCHDOG_DATABASE_ROLE: orin_hcs_watchdog
+      ORIN_WATCHDOG_SOCKET_PATH: /run/orin/orin-hcs-watchdog.sock
+      ORIN_WATCHDOG_ALLOWED_PEER_UID: "${ORIN_RUNTIME_UID:-1000}"
+      ORIN_WATCHDOG_CLIENT_ID: hcs_gadgets
+      ORIN_WATCHDOG_SCHEDULER_OWNER: prefect:orin-hcs-prod
+      ORIN_WATCHDOG_SCHEDULE_NAME: orin-hcs-prod
+      ORIN_WATCHDOG_EXPECTED_LOCAL_HOUR: "11"
+      ORIN_WATCHDOG_EXPECTED_LOCAL_MINUTE: "30"
+      ORIN_WATCHDOG_GRACE_MINUTES: "15"
+      ORIN_WATCHDOG_REQUIRE_APPROVED_DRAFT_WRITES_DISABLED: "true"
+      ORIN_WATCHDOG_DRY_RUN_ONLY: "true"
+      ORIN_WATCHDOG_REQUEST_LINE: CHECK ORIN-HCS WATCHDOG V1
+    secrets:
+      - hcs_watchdog_database_url
+    volumes:
+      - type: bind
+        source: ${ORIN_TRIGGER_SOCKET_DIR:?set ORIN_TRIGGER_SOCKET_DIR}/hcs-watchdog
+        target: /run/orin
+    entrypoint:
+      - python
+      - -m
+      - orin_watchdog.server
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -m
+        - orin_watchdog.healthcheck
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   scheduler-trigger:
     profiles: ["scheduler-trigger"]
     image: local/orin-scheduler-trigger:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
@@ -465,6 +522,8 @@ services:
 secrets:
   watchdog_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/watchdog_database_url
+  hcs_watchdog_database_url:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/hcs_watchdog_database_url
   scheduler_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/scheduler_database_url
   control_database_url:

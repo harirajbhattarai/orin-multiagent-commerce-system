@@ -44,8 +44,18 @@ case "${mode}" in
       --no-create-pool-if-not-found \
       --install-policy never
     ;;
+  hcs-owner-worker)
+    export PREFECT_API_AUTH_STRING="${api_auth}"
+    exec prefect worker start \
+      --pool orin-hcs-owner-process \
+      --name orin-hcs-prefect-scheduler-1 \
+      --limit 1 \
+      --with-healthcheck \
+      --no-create-pool-if-not-found \
+      --install-policy never
+    ;;
   *)
-    echo "usage: entrypoint.sh {server|bootstrap|worker|owner-worker}" >&2
+    echo "usage: entrypoint.sh {server|bootstrap|worker|owner-worker|hcs-owner-worker}" >&2
     exit 2
     ;;
 esac

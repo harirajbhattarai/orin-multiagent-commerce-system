@@ -6,6 +6,7 @@ require_shopify_secret=false
 require_writer_secret=false
 require_scheduler_secret=false
 require_watchdog_secret=false
+require_hcs_watchdog_secret=false
 require_evidence_secret=false
 require_hcs_worker_secret=false
 require_hcs_writer_secret=false
@@ -32,6 +33,10 @@ for argument in "$@"; do
       require_secrets=true
       require_watchdog_secret=true
       ;;
+    --require-hcs-watchdog-secret)
+      require_secrets=true
+      require_hcs_watchdog_secret=true
+      ;;
     --require-evidence-secret)
       require_secrets=true
       require_evidence_secret=true
@@ -53,7 +58,7 @@ for argument in "$@"; do
       require_hcs_shopify_secret=true
       ;;
     *)
-      echo "usage: $0 [--require-secrets] [--require-shopify-secret] [--require-writer-secret] [--require-scheduler-secret] [--require-watchdog-secret] [--require-evidence-secret] [--require-hcs-worker-secret] [--require-hcs-writer-secret] [--require-hcs-approval-worker-secret] [--require-hcs-shopify-secret]" >&2
+      echo "usage: $0 [--require-secrets] [--require-shopify-secret] [--require-writer-secret] [--require-scheduler-secret] [--require-watchdog-secret] [--require-hcs-watchdog-secret] [--require-evidence-secret] [--require-hcs-worker-secret] [--require-hcs-writer-secret] [--require-hcs-approval-worker-secret] [--require-hcs-shopify-secret]" >&2
       exit 2
       ;;
   esac
@@ -153,6 +158,7 @@ docker compose --env-file /dev/null -f "${compose_file}" --profile "*" config --
 if [[ "${require_secrets}" == true ]]; then
   declare -A expected_uid=(
     [watchdog_database_url]=10003
+    [hcs_watchdog_database_url]=10008
     [scheduler_database_url]=10002
     [control_database_url]=10001
     [worker_database_url]="${ORIN_RUNTIME_UID}"
@@ -170,6 +176,9 @@ if [[ "${require_secrets}" == true ]]; then
   fi
   if [[ "${require_watchdog_secret}" == true ]]; then
     secret_names+=(watchdog_database_url)
+  fi
+  if [[ "${require_hcs_watchdog_secret}" == true ]]; then
+    secret_names+=(hcs_watchdog_database_url)
   fi
   if [[ "${require_shopify_secret}" == true ]]; then
     secret_names+=(hoverboard_shopify_access_token)
