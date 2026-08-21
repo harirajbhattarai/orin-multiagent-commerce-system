@@ -37,10 +37,12 @@ def test_application_routes_each_client_to_its_matching_database_boundary():
     assert 'if self.client_id == "hoverboard_store"' in REPOSITORY
     assert "claim_next_job_for_client(" in REPOSITORY
     assert "materialize_next_content_decision_for_client(" in REPOSITORY
-    assert "claim_next_hcs_job_for_client(" in REPOSITORY
-    assert "materialize_next_hcs_content_decision_for_client(" in REPOSITORY
-    assert '"hoverboard_store": "orin_worker"' in REPOSITORY
-    assert '"hcs_gadgets": "orin_hcs_worker"' in REPOSITORY
+    assert "claim_next_dry_run_job_for_client(" in REPOSITORY
+    assert "materialize_next_dry_run_decision_for_client(" in REPOSITORY
+    assert "claim_next_hcs_approved_draft_job_for_client(" in REPOSITORY
+    assert "materialize_next_hcs_approved_draft_decision_for_client(" in REPOSITORY
+    assert '"hoverboard_store": {"orin_worker"}' in REPOSITORY
+    assert '"hcs_gadgets": {"orin_hcs_worker", "orin_hcs_shopify_worker"}' in REPOSITORY
 
 
 def test_every_worker_command_requires_a_supported_client_binding():

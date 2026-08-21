@@ -29,7 +29,8 @@ fi
 
 compose_file="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compose.yml"
 docker compose --env-file "${deployment_env}" -f "${compose_file}" \
-  --profile hcs-automatic-worker build hcs-worker-daemon
+  --profile hcs-dry-run-worker --profile hcs-approval-worker build \
+  hcs-dry-run-worker-daemon hcs-approval-worker
 
 image="local/orin-worker:${deploy_sha}"
 image_revision="$(docker image inspect "${image}" \
@@ -39,6 +40,6 @@ if [[ "${image_revision}" != "${deploy_sha}" ]]; then
   exit 1
 fi
 docker run --rm --entrypoint python "${image}" -c \
-  'from orin_worker.cli import build_parser; parsed = build_parser().parse_args(["serve", "--client-id", "hcs_gadgets"]); assert parsed.client_id == "hcs_gadgets"'
+  'from orin_worker.cli import build_parser; dry = build_parser().parse_args(["serve", "--client-id", "hcs_gadgets"]); approval = build_parser().parse_args(["once", "--client-id", "hcs_gadgets"]); assert dry.client_id == approval.client_id == "hcs_gadgets"'
 
 echo "HCS worker image built from verified commit ${deploy_sha}"

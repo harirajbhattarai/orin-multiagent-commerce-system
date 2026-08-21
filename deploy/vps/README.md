@@ -246,25 +246,33 @@ The worker receives only the token file path. The store domain, pinned API
 version, and blog ID are non-secret reviewed Compose configuration. OpenClaw
 does not receive or mount this secret.
 
-### HCS dedicated approval-only worker
+### HCS split dry-run and approval workers
 
-The HCS worker uses its own `orin_hcs_worker` database role. Its normal path is
-dry-run. A separate HCS-only token file may be mounted only for a controlled,
-exactly approved unpublished-draft transaction; broad Shopify writes and live
-publishing remain unavailable. Create a unique password for the database role
-without putting it in chat, Git, shell history, OpenClaw, or a container
-environment variable.
-Temporarily change only `orin_hcs_worker` from `NOLOGIN` to `LOGIN` in the
-Supabase SQL editor, build a complete session-pooler URL for that role, and
-install it interactively:
+HCS has two non-overlapping principals. The persistent
+`hcs-dry-run-worker-daemon` uses `orin_hcs_worker`, the writer API key, and
+public storefront product truth. It has no Shopify token mount and can claim
+only dry-run work. The temporary `hcs-approval-worker` uses
+`orin_hcs_shopify_worker` plus the HCS Shopify token, has no writer API key,
+runs exactly one claim with `once`, and can claim only an exact version/hash-
+bound human-approved hidden draft. Broad Shopify writes and live publishing
+remain unavailable.
+
+Create unique passwords for both database roles without putting them in chat,
+Git, shell history, OpenClaw, or a container environment variable. Change only
+the role needed for the current commissioning step from `NOLOGIN` to `LOGIN`
+in the Supabase SQL editor, build its complete session-pooler URL, and install
+it interactively:
 
 ```bash
 deploy/vps/install_hcs_worker_db_secret.sh
 deploy/vps/install_hcs_writer_secret.sh
+deploy/vps/install_hcs_shopify_worker_db_secret.sh
 deploy/vps/install_hcs_shopify_secret.sh
 deploy/vps/prepare_hcs_worker_storage.sh
 deploy/vps/preflight.sh --require-secrets --require-hcs-worker-secret \
-  --require-hcs-writer-secret --require-hcs-shopify-secret
+  --require-hcs-writer-secret
+deploy/vps/preflight.sh --require-secrets \
+  --require-hcs-approval-worker-secret --require-hcs-shopify-secret
 ```
 
 Build the HCS image only through the provenance-checking wrapper. The exported
@@ -283,20 +291,24 @@ The database installer writes only
 the platform model credential separately at
 `/docker/orin/secrets/hcs_writer_api_key`, also owned by UID `10005` with mode
 `0400`. The Shopify installer stores the HCS Admin API token separately at
-`/docker/orin/secrets/hcs_shopify_access_token`, owned by UID `10005` with mode
+`/docker/orin/secrets/hcs_shopify_access_token`, owned by UID `10006` with mode
 `0400`; it refuses to overwrite an existing token and is mounted only into the
-HCS worker. The storage preparation
-creates only `/docker/orin/evidence/hcs_gadgets`, owned by UID `10005` with
-mode `0700`; the HCS container mounts that private directory at `/evidence`
-instead of receiving access to Hoverboard Store evidence. Keep HCS in maintenance,
-with request intake, automation, both Shopify write gates, and scheduler
-ownership closed, while proving that the dedicated daemon can return
-`no_job_due`. For a hidden-draft proof, enable only the narrow
+one-shot approval worker. Its database URL is stored separately at
+`/docker/orin/secrets/hcs_shopify_worker_database_url`, also owned by UID
+`10006` with mode `0400`. The storage preparation keeps dry-run evidence under
+`/docker/orin/evidence/hcs_gadgets` and creates the UID `10006`-only
+`/docker/orin/evidence/hcs_gadgets/approval` directory for Shopify replay
+evidence. Neither HCS service receives access to Hoverboard Store evidence.
+
+Keep HCS in maintenance, with request intake, automation, both Shopify write
+gates, and scheduler ownership closed, while proving that the credential-free
+dry-run daemon can return `no_job_due`. For a hidden-draft proof, stop the
+dry-run daemon, enable only the narrow
 `approved_draft_writes_enabled` gate after an exact version-and-hash-bound
-human approval exists. Keep `shopify_writes_enabled=false`. Return the database
-role to `NOLOGIN`, stop the daemon, close all gates, and remove the HCS Shopify
-secret after the proof unless the next controlled commissioning step begins
-immediately.
+human approval exists, and invoke only the one-shot approval service. Keep
+`shopify_writes_enabled=false`. Return the Shopify role to `NOLOGIN`, close all
+gates, and remove both UID `10006` secrets after the transaction unless the
+next controlled approval begins immediately.
 
 ## Portable evidence sync
 

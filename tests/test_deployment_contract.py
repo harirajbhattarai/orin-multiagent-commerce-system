@@ -8,7 +8,8 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert 'profiles: ["manual-api"]' in COMPOSE
     assert 'profiles: ["manual-worker"]' in COMPOSE
     assert 'profiles: ["automatic-worker"]' in COMPOSE
-    assert 'profiles: ["hcs-automatic-worker"]' in COMPOSE
+    assert 'profiles: ["hcs-dry-run-worker"]' in COMPOSE
+    assert 'profiles: ["hcs-approval-worker"]' in COMPOSE
     assert 'profiles: ["scheduler-trigger"]' in COMPOSE
     assert 'profiles: ["watchdog"]' in COMPOSE
     assert 'profiles: ["evidence-sync"]' in COMPOSE
@@ -16,7 +17,7 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert "traefik." not in COMPOSE.lower()
     assert "50083" not in COMPOSE
     assert "network_mode: host" not in COMPOSE
-    assert COMPOSE.count("pull_policy: never") == 7
+    assert COMPOSE.count("pull_policy: never") == 8
     assert ":latest" not in COMPOSE
 
 
@@ -25,9 +26,9 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert "/data/.openclaw" not in COMPOSE
     assert "privileged:" not in COMPOSE
     assert COMPOSE.count("read_only: true") >= 6
-    assert COMPOSE.count('cap_drop: ["ALL"]') == 7
-    assert COMPOSE.count("no-new-privileges:true") == 7
-    assert COMPOSE.count('restart: "no"') == 4
+    assert COMPOSE.count('cap_drop: ["ALL"]') == 8
+    assert COMPOSE.count("no-new-privileges:true") == 8
+    assert COMPOSE.count('restart: "no"') == 5
     assert COMPOSE.count("restart: unless-stopped") == 3
 
 
@@ -113,39 +114,51 @@ def test_automatic_worker_is_fixed_scope_and_not_publicly_routed():
     assert "/var/run/docker.sock" not in worker
 
 
-def test_hcs_worker_is_dedicated_and_has_an_isolated_shopify_secret():
-    worker = COMPOSE.split("  hcs-worker-daemon:", 1)[1].split(
+def test_hcs_workers_have_non_overlapping_credentials_and_modes():
+    worker = COMPOSE.split("  hcs-dry-run-worker-daemon:", 1)[1].split(
+        "\n  hcs-approval-worker:", 1
+    )[0]
+    approval = COMPOSE.split("  hcs-approval-worker:", 1)[1].split(
         "\n  evidence-sync:", 1
     )[0]
-    assert 'profiles: ["hcs-automatic-worker"]' in worker
+    assert 'profiles: ["hcs-dry-run-worker"]' in worker
     assert "--client-id\n      - hcs_gadgets" in worker
     assert "orin-hcs-prod" in worker
     assert "ORIN_WORKER_DATABASE_ROLE: orin_hcs_worker" in worker
     assert "hcs_worker_database_url" in worker
     assert 'ORIN_MODEL_WRITER_ENABLED: "${ORIN_HCS_MODEL_WRITER_ENABLED:-0}"' in worker
     assert "ORIN_WRITER_API_KEY_FILE: /run/secrets/hcs_writer_api_key" in worker
-    assert "ORIN_WRITER_TIMEOUT_SECONDS: \"240\"" in worker
     assert "hcs_writer_api_key" in worker
-    assert "HCS_GADGETS_SHOPIFY_STORE_DOMAIN: hcsgadgets-com.myshopify.com" in worker
-    assert 'HCS_GADGETS_SHOPIFY_API_VERSION: "2026-07"' in worker
-    assert 'HCS_GADGETS_SHOPIFY_BLOG_ID: "89150259452"' in worker
-    assert "HCS_GADGETS_SHOPIFY_ACCESS_TOKEN_FILE: /run/secrets/hcs_shopify_access_token" in worker
-    assert "hcs_shopify_access_token" in worker
-    assert "HOVERBOARD_STORE_SHOPIFY" not in worker
+    assert "hcs_shopify_access_token" not in worker
+    assert "HCS_GADGETS_SHOPIFY_ACCESS_TOKEN_FILE" not in worker
+    assert 'profiles: ["hcs-approval-worker"]' in approval
+    assert 'user: "10006:${ORIN_RUNTIME_GID:-1000}"' in approval
+    assert "ORIN_WORKER_DATABASE_ROLE: orin_hcs_shopify_worker" in approval
+    assert "hcs_shopify_worker_database_url" in approval
+    assert 'ORIN_MODEL_WRITER_ENABLED: "0"' in approval
+    assert "hcs_writer_api_key" not in approval
+    assert "HCS_GADGETS_SHOPIFY_ACCESS_TOKEN_FILE: /run/secrets/hcs_shopify_access_token" in approval
+    assert "hcs_shopify_access_token" in approval
+    assert "- once" in approval
+    assert "restart: \"no\"" in approval
+    assert "- serve" not in approval
+    assert "HOVERBOARD_STORE_SHOPIFY" not in worker + approval
     assert (
         "source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"
-        in worker
+        in worker and "source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}/clients/hcs_gadgets" in approval
     )
-    assert "target: /runtime/clients/hcs_gadgets" in worker
+    assert "target: /runtime/clients/hcs_gadgets" in worker + approval
     assert "source: ${ORIN_RUNTIME_ROOT:?set ORIN_RUNTIME_ROOT}\n" not in worker
     assert (
         "source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}/hcs_gadgets"
         in worker
     )
     assert "target: /evidence" in worker
+    assert "source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}/hcs_gadgets/approval" in approval
     assert "--as-of-date" not in worker
     assert "--job-number" not in worker
     assert "ports:" not in worker
+    assert "ports:" not in approval
 
 
 def test_hcs_worker_secret_installer_and_preflight_are_uid_scoped():
@@ -162,6 +175,9 @@ def test_hcs_worker_secret_installer_and_preflight_are_uid_scoped():
     shopify_installer = Path("deploy/vps/install_hcs_shopify_secret.sh").read_text(
         encoding="utf-8"
     )
+    approval_installer = Path(
+        "deploy/vps/install_hcs_shopify_worker_db_secret.sh"
+    ).read_text(encoding="utf-8")
     assert 'target="${secrets_dir}/hcs_worker_database_url"' in installer
     assert '"${first}" != *"orin_hcs_worker"*' in installer
     assert 'chown 10005:10005 "${temporary}"' in installer
@@ -174,16 +190,21 @@ def test_hcs_worker_secret_installer_and_preflight_are_uid_scoped():
     assert "--require-hcs-writer-secret" in preflight
     assert "[hcs_writer_api_key]=10005" in preflight
     assert 'target="${secrets_dir}/hcs_shopify_access_token"' in shopify_installer
-    assert 'chown 10005:"${runtime_gid}" "${temporary}"' in shopify_installer
+    assert 'chown 10006:"${runtime_gid}" "${temporary}"' in shopify_installer
     assert 'chmod 0400 "${temporary}"' in shopify_installer
     assert "--require-hcs-shopify-secret" in preflight
-    assert "[hcs_shopify_access_token]=10005" in preflight
+    assert "[hcs_shopify_access_token]=10006" in preflight
+    assert 'target="${secrets_dir}/hcs_shopify_worker_database_url"' in approval_installer
+    assert 'chown 10006:10006 "${temporary}"' in approval_installer
+    assert "--require-hcs-approval-worker-secret" in preflight
+    assert "[hcs_shopify_worker_database_url]=10006" in preflight
     assert 'hcs_evidence_root="${ORIN_EVIDENCE_ROOT}/hcs_gadgets"' in preflight
     assert 'hcs_runtime_root="${ORIN_RUNTIME_ROOT}/clients/hcs_gadgets"' in preflight
     assert "product_truth_normalised.json" in preflight
     assert "product_truth_link_map.json" in preflight
     assert 'target="${evidence_root}/hcs_gadgets"' in storage
-    assert 'install -d -m 0700 -o 10005 -g "${runtime_gid}"' in storage
+    assert 'install -d -m 0710 -o 10005 -g "${runtime_gid}"' in storage
+    assert 'install -d -m 0700 -o 10006 -g "${runtime_gid}"' in storage
     readme = Path("deploy/vps/README.md").read_text(encoding="utf-8")
     assert "install_hcs_writer_secret.sh" in readme
     assert "--require-hcs-writer-secret" in readme
@@ -196,6 +217,7 @@ def test_hcs_worker_build_fails_if_source_commit_and_image_tag_diverge():
     assert 'image="local/orin-worker:${deploy_sha}"' in build
     assert 'if [[ "${image_revision}" != "${deploy_sha}" ]]' in build
     assert '"serve", "--client-id", "hcs_gadgets"' in build
+    assert '"once", "--client-id", "hcs_gadgets"' in build
 
 
 def test_scheduler_trigger_is_fixed_input_socket_only_and_credential_isolated():
