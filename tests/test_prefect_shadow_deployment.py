@@ -156,6 +156,13 @@ def test_hcs_owner_worker_and_schedule_are_isolated_and_disabled():
     worker = service("prefect-hcs-owner-worker", None).split("\nsecrets:", 1)[0]
     assert 'profiles: ["hcs-owner-worker"]' in worker
     assert 'user: "10007:10007"' in worker
+    assert "HOME: /home/orin-hcs-prefect" in worker
+    assert "PREFECT_HOME: /home/orin-hcs-prefect/.prefect" in worker
+    assert (
+        "/home/orin-hcs-prefect:rw,noexec,nosuid,size=32m,"
+        "uid=10007,gid=10007"
+    ) in worker
+    assert "/home/orin-prefect/.prefect" not in worker
     assert "hcs_owner_database_url" in worker
     assert "source: hcs_prefect_api_auth" in worker
     assert "target: prefect_api_auth" in worker

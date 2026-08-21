@@ -15,6 +15,10 @@ has the model-writer credential but no Shopify credential. The temporary
 approval worker remains the only process that can receive the HCS Shopify
 credential, and it is never part of the schedule.
 
+The HCS Prefect owner worker runs as UID `10007` with a dedicated writable
+Prefect home at `/home/orin-hcs-prefect`; it does not share the UID `10004`
+HBStore Prefect home.
+
 ## Fixed schedule
 
 - Prefect pool: `orin-hcs-owner-process`
