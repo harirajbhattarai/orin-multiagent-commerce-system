@@ -1,23 +1,38 @@
 # ORIN maintenance status
 
-Last updated: 2026-08-20
+Last updated: 2026-08-21
 
 ## Current phase
 
-The dashboard's HCS review path is now tenant-isolated from Hoverboard Store.
+HCS Gadgets has passed its first exact, approval-bound unpublished Shopify-draft
+proof. The HCS-specific stylesheet was installed by the store owner before the
+transaction. Dashboard approval `b799266a-13b1-4fe8-b1ea-088b545050f7` bound
+Job 1 draft version 2 and SHA-256
+`c9845f1a063bc967f7dbd80306e708341df9181cb1ff81149913338b5bb36c28`.
+The dedicated HCS worker at exact merged release
+`3f1860d5a5d158679fee4d332617f0c017f01f21` consumed only that decision and
+completed run `hcs_20260821T093123Z_b6d42df0` with one job, one attempt, and
+one Shopify create. Shopify article `1002518675830` remained unpublished,
+the sent, stored, and fetched HTML hashes matched, reconciliation passed, and
+the content queue did not change. The store owner then independently confirmed
+the hidden draft in Shopify Admin.
+
+HCS was immediately returned to maintenance. Request intake, automation, both
+Shopify write gates, and scheduler ownership are closed; `orin_hcs_worker` is
+`NOLOGIN`; the dedicated worker is stopped with restart count zero; the
+temporary HCS Shopify token was securely deleted; and there are zero active
+jobs and zero open incidents. Durable public evidence is in
+`docs/evidence/2026-08-21-hcs-job1-approval-only-hidden-draft-proof.json`;
+canonical private evidence remains under
+`/docker/orin/evidence/hcs_gadgets/hcs_20260821T093123Z_b6d42df0`.
+
+The dashboard's HCS review path remains tenant-isolated from Hoverboard Store.
 Authoritative database identity overrides stale snapshot branding, HCS reviews
 use HCS-specific policy copy and the canonical `hcs-*` design contract, and a
 cross-client or unknown article wrapper disables approval instead of rendering
 or executing it. The canonical HCS article stylesheet is stored at
 `clients/hcs_gadgets/shopify_theme/hcs-article.css` and is used by the
-version-bound dashboard preview.
-
-The public HCS Shopify theme inspection found no loaded `hcs-*` stylesheet.
-Therefore HCS remains in maintenance and its hidden-draft approval path remains
-closed. The next controlled step is to install that exact scoped stylesheet in
-the HCS theme, verify it on a non-live test surface, and only then run one
-version-bound hidden-draft proof. No Shopify write was attempted during this
-dashboard isolation work. Durable evidence is in
+version-bound dashboard preview. The earlier theme-isolation evidence is in
 `docs/evidence/2026-08-20-hcs-dashboard-theme-isolation.json`.
 
 HCS Gadgets has passed its first exact-item dry-run commissioning proof. Job 1,
@@ -29,14 +44,12 @@ passed the HTML contract, compliance, topic-identity, and automated post-write
 review checks. The run made zero Shopify calls and creates, published nothing,
 left the queue unchanged, and required no reconciliation.
 
-HCS was immediately returned to maintenance after the proof. Request intake,
-automation, both Shopify write gates, and scheduler ownership are closed; the
-dedicated database role is `NOLOGIN`, the worker is stopped, no Shopify
-credential exists, and there are zero active HCS jobs and zero open HCS
-incidents. The next action is human review of the exact version-bound draft in
-the dashboard. Approval must not be used to contact Shopify until the later
-hidden-draft credential and write-path commissioning stage. Durable public
-evidence is in
+HCS was immediately returned to maintenance after that dry-run proof. Request
+intake, automation, both Shopify write gates, and scheduler ownership were
+closed; the dedicated database role was returned to `NOLOGIN`, and the worker
+was stopped. The later approval-only proof documented above used this exact
+version-bound draft without regenerating or mutating its HTML. Durable public
+evidence for the earlier dry run is in
 `docs/evidence/2026-08-14-hcs-job1-dry-run-proof.json`; canonical private run
 evidence remains under
 `/docker/orin/evidence/hcs_gadgets/hcs_20260814T134739Z_ef4654b6`.
@@ -63,11 +76,13 @@ cannot call the global claim function, and can claim only `hcs_gadgets`
 `dry-run` jobs through its dedicated function while both Shopify gates remain
 closed. Exact normalized topic identities and exact generated body hashes are
 globally unique across tenants, blocking accidental cross-client content
-reuse. HCS has not been activated for Shopify writes; the corrected immutable
-no-job image proof and one controlled plan-item dry-run have both passed.
+reuse. HCS is not activated for recurring Shopify writes; the corrected
+immutable no-job image proof, controlled plan-item dry run, and one exact
+approval-only unpublished-draft transaction have passed.
 
-The HCS credential installer and preflight check stage the next proof without
-exposing the database URL or reusing an HBStore credential.
+The HCS credential installers and preflight checks completed the controlled
+proof without exposing database or Shopify credentials or reusing an HBStore
+credential. The temporary Shopify credential was removed after verification.
 
 The first daemon start failed closed before claiming a job because its image
 tag was built from the older `ORIN_PROJECT_ROOT` still pinned in
