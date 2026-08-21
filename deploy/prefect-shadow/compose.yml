@@ -241,7 +241,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=128m
-      - /home/orin-prefect/.prefect:rw,noexec,nosuid,size=32m,uid=10007,gid=10007
+      - /home/orin-hcs-prefect:rw,noexec,nosuid,size=32m,uid=10007,gid=10007
     cap_drop: ["ALL"]
     security_opt:
       - no-new-privileges:true
@@ -254,6 +254,8 @@ services:
       prefect-server:
         condition: service_healthy
     environment:
+      HOME: /home/orin-hcs-prefect
+      PREFECT_HOME: /home/orin-hcs-prefect/.prefect
       PREFECT_API_URL: http://prefect-server:4200/api
       PREFECT_SERVER_ANALYTICS_ENABLED: "false"
       PREFECT_RUNNER_PROCESS_LIMIT: "1"
