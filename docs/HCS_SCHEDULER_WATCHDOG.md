@@ -54,6 +54,18 @@ is separately approved.
 2. Apply the migration while both new roles remain `NOLOGIN`.
 3. Deploy the exact immutable Prefect/watchdog image with the HCS pool,
    deployment, daily schedule, watchdog service, and OpenClaw job all disabled.
+   Use only the isolated `prefect-hcs-bootstrap` service. The general bootstrap
+   also manages HBStore and is prohibited for HCS commissioning.
+
+   ```bash
+   docker compose --env-file /docker/orin-prefect-shadow/hcs-deployment.env \
+     -f deploy/prefect-shadow/compose.yml --profile hcs-bootstrap \
+     run --rm --no-deps prefect-hcs-bootstrap
+   ```
+
+   The required receipt is `ORIN_HCS_PREFECT_BOOTSTRAP_OK`. The command creates
+   or updates only `orin-hcs-owner-process` and
+   `orin-hcs-prefect-scheduler`; both remain paused and its schedule inactive.
 4. Set unique passwords, temporarily enable login, and install the two distinct
    session-pooler URLs using the interactive installers. Never paste either
    credential into chat, Git, shell history, or OpenClaw.
