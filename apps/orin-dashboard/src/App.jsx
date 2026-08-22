@@ -148,7 +148,7 @@ function AppShell({ route, navigate, children, dataSource, operations, queueCoun
   const navItems = [
     { id: "overview", label: "Overview", icon: House, path: "/" },
     { id: "queue", label: "Content queue", icon: ListChecks, path: "/queue" },
-    ...(operatorAccess ? [{ id: "onboarding", label: "Add client", icon: UserPlus, path: "/onboarding" }] : []),
+    ...(operatorAccess ? [{ id: "onboarding", label: "Clients", icon: UserPlus, path: "/onboarding" }] : []),
   ];
   const liveSource = dataSource === "supabase";
   const environmentLabel = liveSource || operations.isPaused ? operations.workspaceLabel : "Safe preview";

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   clientIdFromName,
+  clientManagementPresentation,
   normalizeShopifyDomain,
   onboardingSafetyChecklist,
   productScopeFromText,
@@ -11,6 +12,49 @@ test("creates stable tenant identifiers from client names", () => {
   assert.equal(clientIdFromName("Hariraj's Cycle Store"), "hariraj_s_cycle_store");
   assert.equal(clientIdFromName("  Café & Scooters  "), "cafe_scooters");
   assert.equal(clientIdFromName("***"), "");
+});
+
+test("presents a proven recurring client without offering more onboarding", () => {
+  const presentation = clientManagementPresentation({
+    status: "active",
+    runtime: {
+      request_intake_enabled: true,
+      automation_enabled: true,
+      shopify_writes_enabled: false,
+      approved_draft_writes_enabled: false,
+      allowed_mode: "dry-run",
+    },
+    health: { state: "healthy", scheduler_owner: "prefect:orin-hcs-prod" },
+    request: { credential_status: "stored", commissioning_status: "identity_verified" },
+  });
+  assert.equal(presentation.stage.label, "Recurring dry-run");
+  assert.equal(presentation.shopify.label, "Writes closed");
+  assert.equal(presentation.canContinueOnboarding, false);
+});
+
+test("prioritizes incidents over otherwise healthy client state", () => {
+  const presentation = clientManagementPresentation({
+    status: "active",
+    openIncidents: 1,
+    runtime: {
+      request_intake_enabled: true,
+      automation_enabled: true,
+      allowed_mode: "dry-run",
+    },
+    health: { state: "healthy", scheduler_owner: "prefect:orin-hcs-prod" },
+  });
+  assert.equal(presentation.stage.label, "Needs attention");
+  assert.match(presentation.nextAction, /incident/i);
+});
+
+test("keeps an unprovisioned client in the safe onboarding path", () => {
+  const presentation = clientManagementPresentation({
+    status: "onboarding",
+    request: { credential_status: "stored", status: "ready_to_provision" },
+  });
+  assert.equal(presentation.stage.label, "Ready to provision");
+  assert.equal(presentation.credential.label, "Encrypted");
+  assert.equal(presentation.canContinueOnboarding, true);
 });
 
 test("accepts only permanent myshopify domains", () => {

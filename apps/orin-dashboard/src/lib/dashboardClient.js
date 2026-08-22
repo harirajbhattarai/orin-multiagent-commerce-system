@@ -10,6 +10,8 @@ const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 export const isLiveReadEnabled = Boolean(supabaseUrl && publishableKey);
 const maintenancePreviewEnabled = import.meta.env.DEV
   && new URLSearchParams(window.location.search).get("preview") === "maintenance";
+const clientOperationsPreviewEnabled = import.meta.env.DEV
+  && new URLSearchParams(window.location.search).get("preview") === "clients";
 
 const supabase = isLiveReadEnabled
   ? createClient(supabaseUrl, publishableKey, {
@@ -98,7 +100,7 @@ async function loadWorkspaceOptions() {
 }
 
 export async function loadDashboardData(requestedClientId = null) {
-  if (!supabase || maintenancePreviewEnabled) {
+  if (!supabase || maintenancePreviewEnabled || clientOperationsPreviewEnabled) {
     const data = maintenancePreviewEnabled
       ? (() => {
           const operations = deriveOperationalState({
@@ -273,7 +275,9 @@ export function subscribeToAuthChanges(callback) {
 }
 
 export async function loadOnboardingAccess() {
-  if (!supabase) return { allowed: false, role: null, error: null };
+  if (!supabase || clientOperationsPreviewEnabled) {
+    return { allowed: import.meta.env.DEV, role: import.meta.env.DEV ? "admin" : null, error: null };
+  }
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !sessionData.session?.user) {
     return { allowed: false, role: null, error: sessionError };
@@ -293,6 +297,156 @@ export async function loadOnboardingRequests() {
     .from("client_onboarding_requests")
     .select("request_id,client_id,display_name,owner_email,shopify_store_domain,market_country,timezone,brand_voice,content_categories,product_scope,shopify_blog_gid,shopify_blog_title,credential_status,status,commissioning_status,last_error,created_at,updated_at")
     .order("created_at", { ascending: false });
+}
+
+export async function loadClientManagementData() {
+  if (!supabase || clientOperationsPreviewEnabled) {
+    const hcsRequest = {
+      request_id: "preview-hcs",
+      client_id: "hcs_gadgets",
+      display_name: "HCS Gadgets",
+      owner_email: "owner@hcsgadgets.example",
+      shopify_store_domain: "hcsgadgets-com.myshopify.com",
+      shopify_blog_title: "Gadget Blog",
+      credential_status: "stored",
+      status: "database_provisioned",
+      commissioning_status: "identity_verified",
+      content_categories: ["Buying guides", "Product education", "Maintenance", "Safety"],
+      product_scope: [],
+    };
+    const previewClients = [
+      {
+        id: "hoverboard_store",
+        name: "Hoverboard Store",
+        status: "active",
+        role: "owner",
+        request: null,
+        runtime: { request_intake_enabled: true, automation_enabled: true, shopify_writes_enabled: false, approved_draft_writes_enabled: true, max_concurrency: 1, allowed_mode: "dry-run" },
+        health: { state: "healthy", scheduler_owner: "prefect:orin-hbstore-prod", last_heartbeat_at: new Date().toISOString() },
+        activeJobs: 0,
+        openIncidents: 0,
+      },
+      {
+        id: "hcs_gadgets",
+        name: "HCS Gadgets",
+        status: "active",
+        role: "owner",
+        request: hcsRequest,
+        runtime: { request_intake_enabled: true, automation_enabled: true, shopify_writes_enabled: false, approved_draft_writes_enabled: false, max_concurrency: 1, allowed_mode: "dry-run" },
+        health: { state: "healthy", scheduler_owner: "prefect:orin-hcs-prod", last_heartbeat_at: new Date().toISOString() },
+        activeJobs: 0,
+        openIncidents: 0,
+      },
+    ];
+    return { data: { clients: previewClients, requests: [hcsRequest] }, error: null };
+  }
+
+  const [workspaceResult, requestResult] = await Promise.all([
+    loadWorkspaceOptions(),
+    loadOnboardingRequests(),
+  ]);
+  if (workspaceResult.error || requestResult.error) {
+    return {
+      data: null,
+      error: workspaceResult.error ?? requestResult.error,
+    };
+  }
+
+  const workspaces = workspaceResult.data ?? [];
+  const requests = requestResult.data ?? [];
+  const clientIds = workspaces.map((workspace) => workspace.id);
+  if (clientIds.length === 0) {
+    return {
+      data: {
+        clients: requests.map((request) => ({
+          id: request.client_id,
+          name: request.display_name,
+          status: "onboarding",
+          role: "operator",
+          request,
+          runtime: null,
+          health: null,
+          activeJobs: 0,
+          openIncidents: 0,
+        })),
+        requests,
+      },
+      error: null,
+    };
+  }
+
+  const [runtimeResult, healthResult, jobsResult, incidentsResult] = await Promise.all([
+    supabase
+      .from("client_runtime_settings")
+      .select("client_id,request_intake_enabled,automation_enabled,shopify_writes_enabled,approved_draft_writes_enabled,max_concurrency,allowed_mode,updated_at")
+      .in("client_id", clientIds),
+    supabase
+      .from("scheduler_health")
+      .select("client_id,state,scheduler_owner,last_heartbeat_at,last_expected_run_at,last_observed_run_id,updated_at")
+      .in("client_id", clientIds),
+    supabase
+      .from("content_jobs")
+      .select("client_id,status")
+      .in("client_id", clientIds)
+      .in("status", ["queued", "leased", "running"]),
+    supabase
+      .from("incidents")
+      .select("client_id,status")
+      .in("client_id", clientIds)
+      .in("status", ["open", "acknowledged"]),
+  ]);
+  const error = runtimeResult.error
+    ?? healthResult.error
+    ?? jobsResult.error
+    ?? incidentsResult.error;
+  if (error) return { data: null, error };
+
+  const runtimeByClient = new Map((runtimeResult.data ?? []).map((row) => [row.client_id, row]));
+  const healthByClient = new Map((healthResult.data ?? []).map((row) => [row.client_id, row]));
+  const requestByClient = new Map(requests.map((request) => [request.client_id, request]));
+  const activeJobsByClient = new Map();
+  const openIncidentsByClient = new Map();
+  for (const row of jobsResult.data ?? []) {
+    activeJobsByClient.set(row.client_id, (activeJobsByClient.get(row.client_id) ?? 0) + 1);
+  }
+  for (const row of incidentsResult.data ?? []) {
+    openIncidentsByClient.set(row.client_id, (openIncidentsByClient.get(row.client_id) ?? 0) + 1);
+  }
+
+  const clients = workspaces.map((workspace) => {
+    const runtime = runtimeByClient.get(workspace.id) ?? null;
+    const health = healthByClient.get(workspace.id) ?? null;
+    return {
+      ...workspace,
+      request: requestByClient.get(workspace.id) ?? null,
+      runtime,
+      health,
+      operations: runtime && health
+        ? deriveOperationalState({ client: { status: workspace.status }, runtime, health })
+        : null,
+      activeJobs: activeJobsByClient.get(workspace.id) ?? 0,
+      openIncidents: openIncidentsByClient.get(workspace.id) ?? 0,
+    };
+  });
+
+  for (const request of requests) {
+    if (clients.some((client) => client.id === request.client_id)) continue;
+    clients.push({
+      id: request.client_id,
+      name: request.display_name,
+      status: "onboarding",
+      role: "operator",
+      request,
+      runtime: null,
+      health: null,
+      operations: null,
+      activeJobs: 0,
+      openIncidents: 0,
+    });
+  }
+
+  clients.sort((left, right) => left.name.localeCompare(right.name));
+  return { data: { clients, requests }, error: null };
 }
 
 export async function createOnboardingRequest(payload) {

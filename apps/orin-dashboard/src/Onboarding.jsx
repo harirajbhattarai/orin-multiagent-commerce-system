@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarCheck,
   Check,
   CheckCircle,
+  CloudCheck,
   Database,
   Key,
+  ListChecks,
   LockKey,
   Plus,
+  Robot,
   ShieldCheck,
   Storefront,
   UserPlus,
@@ -16,13 +20,14 @@ import {
 import {
   createOnboardingRequest,
   auditProvisionedClient,
-  loadOnboardingRequests,
+  loadClientManagementData,
   provisionOnboardingClient,
   updateOnboardingScope,
   verifyOnboardingShopify,
 } from "./lib/dashboardClient.js";
 import {
   clientIdFromName,
+  clientManagementPresentation,
   normalizeShopifyDomain,
   onboardingSafetyChecklist,
   productScopeFromText,
@@ -84,9 +89,137 @@ function Field({ label, hint, children }) {
   );
 }
 
+function formatMoment(value) {
+  if (!value) return "Not observed yet";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/London",
+  }).format(date);
+}
+
+function ManagementMetric({ icon: Icon, label, value, tone }) {
+  return (
+    <div className={`metric-card ${tone}`}>
+      <span className="metric-icon"><Icon size={21} weight="duotone" /></span>
+      <div><span>{label}</span><strong>{value}</strong></div>
+    </div>
+  );
+}
+
+function GateStatus({ label, detail, active, attention = false }) {
+  return (
+    <div className="client-gate-row">
+      <span className={`gate-indicator ${attention ? "attention" : active ? "active" : "closed"}`}>
+        {attention ? <WarningCircle size={17} weight="fill" /> : active ? <CheckCircle size={17} weight="fill" /> : <LockKey size={16} weight="duotone" />}
+      </span>
+      <div><strong>{label}</strong><small>{detail}</small></div>
+    </div>
+  );
+}
+
+function ClientManagement({ clients, selectedClientId, onSelect, onNewClient, onContinue, onOpenWorkspace }) {
+  const selected = clients.find((client) => client.id === selectedClientId) ?? clients[0] ?? null;
+  const selectedPresentation = clientManagementPresentation(selected ?? {});
+  const activeCount = clients.filter((client) => client.status === "active").length;
+  const pausedCount = clients.filter((client) => client.status === "maintenance" || client.status === "onboarding").length;
+  const attentionCount = clients.filter((client) => clientManagementPresentation(client).stage.tone === "orange").length;
+
+  return (
+    <div className="client-management-page">
+      <div className="page-heading onboarding-heading">
+        <div>
+          <span className="eyebrow">PLATFORM OPERATIONS</span>
+          <h1>Client operations</h1>
+          <p>Onboard, commission, and monitor every isolated client from one safe workspace.</p>
+        </div>
+        <button className="primary-button" type="button" onClick={onNewClient}><Plus size={17} /> New client</button>
+      </div>
+
+      <div className="metric-grid client-metrics">
+        <ManagementMetric icon={Storefront} label="Clients" value={clients.length} tone="slate" />
+        <ManagementMetric icon={CloudCheck} label="Active" value={activeCount} tone="green" />
+        <ManagementMetric icon={LockKey} label="Safely paused" value={pausedCount} tone="blue" />
+        <ManagementMetric icon={WarningCircle} label="Needs action" value={attentionCount} tone="orange" />
+      </div>
+
+      {selected ? (
+        <div className="client-management-layout">
+          <section className="client-directory" aria-label="Client directory">
+            <div className="section-heading"><div><span className="section-kicker">WORKSPACES</span><h2>All clients</h2></div><span className="status-pill neutral">{clients.length}</span></div>
+            <div className="client-directory-list">
+              {clients.map((client) => {
+                const presentation = clientManagementPresentation(client);
+                return (
+                  <button type="button" key={client.id} className={selected.id === client.id ? "active" : ""} onClick={() => onSelect(client.id)}>
+                    <span className="client-avatar">{client.name.slice(0, 1).toUpperCase()}</span>
+                    <span className="client-directory-copy"><strong>{client.name}</strong><small>{client.id}</small><span className={`status-pill ${presentation.stage.tone}`}>{presentation.stage.label}</span></span>
+                    <ArrowRight size={16} />
+                  </button>
+                );
+              })}
+            </div>
+            <div className="vault-note"><LockKey size={21} weight="duotone" /><span><strong>Credentials stay server-side</strong>No Shopify token or database credential is exposed here.</span></div>
+          </section>
+
+          <section className="client-operations-detail">
+            <div className="client-detail-header">
+              <div><span className="section-kicker">{selected.role ?? "CLIENT"} WORKSPACE</span><h2>{selected.name}</h2><p>{selected.request?.shopify_store_domain ?? "Existing operational client"}</p></div>
+              <span className={`status-pill ${selectedPresentation.stage.tone}`}>{selectedPresentation.stage.label}</span>
+            </div>
+
+            <div className="client-facts">
+              <div><span>Shopify blog</span><strong>{selected.request?.shopify_blog_title ?? "Managed operationally"}</strong></div>
+              <div><span>Owner</span><strong>{selected.request?.owner_email ?? "Existing client membership"}</strong></div>
+              <div><span>Credentials</span><strong className={`fact-tone ${selectedPresentation.credential.tone}`}>{selectedPresentation.credential.label}</strong></div>
+              <div><span>Mode</span><strong>{selected.runtime?.allowed_mode ?? "Not commissioned"}</strong></div>
+            </div>
+
+            <div className="client-operations-grid">
+              <div className="client-operations-panel">
+                <div className="panel-heading"><ShieldCheck size={20} weight="duotone" /><div><strong>Execution boundary</strong><span>Authoritative gates for this client</span></div></div>
+                <GateStatus label="Request intake" detail={selected.runtime?.request_intake_enabled ? "New controlled work may be queued." : "No new work can enter the worker queue."} active={selected.runtime?.request_intake_enabled === true} />
+                <GateStatus label="Automation" detail={selected.runtime?.automation_enabled ? "The isolated worker may claim approved work." : "The worker cannot claim client work."} active={selected.runtime?.automation_enabled === true} />
+                <GateStatus label="Shopify access" detail={selectedPresentation.shopify.label} active={selected.runtime?.approved_draft_writes_enabled === true || selected.runtime?.shopify_writes_enabled === true} />
+              </div>
+
+              <div className="client-operations-panel">
+                <div className="panel-heading"><Robot size={20} weight="duotone" /><div><strong>Automation & monitoring</strong><span>Scheduler ownership and durable health</span></div></div>
+                <GateStatus label="Scheduler" detail={selected.health?.scheduler_owner ? `Owned by ${selected.health.scheduler_owner}` : "No scheduler owner is assigned."} active={selected.health?.state === "healthy"} attention={["late", "error"].includes(selected.health?.state)} />
+                <GateStatus label="Watchdog signal" detail={selected.health?.state === "healthy" ? "Aligned with the latest healthy scheduler receipt." : "Monitoring is paused or needs attention."} active={selected.health?.state === "healthy"} attention={["late", "error"].includes(selected.health?.state)} />
+                <div className="client-observation"><CalendarCheck size={17} /><span><strong>Last observed</strong>{formatMoment(selected.health?.last_heartbeat_at ?? selected.health?.updated_at)}</span></div>
+              </div>
+            </div>
+
+            <div className={`client-next-action ${selectedPresentation.stage.tone}`}>
+              <ListChecks size={22} weight="duotone" />
+              <div><strong>Next safe action</strong><span>{selectedPresentation.nextAction}</span></div>
+              <div className="client-action-facts"><span>{selected.activeJobs} active jobs</span><span>{selected.openIncidents} open incidents</span></div>
+            </div>
+
+            <div className="client-detail-actions">
+              {selectedPresentation.canContinueOnboarding && selected.request && <button className="secondary-button" type="button" onClick={() => onContinue(selected.request)}>Continue setup</button>}
+              {selected.runtime && <button className="primary-button" type="button" onClick={() => onOpenWorkspace(selected.id)}>Open workspace<ArrowRight size={17} /></button>}
+            </div>
+          </section>
+        </div>
+      ) : (
+        <div className="empty-state"><Database size={26} /><strong>No clients yet</strong><span>Create the first fail-closed workspace to begin.</span><button className="primary-button" type="button" onClick={onNewClient}>Create client</button></div>
+      )}
+    </div>
+  );
+}
+
 export function Onboarding({ onOpenWorkspace }) {
   const [requests, setRequests] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState("");
   const [activeRequest, setActiveRequest] = useState(null);
+  const [screen, setScreen] = useState("manage");
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(defaultForm);
   const [token, setToken] = useState("");
@@ -98,13 +231,19 @@ export function Onboarding({ onOpenWorkspace }) {
   const [message, setMessage] = useState({ tone: "", text: "" });
 
   const refreshRequests = async (preferredId) => {
-    const result = await loadOnboardingRequests();
+    const result = await loadClientManagementData();
     if (result.error) {
       setMessage({ tone: "error", text: result.error.message });
       return null;
     }
-    setRequests(result.data ?? []);
-    const match = (result.data ?? []).find((item) => item.request_id === preferredId);
+    const nextRequests = result.data?.requests ?? [];
+    const nextClients = result.data?.clients ?? [];
+    setRequests(nextRequests);
+    setClients(nextClients);
+    setSelectedClientId((current) => nextClients.some((client) => client.id === current)
+      ? current
+      : nextClients[0]?.id ?? "");
+    const match = nextRequests.find((item) => item.request_id === preferredId);
     if (match) setActiveRequest(match);
     return match ?? null;
   };
@@ -138,6 +277,7 @@ export function Onboarding({ onOpenWorkspace }) {
     setProductText("");
     setMessage({ tone: "", text: "" });
     setStep(1);
+    setScreen("wizard");
   };
 
   const resume = (request) => {
@@ -155,6 +295,7 @@ export function Onboarding({ onOpenWorkspace }) {
     setProductText((request.product_scope ?? []).map((item) => item.name ?? String(item)).join("\n"));
     setMessage({ tone: "", text: "" });
     setStep(stepForRequest(request));
+    setScreen("wizard");
   };
 
   const saveBusiness = async (event) => {
@@ -266,6 +407,19 @@ export function Onboarding({ onOpenWorkspace }) {
     });
   };
 
+  if (screen === "manage") {
+    return (
+      <ClientManagement
+        clients={clients}
+        selectedClientId={selectedClientId}
+        onSelect={setSelectedClientId}
+        onNewClient={startNew}
+        onContinue={resume}
+        onOpenWorkspace={onOpenWorkspace}
+      />
+    );
+  }
+
   return (
     <div className="onboarding-page">
       <div className="page-heading onboarding-heading">
@@ -274,7 +428,7 @@ export function Onboarding({ onOpenWorkspace }) {
           <h1>Client onboarding</h1>
           <p>Add a client without using SSH. ORIN verifies the store, encrypts credentials, and creates a fail-closed tenant.</p>
         </div>
-        <button className="secondary-button" type="button" onClick={startNew}><Plus size={17} /> New client</button>
+        <button className="secondary-button" type="button" onClick={() => setScreen("manage")}><ArrowLeft size={17} /> Client operations</button>
       </div>
 
       {message.text && (
