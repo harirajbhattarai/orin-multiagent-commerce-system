@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { dashboardData } from "../data.js";
+import { dashboardData, dashboardPreviewForClient, previewWorkspaces } from "../data.js";
 import { functionInvokeError } from "../functionErrors.js";
 import { deriveOperationalState } from "../operationalState.js";
 import { authoritativeClientIdentity } from "../clientPresentation.js";
@@ -101,6 +101,10 @@ async function loadWorkspaceOptions() {
 
 export async function loadDashboardData(requestedClientId = null) {
   if (!supabase || maintenancePreviewEnabled || clientOperationsPreviewEnabled) {
+    const selectedClientId = previewWorkspaces.some((workspace) => workspace.id === requestedClientId)
+      ? requestedClientId
+      : dashboardData.client.id;
+    const basePreview = dashboardPreviewForClient(selectedClientId);
     const data = maintenancePreviewEnabled
       ? (() => {
           const operations = deriveOperationalState({
@@ -113,18 +117,18 @@ export async function loadDashboardData(requestedClientId = null) {
               allowed_mode: "dry-run",
             },
             health: { state: "disabled", scheduler_owner: null, updated_at: new Date().toISOString() },
-            snapshotOperations: dashboardData.operations,
+            snapshotOperations: basePreview.operations,
           });
           return {
-            ...dashboardData,
+            ...basePreview,
             operations: { ...operations, lastChecked: "Checked moments ago" },
           };
         })()
-      : dashboardData;
+      : basePreview;
     return {
       data,
-      workspaces: [{ id: data.client.id, name: data.client.name, status: "active", role: "owner" }],
-      selectedClientId: data.client.id,
+      workspaces: previewWorkspaces,
+      selectedClientId,
       source: "demo",
       error: null,
       requiresAuth: false,
@@ -305,7 +309,7 @@ export async function loadClientManagementData() {
       request_id: "preview-hcs",
       client_id: "hcs_gadgets",
       display_name: "HCS Gadgets",
-      owner_email: "owner@hcsgadgets.example",
+      owner_email: "Workspace owner",
       shopify_store_domain: "hcsgadgets-com.myshopify.com",
       shopify_blog_title: "Gadget Blog",
       credential_status: "stored",
@@ -325,6 +329,10 @@ export async function loadClientManagementData() {
         health: { state: "healthy", scheduler_owner: "prefect:orin-hbstore-prod", last_heartbeat_at: new Date().toISOString() },
         activeJobs: 0,
         openIncidents: 0,
+        recentRuns: [
+          { run_id: "hb_preview_20260822", status: "completed", decision: "no_job_due", requested_mode: "dry-run", shopify_create_count: 0, started_at: new Date().toISOString(), finished_at: new Date().toISOString() },
+        ],
+        incidents: [],
       },
       {
         id: "hcs_gadgets",
@@ -336,6 +344,10 @@ export async function loadClientManagementData() {
         health: { state: "healthy", scheduler_owner: "prefect:orin-hcs-prod", last_heartbeat_at: new Date().toISOString() },
         activeJobs: 0,
         openIncidents: 0,
+        recentRuns: [
+          { run_id: "hcs_preview_20260822", status: "completed", decision: "no_job_due", requested_mode: "dry-run", shopify_create_count: 0, started_at: new Date().toISOString(), finished_at: new Date().toISOString() },
+        ],
+        incidents: [],
       },
     ];
     return { data: { clients: previewClients, requests: [hcsRequest] }, error: null };
@@ -368,6 +380,8 @@ export async function loadClientManagementData() {
           health: null,
           activeJobs: 0,
           openIncidents: 0,
+          recentRuns: [],
+          incidents: [],
         })),
         requests,
       },
@@ -375,7 +389,7 @@ export async function loadClientManagementData() {
     };
   }
 
-  const [runtimeResult, healthResult, jobsResult, incidentsResult] = await Promise.all([
+  const [runtimeResult, healthResult, jobsResult, incidentsResult, runsResult] = await Promise.all([
     supabase
       .from("client_runtime_settings")
       .select("client_id,request_intake_enabled,automation_enabled,shopify_writes_enabled,approved_draft_writes_enabled,max_concurrency,allowed_mode,updated_at")
@@ -391,14 +405,22 @@ export async function loadClientManagementData() {
       .in("status", ["queued", "leased", "running"]),
     supabase
       .from("incidents")
-      .select("client_id,status")
+      .select("client_id,incident_id,severity,status,code,summary,opened_at,updated_at")
       .in("client_id", clientIds)
-      .in("status", ["open", "acknowledged"]),
+      .order("opened_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("runs")
+      .select("client_id,run_id,status,decision,requested_mode,shopify_create_count,shopify_published,queue_changed,reconciliation_status,started_at,finished_at")
+      .in("client_id", clientIds)
+      .order("started_at", { ascending: false })
+      .limit(50),
   ]);
   const error = runtimeResult.error
     ?? healthResult.error
     ?? jobsResult.error
-    ?? incidentsResult.error;
+    ?? incidentsResult.error
+    ?? runsResult.error;
   if (error) return { data: null, error };
 
   const runtimeByClient = new Map((runtimeResult.data ?? []).map((row) => [row.client_id, row]));
@@ -406,11 +428,23 @@ export async function loadClientManagementData() {
   const requestByClient = new Map(requests.map((request) => [request.client_id, request]));
   const activeJobsByClient = new Map();
   const openIncidentsByClient = new Map();
+  const incidentsByClient = new Map();
+  const runsByClient = new Map();
   for (const row of jobsResult.data ?? []) {
     activeJobsByClient.set(row.client_id, (activeJobsByClient.get(row.client_id) ?? 0) + 1);
   }
   for (const row of incidentsResult.data ?? []) {
-    openIncidentsByClient.set(row.client_id, (openIncidentsByClient.get(row.client_id) ?? 0) + 1);
+    if (["open", "acknowledged"].includes(row.status)) {
+      openIncidentsByClient.set(row.client_id, (openIncidentsByClient.get(row.client_id) ?? 0) + 1);
+    }
+    const incidents = incidentsByClient.get(row.client_id) ?? [];
+    if (incidents.length < 5) incidents.push(row);
+    incidentsByClient.set(row.client_id, incidents);
+  }
+  for (const row of runsResult.data ?? []) {
+    const runs = runsByClient.get(row.client_id) ?? [];
+    if (runs.length < 5) runs.push(row);
+    runsByClient.set(row.client_id, runs);
   }
 
   const clients = workspaces.map((workspace) => {
@@ -426,6 +460,8 @@ export async function loadClientManagementData() {
         : null,
       activeJobs: activeJobsByClient.get(workspace.id) ?? 0,
       openIncidents: openIncidentsByClient.get(workspace.id) ?? 0,
+      recentRuns: runsByClient.get(workspace.id) ?? [],
+      incidents: incidentsByClient.get(workspace.id) ?? [],
     };
   });
 
@@ -442,6 +478,8 @@ export async function loadClientManagementData() {
       operations: null,
       activeJobs: 0,
       openIncidents: 0,
+      recentRuns: [],
+      incidents: [],
     });
   }
 

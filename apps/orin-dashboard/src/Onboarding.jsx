@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  ArrowClockwise,
   CalendarCheck,
   Check,
   CheckCircle,
@@ -10,6 +11,7 @@ import {
   Key,
   ListChecks,
   LockKey,
+  MagnifyingGlass,
   Plus,
   Robot,
   ShieldCheck,
@@ -122,12 +124,69 @@ function GateStatus({ label, detail, active, attention = false }) {
   );
 }
 
-function ClientManagement({ clients, selectedClientId, onSelect, onNewClient, onContinue, onOpenWorkspace }) {
+function RunStatus({ run }) {
+  const safeRun = run.shopify_create_count === 0 && run.shopify_published !== true;
+  return (
+    <div className="client-activity-row">
+      <span className={`activity-status ${run.status === "completed" && safeRun ? "green" : run.status === "failed" ? "orange" : "blue"}`}>
+        {run.status === "completed" && safeRun ? <CheckCircle size={17} weight="fill" /> : <Robot size={17} weight="duotone" />}
+      </span>
+      <div><strong>{run.decision?.replaceAll("_", " ") || run.status}</strong><small>{run.run_id} · {run.requested_mode} · {run.shopify_create_count ?? 0} Shopify creates</small></div>
+      <time>{formatMoment(run.finished_at ?? run.started_at)}</time>
+    </div>
+  );
+}
+
+function CommissioningJourney({ client, presentation }) {
+  const identityVerified = ["identity_verified", "worker_pending", "dry_run_pending", "pilot_pending", "ready"].includes(client.request?.commissioning_status) || presentation.recurringDryRun;
+  const workerReady = Boolean(client.runtime) && (client.runtime.automation_enabled || presentation.recurringDryRun);
+  const schedulerReady = client.health?.state === "healthy" && Boolean(client.health?.scheduler_owner);
+  const steps = [
+    { label: "Workspace isolated", detail: "Tenant, credentials, and write gates are separated.", complete: Boolean(client.runtime || client.request?.status === "database_provisioned") },
+    { label: "Read-only identity", detail: "Store, blog, and catalogue access verified without writes.", complete: identityVerified },
+    { label: "Dry-run worker", detail: "Client-specific worker can process controlled requests.", complete: workerReady },
+    { label: "Schedule and watchdog", detail: "Recurring ownership and monitoring are durable.", complete: schedulerReady },
+  ];
+  return (
+    <ol className="commissioning-journey">
+      {steps.map((item, index) => <li key={item.label} className={item.complete ? "complete" : "pending"}><span>{item.complete ? <Check size={15} weight="bold" /> : index + 1}</span><div><strong>{item.label}</strong><small>{item.detail}</small></div></li>)}
+    </ol>
+  );
+}
+
+function ClientManagement({
+  clients,
+  selectedClientId,
+  onSelect,
+  onNewClient,
+  onContinue,
+  onOpenWorkspace,
+  onRefresh,
+  refreshing,
+  lastRefreshed,
+  message,
+}) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [tab, setTab] = useState("overview");
   const selected = clients.find((client) => client.id === selectedClientId) ?? clients[0] ?? null;
   const selectedPresentation = clientManagementPresentation(selected ?? {});
   const activeCount = clients.filter((client) => client.status === "active").length;
   const pausedCount = clients.filter((client) => client.status === "maintenance" || client.status === "onboarding").length;
   const attentionCount = clients.filter((client) => clientManagementPresentation(client).stage.tone === "orange").length;
+  const visibleClients = clients.filter((client) => {
+    const presentation = clientManagementPresentation(client);
+    const matchesQuery = [client.name, client.id, client.request?.shopify_store_domain]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(query.trim().toLowerCase()));
+    if (!matchesQuery) return false;
+    if (filter === "active") return client.status === "active";
+    if (filter === "paused") return client.status === "maintenance" || client.status === "onboarding";
+    if (filter === "attention") return presentation.stage.tone === "orange" || client.openIncidents > 0;
+    return true;
+  });
+
+  useEffect(() => { setTab("overview"); }, [selectedClientId]);
 
   return (
     <div className="client-management-page">
@@ -137,8 +196,14 @@ function ClientManagement({ clients, selectedClientId, onSelect, onNewClient, on
           <h1>Client operations</h1>
           <p>Onboard, commission, and monitor every isolated client from one safe workspace.</p>
         </div>
-        <button className="primary-button" type="button" onClick={onNewClient}><Plus size={17} /> New client</button>
+        <div className="client-heading-actions">
+          <span className="management-updated">Updated {lastRefreshed ? formatMoment(lastRefreshed) : "when refreshed"}</span>
+          <button className="secondary-button" type="button" onClick={onRefresh} disabled={refreshing}><ArrowClockwise size={17} className={refreshing ? "spinning" : ""} /> {refreshing ? "Refreshing…" : "Refresh"}</button>
+          <button className="primary-button" type="button" onClick={onNewClient}><Plus size={17} /> New client</button>
+        </div>
       </div>
+
+      {message?.text && <div className={`onboarding-message ${message.tone}`} role="status">{message.tone === "error" ? <WarningCircle size={20} /> : <CheckCircle size={20} weight="fill" />}<span>{message.text}</span></div>}
 
       <div className="metric-grid client-metrics">
         <ManagementMetric icon={Storefront} label="Clients" value={clients.length} tone="slate" />
@@ -151,8 +216,14 @@ function ClientManagement({ clients, selectedClientId, onSelect, onNewClient, on
         <div className="client-management-layout">
           <section className="client-directory" aria-label="Client directory">
             <div className="section-heading"><div><span className="section-kicker">WORKSPACES</span><h2>All clients</h2></div><span className="status-pill neutral">{clients.length}</span></div>
+            <div className="client-directory-tools">
+              <label className="client-search"><MagnifyingGlass size={16} /><span className="sr-only">Search clients</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search client or store" /></label>
+              <div className="client-filter-chips" aria-label="Filter clients">
+                {[{ id: "all", label: "All" }, { id: "active", label: "Active" }, { id: "paused", label: "Paused" }, { id: "attention", label: "Needs action" }].map((item) => <button key={item.id} type="button" className={filter === item.id ? "active" : ""} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{item.label}</button>)}
+              </div>
+            </div>
             <div className="client-directory-list">
-              {clients.map((client) => {
+              {visibleClients.map((client) => {
                 const presentation = clientManagementPresentation(client);
                 return (
                   <button type="button" key={client.id} className={selected.id === client.id ? "active" : ""} onClick={() => onSelect(client.id)}>
@@ -162,6 +233,7 @@ function ClientManagement({ clients, selectedClientId, onSelect, onNewClient, on
                   </button>
                 );
               })}
+              {visibleClients.length === 0 && <div className="client-directory-empty"><MagnifyingGlass size={20} /><strong>No matching clients</strong><span>Clear the search or choose another filter.</span></div>}
             </div>
             <div className="vault-note"><LockKey size={21} weight="duotone" /><span><strong>Credentials stay server-side</strong>No Shopify token or database credential is exposed here.</span></div>
           </section>
@@ -178,28 +250,41 @@ function ClientManagement({ clients, selectedClientId, onSelect, onNewClient, on
               <div><span>Credentials</span><strong className={`fact-tone ${selectedPresentation.credential.tone}`}>{selectedPresentation.credential.label}</strong></div>
               <div><span>Mode</span><strong>{selected.runtime?.allowed_mode ?? "Not commissioned"}</strong></div>
             </div>
-
-            <div className="client-operations-grid">
-              <div className="client-operations-panel">
-                <div className="panel-heading"><ShieldCheck size={20} weight="duotone" /><div><strong>Execution boundary</strong><span>Authoritative gates for this client</span></div></div>
-                <GateStatus label="Request intake" detail={selected.runtime?.request_intake_enabled ? "New controlled work may be queued." : "No new work can enter the worker queue."} active={selected.runtime?.request_intake_enabled === true} />
-                <GateStatus label="Automation" detail={selected.runtime?.automation_enabled ? "The isolated worker may claim approved work." : "The worker cannot claim client work."} active={selected.runtime?.automation_enabled === true} />
-                <GateStatus label="Shopify access" detail={selectedPresentation.shopify.label} active={selected.runtime?.approved_draft_writes_enabled === true || selected.runtime?.shopify_writes_enabled === true} />
-              </div>
-
-              <div className="client-operations-panel">
-                <div className="panel-heading"><Robot size={20} weight="duotone" /><div><strong>Automation & monitoring</strong><span>Scheduler ownership and durable health</span></div></div>
-                <GateStatus label="Scheduler" detail={selected.health?.scheduler_owner ? `Owned by ${selected.health.scheduler_owner}` : "No scheduler owner is assigned."} active={selected.health?.state === "healthy"} attention={["late", "error"].includes(selected.health?.state)} />
-                <GateStatus label="Watchdog signal" detail={selected.health?.state === "healthy" ? "Aligned with the latest healthy scheduler receipt." : "Monitoring is paused or needs attention."} active={selected.health?.state === "healthy"} attention={["late", "error"].includes(selected.health?.state)} />
-                <div className="client-observation"><CalendarCheck size={17} /><span><strong>Last observed</strong>{formatMoment(selected.health?.last_heartbeat_at ?? selected.health?.updated_at)}</span></div>
-              </div>
+            <div className="client-detail-tabs" role="tablist" aria-label="Client operations sections">
+              {[{ id: "overview", label: "Overview" }, { id: "activity", label: `Activity (${selected.recentRuns?.length ?? 0})` }, { id: "setup", label: "Setup journey" }].map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}>{item.label}</button>)}
             </div>
 
-            <div className={`client-next-action ${selectedPresentation.stage.tone}`}>
-              <ListChecks size={22} weight="duotone" />
-              <div><strong>Next safe action</strong><span>{selectedPresentation.nextAction}</span></div>
-              <div className="client-action-facts"><span>{selected.activeJobs} active jobs</span><span>{selected.openIncidents} open incidents</span></div>
-            </div>
+            {tab === "overview" && <>
+              <div className="client-operations-grid">
+                <div className="client-operations-panel">
+                  <div className="panel-heading"><ShieldCheck size={20} weight="duotone" /><div><strong>Execution boundary</strong><span>Authoritative gates for this client</span></div></div>
+                  <GateStatus label="Request intake" detail={selected.runtime?.request_intake_enabled ? "New controlled work may be queued." : "No new work can enter the worker queue."} active={selected.runtime?.request_intake_enabled === true} />
+                  <GateStatus label="Automation" detail={selected.runtime?.automation_enabled ? "The isolated worker may claim approved work." : "The worker cannot claim client work."} active={selected.runtime?.automation_enabled === true} />
+                  <GateStatus label="Shopify access" detail={selectedPresentation.shopify.label} active={selected.runtime?.approved_draft_writes_enabled === true || selected.runtime?.shopify_writes_enabled === true} />
+                </div>
+
+                <div className="client-operations-panel">
+                  <div className="panel-heading"><Robot size={20} weight="duotone" /><div><strong>Automation & monitoring</strong><span>Scheduler ownership and durable health</span></div></div>
+                  <GateStatus label="Scheduler" detail={selected.health?.scheduler_owner ? `Owned by ${selected.health.scheduler_owner}` : "No scheduler owner is assigned."} active={selected.health?.state === "healthy"} attention={["late", "error"].includes(selected.health?.state)} />
+                  <GateStatus label="Watchdog signal" detail={selected.health?.state === "healthy" ? "Aligned with the latest healthy scheduler receipt." : "Monitoring is paused or needs attention."} active={selected.health?.state === "healthy"} attention={["late", "error"].includes(selected.health?.state)} />
+                  <div className="client-observation"><CalendarCheck size={17} /><span><strong>Last observed</strong>{formatMoment(selected.health?.last_heartbeat_at ?? selected.health?.updated_at)}</span></div>
+                </div>
+              </div>
+
+              <div className={`client-next-action ${selectedPresentation.stage.tone}`}>
+                <ListChecks size={22} weight="duotone" />
+                <div><strong>Next safe action</strong><span>{selectedPresentation.nextAction}</span></div>
+                <div className="client-action-facts"><span>{selected.activeJobs} active jobs</span><span>{selected.openIncidents} open incidents</span></div>
+              </div>
+            </>}
+
+            {tab === "activity" && <div className="client-activity-panel">
+              <div className="panel-heading"><CalendarCheck size={20} weight="duotone" /><div><strong>Durable activity</strong><span>Latest tenant-scoped runs and incidents from the operational database</span></div></div>
+              <div className="client-activity-list">{selected.recentRuns?.length ? selected.recentRuns.map((run) => <RunStatus key={run.run_id} run={run} />) : <div className="client-activity-empty"><Robot size={22} /><strong>No durable runs yet</strong><span>The first dry-run receipt will appear here after commissioning.</span></div>}</div>
+              <div className="incident-summary"><strong>Incidents</strong>{selected.incidents?.length ? selected.incidents.map((incident) => <div key={incident.incident_id}><WarningCircle size={16} /><span><strong>{incident.summary || incident.code}</strong><small>{statusLabel(incident.status)} · {formatMoment(incident.updated_at || incident.opened_at)}</small></span></div>) : <span className="no-incidents"><CheckCircle size={16} weight="fill" /> No incidents recorded for this client.</span>}</div>
+            </div>}
+
+            {tab === "setup" && <div className="client-setup-panel"><div className="panel-heading"><ListChecks size={20} weight="duotone" /><div><strong>Commissioning journey</strong><span>Every production capability is earned through a durable proof</span></div></div><CommissioningJourney client={selected} presentation={selectedPresentation} /><div className={`client-next-action ${selectedPresentation.stage.tone}`}><ShieldCheck size={22} weight="duotone" /><div><strong>Current safe boundary</strong><span>{selectedPresentation.nextAction}</span></div></div></div>}
 
             <div className="client-detail-actions">
               {selectedPresentation.canContinueOnboarding && selected.request && <button className="secondary-button" type="button" onClick={() => onContinue(selected.request)}>Continue setup</button>}
@@ -214,7 +299,7 @@ function ClientManagement({ clients, selectedClientId, onSelect, onNewClient, on
   );
 }
 
-export function Onboarding({ onOpenWorkspace }) {
+export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspace }) {
   const [requests, setRequests] = useState([]);
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -228,27 +313,42 @@ export function Onboarding({ onOpenWorkspace }) {
   const [selectedBlog, setSelectedBlog] = useState("");
   const [productText, setProductText] = useState("");
   const [busy, setBusy] = useState("");
+  const [managementLoading, setManagementLoading] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState("");
   const [message, setMessage] = useState({ tone: "", text: "" });
 
   const refreshRequests = async (preferredId) => {
+    setManagementLoading(true);
     const result = await loadClientManagementData();
+    setManagementLoading(false);
     if (result.error) {
       setMessage({ tone: "error", text: result.error.message });
-      return null;
+      return { ok: false, error: result.error, match: null };
     }
     const nextRequests = result.data?.requests ?? [];
     const nextClients = result.data?.clients ?? [];
     setRequests(nextRequests);
     setClients(nextClients);
-    setSelectedClientId((current) => nextClients.some((client) => client.id === current)
-      ? current
-      : nextClients[0]?.id ?? "");
+    setLastRefreshed(new Date().toISOString());
+    setSelectedClientId((current) => preferredId && nextClients.some((client) => client.id === preferredId)
+      ? preferredId
+      : nextClients.some((client) => client.id === current) ? current : nextClients[0]?.id ?? "");
     const match = nextRequests.find((item) => item.request_id === preferredId);
     if (match) setActiveRequest(match);
-    return match ?? null;
+    return { ok: true, error: null, match: match ?? null };
   };
 
-  useEffect(() => { refreshRequests(); }, []);
+  useEffect(() => { refreshRequests(requestedClientId); }, [requestedClientId]);
+
+  const selectManagedClient = (clientId) => {
+    setSelectedClientId(clientId);
+    onSelectWorkspace?.(clientId);
+  };
+
+  const refreshManagement = async () => {
+    const result = await refreshRequests(selectedClientId);
+    if (result.ok) setMessage({ tone: "success", text: "Client activity and operational gates refreshed." });
+  };
 
   const categories = useMemo(
     () => form.categories.split(/[,\n]/).map((item) => item.trim()).filter(Boolean),
@@ -313,7 +413,8 @@ export function Onboarding({ onOpenWorkspace }) {
       setMessage({ tone: "error", text: result.error.message });
       return;
     }
-    const request = await refreshRequests(result.data.request_id);
+    const refresh = await refreshRequests(result.data.request_id);
+    const request = refresh.match;
     setActiveRequest(request ?? { ...result.data, ...form, shopify_store_domain: storeDomain });
     setStep(2);
     setMessage({ tone: "success", text: "Business profile saved. No execution gates were opened." });
@@ -355,7 +456,8 @@ export function Onboarding({ onOpenWorkspace }) {
       return;
     }
     setToken("");
-    const request = await refreshRequests(activeRequest.request_id);
+    const refresh = await refreshRequests(activeRequest.request_id);
+    const request = refresh.match;
     setActiveRequest(request ?? { ...activeRequest, credential_status: "stored", status: "connection_verified" });
     setStep(3);
     setMessage({ tone: "success", text: "Shopify verified. The token is encrypted in Vault and was removed from this form." });
@@ -370,7 +472,8 @@ export function Onboarding({ onOpenWorkspace }) {
       setMessage({ tone: "error", text: result.error.message });
       return;
     }
-    const request = await refreshRequests(activeRequest.request_id);
+    const refresh = await refreshRequests(activeRequest.request_id);
+    const request = refresh.match;
     setActiveRequest(request ?? { ...activeRequest, status: "ready_to_provision", product_scope: productScope });
     setStep(4);
     setMessage({ tone: "success", text: "Content scope saved. The isolated workspace is ready to be created safely." });
@@ -385,7 +488,8 @@ export function Onboarding({ onOpenWorkspace }) {
       setMessage({ tone: "error", text: result.error.message });
       return;
     }
-    const request = await refreshRequests(activeRequest.request_id);
+    const refresh = await refreshRequests(activeRequest.request_id);
+    const request = refresh.match;
     setActiveRequest(request ?? { ...activeRequest, ...result.data });
     setMessage({ tone: "success", text: "Isolated client workspace created with every execution and Shopify gate closed." });
   };
@@ -399,7 +503,8 @@ export function Onboarding({ onOpenWorkspace }) {
       setMessage({ tone: "error", text: result.error.message });
       return;
     }
-    const request = await refreshRequests(activeRequest.request_id);
+    const refresh = await refreshRequests(activeRequest.request_id);
+    const request = refresh.match;
     setActiveRequest(request ?? { ...activeRequest, commissioning_status: "identity_verified" });
     setMessage({
       tone: "success",
@@ -412,10 +517,14 @@ export function Onboarding({ onOpenWorkspace }) {
       <ClientManagement
         clients={clients}
         selectedClientId={selectedClientId}
-        onSelect={setSelectedClientId}
+        onSelect={selectManagedClient}
         onNewClient={startNew}
         onContinue={resume}
         onOpenWorkspace={onOpenWorkspace}
+        onRefresh={refreshManagement}
+        refreshing={managementLoading}
+        lastRefreshed={lastRefreshed}
+        message={message}
       />
     );
   }

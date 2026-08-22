@@ -704,8 +704,10 @@ export function App() {
   };
 
   const switchWorkspace = (clientId) => {
-    navigate(`/?client=${encodeURIComponent(clientId)}`);
+    navigate(`${path || "/"}?client=${encodeURIComponent(clientId)}`);
   };
+
+  const openWorkspace = (clientId) => navigate(`/?client=${encodeURIComponent(clientId)}`);
 
   useEffect(() => {
     let active = true;
@@ -726,6 +728,12 @@ export function App() {
     return () => { active = false; unsubscribe(); };
   }, [location]);
 
+  useEffect(() => {
+    document.title = state.data?.client?.name
+      ? `ORIN Commerce — ${state.data.client.name}`
+      : "ORIN Commerce";
+  }, [state.data?.client?.name]);
+
   if (state.requiresAuth) return <AuthScreen />;
   if (state.source === "error") return <ErrorScreen message={state.error} onRetry={reload} />;
   if (!state.data) {
@@ -738,7 +746,7 @@ export function App() {
       {route === "queue" && <Queue data={state.data} navigate={navigate} />}
       {route === "review" && <Review data={state.data} jobId={reviewJobIdFromPath(path)} navigate={navigate} dataSource={state.source} />}
       {route === "onboarding" && (operatorAccess
-        ? <Onboarding onOpenWorkspace={switchWorkspace} />
+        ? <Onboarding requestedClientId={state.data.client.id} onSelectWorkspace={switchWorkspace} onOpenWorkspace={openWorkspace} />
         : <div className="empty-state"><WarningCircle size={26} /><strong>Platform operator access required</strong><span>This route cannot create or view onboarding records for your account.</span></div>)}
     </AppShell>
   );

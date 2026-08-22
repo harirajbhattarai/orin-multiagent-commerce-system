@@ -7,6 +7,15 @@ import {
   onboardingSafetyChecklist,
   productScopeFromText,
 } from "../src/onboarding.js";
+import { dashboardPreviewForClient } from "../src/data.js";
+
+test("keeps preview data inside the requested tenant", () => {
+  const hcs = dashboardPreviewForClient("hcs_gadgets");
+  assert.equal(hcs.client.id, "hcs_gadgets");
+  assert.equal(hcs.client.name, "HCS Gadgets");
+  assert.equal(hcs.queue.some((article) => article.id === 2), true);
+  assert.equal(hcs.queue.some((article) => article.id === 33), false);
+});
 
 test("creates stable tenant identifiers from client names", () => {
   assert.equal(clientIdFromName("Hariraj's Cycle Store"), "hariraj_s_cycle_store");
