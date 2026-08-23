@@ -382,6 +382,12 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+# Shopify calls the OAuth callback without a Supabase JWT. The function keeps
+# GET public only for the HMAC + one-time state callback and performs explicit
+# Supabase JWT/operator verification for every POST action.
+[functions.orin-client-onboarding]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

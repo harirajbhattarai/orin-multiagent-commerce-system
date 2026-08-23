@@ -181,3 +181,112 @@ export const dashboardData = {
     ],
   },
 };
+
+export const previewWorkspaces = Object.freeze([
+  { id: "hoverboard_store", name: "Hoverboard Store", status: "active", role: "owner" },
+  { id: "hcs_gadgets", name: "HCS Gadgets", status: "active", role: "owner" },
+]);
+
+function clonePreview(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+export function dashboardPreviewForClient(clientId = "hoverboard_store") {
+  if (clientId !== "hcs_gadgets") return clonePreview(dashboardData);
+
+  const data = clonePreview(dashboardData);
+  const article = {
+    id: 2,
+    contentItemId: "22222222-2222-4222-8222-222222222222",
+    version: 1,
+    reviewKind: "draft",
+    title: "Electric Scooter IP Ratings and Water Resistance Explained",
+    dek: "A practical UK guide to reading IP ratings, checking manufacturer guidance, and understanding what water resistance does—and does not—cover.",
+    keyword: "electric scooter IP rating explained",
+    metaTitle: "Electric Scooter IP Ratings and Water Resistance Explained",
+    metaDescription: "Understand electric scooter IP ratings, water-resistance limits, and the checks UK buyers should make before riding or storing a scooter.",
+    wordCount: 2112,
+    readingTime: "10 min read",
+    qualityScore: 91,
+    sections: [
+      {
+        heading: "Read the complete rating",
+        paragraphs: [
+          "An IP code describes controlled test conditions. It is not a promise that every component can tolerate every kind of rain, spray, puddle, or storage environment.",
+          "Check the exact model listing and manual, then follow the manufacturer’s cleaning, charging, and storage instructions.",
+        ],
+      },
+      {
+        heading: "What buyers should verify",
+        bullets: [
+          "The IP rating applies to the exact model and revision",
+          "Charging instructions are followed in a dry environment",
+          "Ports and covers are closed as the manufacturer requires",
+          "Any water exposure is handled according to the manual",
+        ],
+      },
+    ],
+    evidence: [
+      "HCS Gadgets tenant and content version are bound to this review",
+      "The HCS article design contract is checked before Shopify approval",
+      "Live publishing is unavailable from this dashboard",
+    ],
+  };
+
+  return {
+    ...data,
+    client: {
+      id: "hcs_gadgets",
+      name: "HCS Gadgets",
+      shortName: "HCS",
+      plan: "Pilot workspace",
+    },
+    operations: {
+      ...data.operations,
+      shopifyWrites: "Writes closed",
+      shopifyDetail: "The HCS preview keeps both Shopify write gates closed.",
+      canApproveHiddenDraft: false,
+      approvedDraftWritesEnabled: false,
+      workspaceLabel: "Safe preview",
+      workspaceMessage: "HCS Gadgets is isolated in a client-specific preview.",
+    },
+    counts: { planned: 28, drafting: 0, review: 1, approved: 1 },
+    nextArticle: {
+      ...article,
+      status: "Ready for review",
+      dueLabel: "Ready now",
+      intent: "Buyer education",
+      checks: article.evidence,
+    },
+    queue: [
+      {
+        id: 2,
+        contentItemId: article.contentItemId,
+        version: article.version,
+        title: article.title,
+        keyword: article.keyword,
+        stage: "Review",
+        status: "Needs you",
+        priority: "High",
+        due: "Ready now",
+      },
+      {
+        id: 3,
+        title: "Adult Electric Scooter Suspension: What UK Buyers Should Compare",
+        keyword: "adult electric scooter suspension guide",
+        stage: "Planned",
+        status: "Queued",
+        priority: "Normal",
+        due: "Tomorrow",
+      },
+    ],
+    recentContent: [
+      { id: 1, title: "Adult Electric Scooter Suspension: What UK Buyers Should Compare", stage: "Shopify draft", updated: "Today, 12:09", owner: "ORIN" },
+    ],
+    activity: [
+      { time: "12:09", label: "HCS dry-run completed with zero Shopify creates" },
+      { time: "11:45", label: "HCS watchdog observed the scheduled run" },
+    ],
+    article,
+  };
+}
