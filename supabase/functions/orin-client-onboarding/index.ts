@@ -2,10 +2,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
 const SHOPIFY_API_VERSION = "2026-07";
+const DEFAULT_SHOPIFY_SCOPES = "read_products,write_content";
 const DEFAULT_ALLOWED_ORIGINS = new Set([
   "https://orin-hbstore-dashboard.tooxic-ai.chatgpt.site",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
 ]);
 
 function allowedOrigins() {
@@ -37,6 +40,71 @@ function json(origin: string | null, status: number, body: Record<string, unknow
   });
 }
 
+const encoder = new TextEncoder();
+
+function bytesToHex(value: ArrayBuffer) {
+  return Array.from(new Uint8Array(value))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function sha256(value: string) {
+  return bytesToHex(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
+}
+
+function oauthState() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
+}
+
+function timingSafeEqual(left: string, right: string) {
+  if (left.length !== right.length) return false;
+  let result = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    result |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return result === 0;
+}
+
+async function validShopifyHmac(url: URL, secret: string) {
+  const received = url.searchParams.get("hmac")?.toLowerCase() ?? "";
+  if (!/^[0-9a-f]{64}$/.test(received)) return false;
+  const message = Array.from(url.searchParams.entries())
+    .filter(([key]) => key !== "hmac" && key !== "signature")
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const expected = bytesToHex(await crypto.subtle.sign("HMAC", key, encoder.encode(message)));
+  return timingSafeEqual(received, expected);
+}
+
+function validReturnUrl(value: unknown, origin: string | null) {
+  if (typeof value !== "string" || !origin || !allowedOrigins().has(origin)) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.origin === origin && parsed.pathname === "/onboarding" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function redirectResult(returnUrl: string, result: "connected" | "error", requestId?: string) {
+  const url = new URL(returnUrl);
+  url.searchParams.set("shopify", result);
+  if (requestId) url.searchParams.set("request_id", requestId);
+  return Response.redirect(url.toString(), 302);
+}
+
 function normalizeStoreDomain(value: unknown) {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase()
@@ -60,21 +128,25 @@ async function readShopify(storeDomain: string, accessToken: string) {
         },
         body: JSON.stringify({
           query: `query OrinOnboarding {
-            shop { name myshopifyDomain }
+            shop { name myshopifyDomain currencyCode primaryDomain { url } }
             blogs(first: 50) { nodes { id title handle } }
             productsCount { count }
+            collections(first: 50, sortKey: TITLE) { nodes { id title handle } }
+            products(first: 50, sortKey: TITLE) {
+              nodes { id title handle productType vendor status }
+            }
           }`,
         }),
       },
     );
   } catch {
-    throw new Error("The encrypted Shopify credential could not be used. Re-save the Admin API token.");
+    throw new Error("The encrypted Shopify connection could not be used. Reconnect Shopify.");
   }
 
   if (!shopifyResponse.ok) {
     throw new Error(
       shopifyResponse.status === 401 || shopifyResponse.status === 403
-        ? "Shopify rejected the Admin API token. Check the app scopes and token."
+        ? "Shopify rejected the connection. Reconnect Shopify and approve the required access."
         : `Shopify connection failed with HTTP ${shopifyResponse.status}.`,
     );
   }
@@ -85,7 +157,9 @@ async function readShopify(storeDomain: string, accessToken: string) {
   }
   const shop = payload.data?.shop;
   const blogs = payload.data?.blogs?.nodes;
-  if (!shop || !Array.isArray(blogs)) {
+  const collections = payload.data?.collections?.nodes;
+  const products = payload.data?.products?.nodes;
+  if (!shop || !Array.isArray(blogs) || !Array.isArray(collections) || !Array.isArray(products)) {
     throw new Error("Shopify returned an incomplete response.");
   }
   if (blogs.length === 0) {
@@ -95,6 +169,8 @@ async function readShopify(storeDomain: string, accessToken: string) {
     shop: {
       name: String(shop.name ?? ""),
       domain: String(shop.myshopifyDomain ?? storeDomain),
+      currencyCode: String(shop.currencyCode ?? ""),
+      storefrontUrl: String(shop.primaryDomain?.url ?? ""),
     },
     blogs: blogs.map((blog: Record<string, unknown>) => ({
       id: String(blog.id ?? ""),
@@ -102,17 +178,143 @@ async function readShopify(storeDomain: string, accessToken: string) {
       handle: String(blog.handle ?? ""),
     })),
     productCount: Number(payload.data?.productsCount?.count ?? 0),
+    collections: collections.map((collection: Record<string, unknown>) => ({
+      id: String(collection.id ?? ""),
+      title: String(collection.title ?? ""),
+      handle: String(collection.handle ?? ""),
+    })),
+    products: products.map((product: Record<string, unknown>) => ({
+      id: String(product.id ?? ""),
+      title: String(product.title ?? ""),
+      handle: String(product.handle ?? ""),
+      productType: String(product.productType ?? ""),
+      vendor: String(product.vendor ?? ""),
+      status: String(product.status ?? ""),
+    })),
   };
 }
 
 Deno.serve(async (request: Request) => {
   const origin = request.headers.get("origin");
-  if (origin && !allowedOrigins().has(origin)) {
+  if (request.method !== "GET" && origin && !allowedOrigins().has(origin)) {
     return json(origin, 403, { error: "Origin is not allowed." });
   }
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: responseHeaders(origin) });
   }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const appUrl = Deno.env.get("ONBOARDING_APP_URL")
+    ?? "https://orin-hbstore-dashboard.tooxic-ai.chatgpt.site/onboarding";
+  if (!supabaseUrl || !publishableKey || !serviceRoleKey) {
+    return request.method === "GET"
+      ? redirectResult(appUrl, "error")
+      : json(origin, 500, { error: "Server configuration is incomplete." });
+  }
+
+  const service = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  if (request.method === "GET") {
+    const requestUrl = new URL(request.url);
+    const clientId = Deno.env.get("SHOPIFY_CLIENT_ID") ?? "";
+    const clientSecret = Deno.env.get("SHOPIFY_CLIENT_SECRET") ?? "";
+    const redirectUri = Deno.env.get("SHOPIFY_OAUTH_REDIRECT_URI") ?? "";
+    if (!clientId || !clientSecret || !redirectUri) return redirectResult(appUrl, "error");
+    if (!(await validShopifyHmac(requestUrl, clientSecret))) return redirectResult(appUrl, "error");
+
+    const storeDomain = normalizeStoreDomain(requestUrl.searchParams.get("shop"));
+    const code = requestUrl.searchParams.get("code") ?? "";
+    const state = requestUrl.searchParams.get("state") ?? "";
+    if (!storeDomain || !state) return redirectResult(appUrl, "error");
+
+    const stateResult = await service.rpc("service_consume_shopify_oauth_state", {
+      p_state_hash: await sha256(state),
+      p_store_domain: storeDomain,
+    });
+    if (stateResult.error) return redirectResult(appUrl, "error");
+    const binding = Array.isArray(stateResult.data) ? stateResult.data[0] : stateResult.data;
+    if (!binding?.operator_id || !binding?.request_id || !binding?.return_url) {
+      return redirectResult(appUrl, "error");
+    }
+    if (!code || requestUrl.searchParams.has("error")) {
+      return redirectResult(binding.return_url, "error", binding.request_id);
+    }
+
+    try {
+      const exchange = await fetch(`https://${storeDomain}/admin/oauth/access_token`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          expiring: "1",
+        }),
+      });
+      if (!exchange.ok) throw new Error("Shopify OAuth exchange failed.");
+      const tokenPayload = await exchange.json();
+      const accessToken = typeof tokenPayload.access_token === "string"
+        ? tokenPayload.access_token.trim()
+        : "";
+      const refreshToken = typeof tokenPayload.refresh_token === "string"
+        ? tokenPayload.refresh_token.trim()
+        : "";
+      const accessExpiresIn = Number(tokenPayload.expires_in);
+      const refreshExpiresIn = Number(tokenPayload.refresh_token_expires_in);
+      const grantedScopes = new Set(
+        String(tokenPayload.scope ?? "").split(",").map((scope) => scope.trim()).filter(Boolean),
+      );
+      const requiredScopes = (Deno.env.get("SHOPIFY_OAUTH_SCOPES") ?? DEFAULT_SHOPIFY_SCOPES)
+        .split(",").map((scope) => scope.trim()).filter(Boolean);
+      if (
+        !accessToken
+        || !refreshToken
+        || !Number.isFinite(accessExpiresIn)
+        || accessExpiresIn <= 0
+        || !Number.isFinite(refreshExpiresIn)
+        || refreshExpiresIn <= accessExpiresIn
+        || requiredScopes.some((scope) => !grantedScopes.has(scope))
+      ) {
+        throw new Error("Required Shopify scopes were not granted.");
+      }
+      const issuedAt = Date.now();
+      const accessExpiresAt = new Date(issuedAt + accessExpiresIn * 1000).toISOString();
+      const refreshExpiresAt = new Date(issuedAt + refreshExpiresIn * 1000).toISOString();
+
+      const shopify = await readShopify(storeDomain, accessToken);
+      if (shopify.shop.domain.toLowerCase() !== storeDomain) {
+        throw new Error("Shopify returned a different permanent store domain.");
+      }
+      const discovery = {
+        schema: "orin.shopify-discovery/v1",
+        observedAt: new Date().toISOString(),
+        scopes: Array.from(grantedScopes).sort(),
+        ...shopify,
+      };
+      const saveResult = await service.rpc("service_store_onboarding_shopify_oauth_connection", {
+        p_operator_id: binding.operator_id,
+        p_request_id: binding.request_id,
+        p_access_token: accessToken,
+        p_refresh_token: refreshToken,
+        p_access_token_expires_at: accessExpiresAt,
+        p_refresh_token_expires_at: refreshExpiresAt,
+        p_shopify_discovery: discovery,
+        p_selected_blog_gid: shopify.blogs.length === 1 ? shopify.blogs[0].id : null,
+      });
+      if (saveResult.error) throw new Error(saveResult.error.message);
+      return redirectResult(binding.return_url, "connected", binding.request_id);
+    } catch {
+      return redirectResult(binding.return_url, "error", binding.request_id);
+    }
+  }
+
   if (request.method !== "POST") {
     return json(origin, 405, { error: "Method not allowed." });
   }
@@ -121,14 +323,6 @@ Deno.serve(async (request: Request) => {
   if (!authorization?.startsWith("Bearer ")) {
     return json(origin, 401, { error: "Authentication required." });
   }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !publishableKey || !serviceRoleKey) {
-    return json(origin, 500, { error: "Server configuration is incomplete." });
-  }
-
   const supabase = createClient(supabaseUrl, publishableKey, {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false },
@@ -153,10 +347,6 @@ Deno.serve(async (request: Request) => {
   } catch {
     return json(origin, 400, { error: "A JSON request body is required." });
   }
-
-  const service = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
   const operatorId = userData.user.id;
 
   try {
@@ -174,6 +364,43 @@ Deno.serve(async (request: Request) => {
       });
       if (error) throw new Error(error.message);
       return json(origin, 200, { ok: true, request: Array.isArray(data) ? data[0] : data });
+    }
+    if (body.action === "begin_shopify_oauth") {
+      const clientId = Deno.env.get("SHOPIFY_CLIENT_ID") ?? "";
+      const redirectUri = Deno.env.get("SHOPIFY_OAUTH_REDIRECT_URI") ?? "";
+      const scopes = Deno.env.get("SHOPIFY_OAUTH_SCOPES") ?? DEFAULT_SHOPIFY_SCOPES;
+      const storeDomain = normalizeStoreDomain(body.store_domain);
+      const returnUrl = validReturnUrl(body.return_url, origin);
+      const requestId = typeof body.request_id === "string" ? body.request_id : "";
+      if (!clientId || !redirectUri) {
+        return json(origin, 503, { error: "Shopify OAuth is not configured yet." });
+      }
+      if (!storeDomain || !returnUrl || !requestId) {
+        return json(origin, 400, { error: "A valid onboarding request and return URL are required." });
+      }
+      const state = oauthState();
+      const stateResult = await service.rpc("service_create_shopify_oauth_state", {
+        p_operator_id: operatorId,
+        p_request_id: requestId,
+        p_state_hash: await sha256(state),
+        p_return_url: returnUrl.toString(),
+      });
+      if (stateResult.error) throw new Error(stateResult.error.message);
+      const authorizationUrl = new URL(`https://${storeDomain}/admin/oauth/authorize`);
+      authorizationUrl.searchParams.set("client_id", clientId);
+      authorizationUrl.searchParams.set("scope", scopes);
+      authorizationUrl.searchParams.set("redirect_uri", redirectUri);
+      authorizationUrl.searchParams.set("state", state);
+      return json(origin, 200, { ok: true, authorization_url: authorizationUrl.toString() });
+    }
+    if (body.action === "select_shopify_blog") {
+      const { data, error } = await service.rpc("service_select_onboarding_shopify_blog", {
+        p_operator_id: operatorId,
+        p_request_id: body.request_id,
+        p_shopify_blog_gid: body.blog_gid,
+      });
+      if (error) throw new Error(error.message);
+      return json(origin, 200, { ok: true, connection: Array.isArray(data) ? data[0] : data });
     }
     if (body.action === "update_scope") {
       const { data, error } = await service.rpc("service_update_client_onboarding_scope", {
@@ -208,7 +435,6 @@ Deno.serve(async (request: Request) => {
       if (!connection?.store_domain || !connection?.access_token || !connection?.blog_gid) {
         throw new Error("The encrypted Shopify connection is incomplete.");
       }
-
       const shopify = await readShopify(connection.store_domain, connection.access_token);
       const observedBlog = shopify.blogs.find((blog) => blog.id === connection.blog_gid);
       if (shopify.shop.domain.toLowerCase() !== connection.store_domain.toLowerCase() || !observedBlog) {
@@ -239,40 +465,30 @@ Deno.serve(async (request: Request) => {
     return json(origin, 422, { error: message });
   }
 
+  // Temporary operator fallback for existing custom-app tokens. The customer
+  // onboarding UI does not expose this path; OAuth is the default product flow.
   const storeDomain = normalizeStoreDomain(body.store_domain);
   const accessToken = typeof body.access_token === "string" ? body.access_token.trim() : "";
   if (!storeDomain || accessToken.length < 20 || accessToken.length > 512) {
-    return json(origin, 400, { error: "Enter a valid .myshopify.com domain and Admin API token." });
+    return json(origin, 400, { error: "Unknown onboarding action." });
   }
-
   try {
     const shopify = await readShopify(storeDomain, accessToken);
-    if (body.action === "validate_shopify") {
-      return json(origin, 200, { ok: true, ...shopify });
-    }
+    if (body.action === "validate_shopify") return json(origin, 200, { ok: true, ...shopify });
     if (body.action !== "save_shopify_connection") {
       return json(origin, 400, { error: "Unknown onboarding action." });
     }
-
     const selectedBlog = shopify.blogs.find((blog) => blog.id === body.blog_gid);
-    if (!selectedBlog) {
-      return json(origin, 400, { error: "Select a blog returned by the verified store." });
-    }
-    const requestId = typeof body.request_id === "string" ? body.request_id : "";
+    if (!selectedBlog) return json(origin, 400, { error: "Select a blog returned by Shopify." });
     const { data, error } = await service.rpc("service_store_onboarding_shopify_connection", {
       p_operator_id: operatorId,
-      p_request_id: requestId,
+      p_request_id: body.request_id,
       p_access_token: accessToken,
       p_shopify_blog_gid: selectedBlog.id,
       p_shopify_blog_title: selectedBlog.title,
     });
     if (error) throw new Error(error.message);
-    return json(origin, 200, {
-      ok: true,
-      connection: Array.isArray(data) ? data[0] : data,
-      shop: shopify.shop,
-      blog: selectedBlog,
-    });
+    return json(origin, 200, { ok: true, connection: Array.isArray(data) ? data[0] : data });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Shopify verification failed.";
     return json(origin, 422, { error: message });

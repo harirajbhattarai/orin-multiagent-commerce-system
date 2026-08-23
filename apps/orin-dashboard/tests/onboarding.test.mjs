@@ -3,7 +3,9 @@ import test from "node:test";
 import {
   clientIdFromName,
   clientManagementPresentation,
+  discoveredProductScope,
   normalizeShopifyDomain,
+  onboardingStepForRequest,
   onboardingSafetyChecklist,
   productScopeFromText,
 } from "../src/onboarding.js";
@@ -76,6 +78,34 @@ test("normalizes and deduplicates the product scope", () => {
   assert.deepEqual(productScopeFromText("Kids scooters\nSafety gear, Kids scooters"), [
     { name: "Kids scooters" },
     { name: "Safety gear" },
+  ]);
+});
+
+test("keeps a multi-blog OAuth connection on the blog selection step", () => {
+  assert.equal(onboardingStepForRequest({
+    status: "oauth_connected",
+    credential_status: "stored",
+  }), 2);
+  assert.equal(onboardingStepForRequest({
+    status: "connection_verified",
+    credential_status: "stored",
+  }), 3);
+});
+
+test("suggests a deduplicated scope from discovered collections and product types", () => {
+  assert.deepEqual(discoveredProductScope({
+    shopify_discovery: {
+      collections: [{ title: "Adult Scooters" }, { title: "Hoverboards" }],
+      products: [
+        { productType: "Electric Scooter" },
+        { productType: "adult scooters" },
+        { productType: "" },
+      ],
+    },
+  }), [
+    { name: "Adult Scooters" },
+    { name: "Hoverboards" },
+    { name: "Electric Scooter" },
   ]);
 });
 

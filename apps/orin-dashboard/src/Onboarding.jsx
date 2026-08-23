@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,15 +22,18 @@ import {
 import {
   createOnboardingRequest,
   auditProvisionedClient,
+  beginOnboardingShopifyOAuth,
   loadClientManagementData,
   provisionOnboardingClient,
+  selectOnboardingShopifyBlog,
   updateOnboardingScope,
-  verifyOnboardingShopify,
 } from "./lib/dashboardClient.js";
 import {
   clientIdFromName,
   clientManagementPresentation,
+  discoveredProductScope,
   normalizeShopifyDomain,
+  onboardingStepForRequest,
   onboardingSafetyChecklist,
   productScopeFromText,
 } from "./onboarding.js";
@@ -55,13 +58,6 @@ const steps = [
 
 function statusLabel(value = "") {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function stepForRequest(request) {
-  if (request.status === "database_provisioned") return 4;
-  if (request.status === "ready_to_provision") return 4;
-  if (request.credential_status === "stored") return 3;
-  return 2;
 }
 
 function OnboardingProgress({ step }) {
@@ -307,7 +303,6 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
   const [screen, setScreen] = useState("manage");
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(defaultForm);
-  const [token, setToken] = useState("");
   const [blogs, setBlogs] = useState([]);
   const [shop, setShop] = useState(null);
   const [selectedBlog, setSelectedBlog] = useState("");
@@ -316,6 +311,7 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
   const [managementLoading, setManagementLoading] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState("");
   const [message, setMessage] = useState({ tone: "", text: "" });
+  const oauthCallbackHandled = useRef(false);
 
   const refreshRequests = async (preferredId) => {
     setManagementLoading(true);
@@ -339,6 +335,30 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
   };
 
   useEffect(() => { refreshRequests(requestedClientId); }, [requestedClientId]);
+
+  useEffect(() => {
+    if (oauthCallbackHandled.current || requests.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const oauthStatus = params.get("shopify");
+    const requestId = params.get("request_id");
+    if (!oauthStatus || !requestId) return;
+    const request = requests.find((item) => item.request_id === requestId);
+    if (!request) return;
+    oauthCallbackHandled.current = true;
+    openRequest(request, false);
+    setMessage(oauthStatus === "connected"
+      ? {
+          tone: "success",
+          text: request.status === "oauth_connected"
+            ? "Shopify connected securely. Choose the blog ORIN should use."
+            : "Shopify connected securely. Store, blog, products, and collections were discovered automatically.",
+        }
+      : { tone: "error", text: "Shopify connection was not completed. Try Connect Shopify again." });
+    params.delete("shopify");
+    params.delete("request_id");
+    const query = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+  }, [requests]);
 
   const selectManagedClient = (clientId) => {
     setSelectedClientId(clientId);
@@ -370,7 +390,6 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
   const startNew = () => {
     setActiveRequest(null);
     setForm(defaultForm);
-    setToken("");
     setBlogs([]);
     setShop(null);
     setSelectedBlog("");
@@ -380,7 +399,10 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
     setScreen("wizard");
   };
 
-  const resume = (request) => {
+  function openRequest(request, clearMessage = true) {
+    const discovery = request.shopify_discovery ?? {};
+    const savedScope = request.product_scope ?? [];
+    const suggestedScope = savedScope.length > 0 ? savedScope : discoveredProductScope(request);
     setActiveRequest(request);
     setForm({
       displayName: request.display_name,
@@ -392,11 +414,16 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
       brandVoice: request.brand_voice,
       categories: request.content_categories.join(", "),
     });
-    setProductText((request.product_scope ?? []).map((item) => item.name ?? String(item)).join("\n"));
-    setMessage({ tone: "", text: "" });
-    setStep(stepForRequest(request));
+    setBlogs(discovery.blogs ?? []);
+    setShop(discovery.shop ?? null);
+    setSelectedBlog(request.shopify_blog_gid ?? discovery.blogs?.[0]?.id ?? "");
+    setProductText(suggestedScope.map((item) => item.name ?? String(item)).join("\n"));
+    if (clearMessage) setMessage({ tone: "", text: "" });
+    setStep(onboardingStepForRequest(request));
     setScreen("wizard");
-  };
+  }
+
+  const resume = (request) => openRequest(request);
 
   const saveBusiness = async (event) => {
     event.preventDefault();
@@ -420,47 +447,49 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
     setMessage({ tone: "success", text: "Business profile saved. No execution gates were opened." });
   };
 
-  const validateShopify = async () => {
-    if (!token.trim()) return;
-    setBusy("validate");
+  const connectShopify = async () => {
+    setBusy("shopify-oauth");
     setMessage({ tone: "", text: "" });
-    const result = await verifyOnboardingShopify({
-      action: "validate_shopify",
-      store_domain: activeRequest.shopify_store_domain,
-      access_token: token.trim(),
-    });
+    const returnUrl = new URL("/onboarding", window.location.origin);
+    returnUrl.searchParams.set("client", activeRequest.client_id);
+    const result = await beginOnboardingShopifyOAuth(
+      activeRequest.request_id,
+      activeRequest.shopify_store_domain,
+      returnUrl.toString(),
+    );
     setBusy("");
     if (result.error) {
       setMessage({ tone: "error", text: result.error.message });
       return;
     }
-    setShop(result.data.shop);
-    setBlogs(result.data.blogs ?? []);
-    setSelectedBlog(result.data.blogs?.[0]?.id ?? "");
-    setMessage({ tone: "success", text: `Connected to ${result.data.shop.name}. Choose the target blog before the token is encrypted.` });
+    if (!result.data?.authorization_url) {
+      setMessage({ tone: "error", text: "Shopify did not return a secure connection URL." });
+      return;
+    }
+    window.location.assign(result.data.authorization_url);
   };
 
-  const saveShopify = async () => {
-    setBusy("shopify");
+  const chooseShopifyBlog = async () => {
+    setBusy("shopify-blog");
     setMessage({ tone: "", text: "" });
-    const result = await verifyOnboardingShopify({
-      action: "save_shopify_connection",
-      request_id: activeRequest.request_id,
-      store_domain: activeRequest.shopify_store_domain,
-      access_token: token.trim(),
-      blog_gid: selectedBlog,
-    });
+    const result = await selectOnboardingShopifyBlog(activeRequest.request_id, selectedBlog);
     setBusy("");
     if (result.error) {
       setMessage({ tone: "error", text: result.error.message });
       return;
     }
-    setToken("");
     const refresh = await refreshRequests(activeRequest.request_id);
     const request = refresh.match;
-    setActiveRequest(request ?? { ...activeRequest, credential_status: "stored", status: "connection_verified" });
+    const connectedRequest = request ?? {
+      ...activeRequest,
+      credential_status: "stored",
+      status: "connection_verified",
+      shopify_blog_gid: selectedBlog,
+      shopify_blog_title: blogs.find((blog) => blog.id === selectedBlog)?.title ?? "Shopify blog",
+    };
+    openRequest(connectedRequest, false);
     setStep(3);
-    setMessage({ tone: "success", text: "Shopify verified. The token is encrypted in Vault and was removed from this form." });
+    setMessage({ tone: "success", text: "Shopify blog selected. The encrypted connection and discovered catalogue are ready." });
   };
 
   const saveScope = async () => {
@@ -570,13 +599,20 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
 
           {step === 2 && (
             <div>
-              <div className="onboarding-section-heading"><span><Key size={20} weight="duotone" /></span><div><h2>Verify Shopify</h2><p>Token input is sent only to the authenticated server function and encrypted after verification.</p></div></div>
-              <div className="connection-summary"><Storefront size={22} /><div><strong>{activeRequest.display_name ?? form.displayName}</strong><span>{activeRequest.shopify_store_domain}</span></div><span className="status-pill neutral">Not connected</span></div>
-              <div className="onboarding-stack">
-                <Field label="Shopify Admin API access token" hint="Required read_content and write_content scopes. The token is never returned to the browser."><input type="password" autoComplete="new-password" value={token} onChange={(event) => setToken(event.target.value)} placeholder="shpat_••••••••••••••••" /></Field>
-                {blogs.length > 0 && <Field label="Target Shopify blog"><select value={selectedBlog} onChange={(event) => setSelectedBlog(event.target.value)}>{blogs.map((blog) => <option key={blog.id} value={blog.id}>{blog.title} ({blog.handle})</option>)}</select></Field>}
-              </div>
-              <div className="onboarding-actions"><button className="text-button" type="button" onClick={() => setStep(1)}><ArrowLeft size={16} /> Back</button><div>{blogs.length === 0 ? <button className="secondary-button" type="button" onClick={validateShopify} disabled={!token.trim() || busy === "validate"}>{busy === "validate" ? "Checking…" : "Test connection"}</button> : <button className="primary-button" type="button" onClick={saveShopify} disabled={!selectedBlog || busy === "shopify"}>{busy === "shopify" ? "Encrypting…" : "Save encrypted connection"}<ArrowRight size={17} /></button>}</div></div>
+              <div className="onboarding-section-heading"><span><Key size={20} weight="duotone" /></span><div><h2>Connect Shopify</h2><p>Sign in to Shopify and approve ORIN. No API token, code, or terminal is required.</p></div></div>
+              <div className="connection-summary"><Storefront size={22} /><div><strong>{shop?.name ?? activeRequest.display_name ?? form.displayName}</strong><span>{activeRequest.shopify_store_domain}</span></div><span className={`status-pill ${activeRequest.status === "oauth_connected" ? "green" : "neutral"}`}>{activeRequest.status === "oauth_connected" ? "Connected" : "Not connected"}</span></div>
+              {activeRequest.status === "oauth_connected" ? (
+                <div className="onboarding-stack">
+                  <div className="oauth-success-panel"><CloudCheck size={25} weight="duotone" /><div><strong>Store connected securely</strong><span>ORIN discovered {activeRequest.shopify_discovery?.productCount ?? 0} products, {activeRequest.shopify_discovery?.collections?.length ?? 0} collections, and {blogs.length} blogs. Shopify writes remain disabled.</span></div></div>
+                  <Field label="Choose the blog ORIN should use" hint="Only unpublished, approved drafts can be sent later, after separate commissioning."><select value={selectedBlog} onChange={(event) => setSelectedBlog(event.target.value)}>{blogs.map((blog) => <option key={blog.id} value={blog.id}>{blog.title} ({blog.handle})</option>)}</select></Field>
+                </div>
+              ) : (
+                <div className="oauth-connect-panel">
+                  <div><ShieldCheck size={27} weight="duotone" /><span><strong>Safe one-click connection</strong>ORIN requests product reading and blog-draft access, verifies the permanent store identity, encrypts the credential, and discovers the catalogue automatically.</span></div>
+                  <ul><li><CheckCircle size={17} weight="fill" /> No password or API key is entered here</li><li><CheckCircle size={17} weight="fill" /> No product or article is changed during setup</li><li><CheckCircle size={17} weight="fill" /> Publishing remains unavailable</li></ul>
+                </div>
+              )}
+              <div className="onboarding-actions"><button className="text-button" type="button" onClick={() => setStep(1)}><ArrowLeft size={16} /> Back</button>{activeRequest.status === "oauth_connected" ? <button className="primary-button" type="button" onClick={chooseShopifyBlog} disabled={!selectedBlog || busy === "shopify-blog"}>{busy === "shopify-blog" ? "Saving…" : "Use this blog"}<ArrowRight size={17} /></button> : <button className="primary-button" type="button" onClick={connectShopify} disabled={busy === "shopify-oauth"}>{busy === "shopify-oauth" ? "Opening Shopify…" : "Connect Shopify"}<ArrowRight size={17} /></button>}</div>
             </div>
           )}
 
@@ -584,6 +620,7 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
             <div>
               <div className="onboarding-section-heading"><span><Storefront size={20} weight="duotone" /></span><div><h2>Content and product scope</h2><p>Tell ORIN what it may research. This does not yet generate or publish content.</p></div></div>
               <div className="verified-strip"><ShieldCheck size={21} weight="duotone" /><div><strong>Encrypted Shopify connection ready</strong><span>{activeRequest.shopify_blog_title} · {activeRequest.shopify_store_domain}</span></div></div>
+              {activeRequest.shopify_discovery?.observedAt && <div className="discovery-summary"><span><strong>{activeRequest.shopify_discovery.productCount ?? 0}</strong> products found</span><span><strong>{activeRequest.shopify_discovery.collections?.length ?? 0}</strong> collections found</span><span><strong>{activeRequest.shopify_discovery.blogs?.length ?? 0}</strong> blogs found</span></div>}
               <Field label="Products, collections, or services" hint="One per line. Leave blank if ORIN should discover the catalogue during the read-only audit."><textarea className="scope-textarea" value={productText} onChange={(event) => setProductText(event.target.value)} placeholder={"Kids scooters\nHoverboards\nSafety accessories"} /></Field>
               <div className="scope-preview"><strong>Planning guardrails</strong><div>{form.categories.split(",").map((item) => item.trim()).filter(Boolean).map((item) => <span key={item}>{item}</span>)}</div><small>{productScope.length === 0 ? "Catalogue discovery will be read-only." : `${productScope.length} product scope item${productScope.length === 1 ? "" : "s"} selected.`}</small></div>
               <div className="onboarding-actions"><button className="text-button" type="button" onClick={() => setStep(2)}><ArrowLeft size={16} /> Back</button><button className="primary-button" type="button" onClick={saveScope} disabled={busy === "scope"}>{busy === "scope" ? "Saving…" : "Review safe setup"}<ArrowRight size={17} /></button></div>

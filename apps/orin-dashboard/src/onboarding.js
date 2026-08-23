@@ -27,6 +27,24 @@ export function productScopeFromText(value = "") {
     .map((name) => ({ name }));
 }
 
+export function onboardingStepForRequest(request = {}) {
+  if (["database_provisioned", "ready_to_provision"].includes(request.status)) return 4;
+  if (request.status === "connection_verified" && request.credential_status === "stored") return 3;
+  return 2;
+}
+
+export function discoveredProductScope(request = {}) {
+  const discovery = request.shopify_discovery ?? {};
+  const collectionNames = (discovery.collections ?? []).map((item) => item?.title);
+  const productTypes = (discovery.products ?? []).map((item) => item?.productType);
+  return [...collectionNames, ...productTypes]
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean)
+    .filter((item, index, all) => all.findIndex((candidate) => candidate.toLowerCase() === item.toLowerCase()) === index)
+    .slice(0, 100)
+    .map((name) => ({ name }));
+}
+
 export function onboardingSafetyChecklist(request) {
   return [
     { label: "Business profile saved", complete: Boolean(request?.request_id) },

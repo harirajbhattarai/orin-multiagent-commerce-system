@@ -80,6 +80,20 @@ advisors. New empty indexes can appear as unused; missing RLS policies, mutable
 function search paths, public security-definer functions, and unindexed foreign
 keys are release blockers.
 
+## Self-serve Shopify connection
+
+Client onboarding uses Shopify OAuth rather than asking a customer to create or
+paste an Admin API token. The authenticated browser may request an authorization
+URL, but the Edge Function owns the callback, validates Shopify's HMAC and a
+single-use state digest, exchanges the code, performs read-only catalogue
+discovery, and stores the offline token in Vault. Browser roles cannot read the
+OAuth state table, execute its service functions, or retrieve the token.
+
+The OAuth connection records store/blog/catalogue discovery only. It does not
+enable intake, automation, scheduler ownership, broad Shopify writes, or the
+approved-draft gate. Exact secret names and callback setup are documented in
+`apps/orin-dashboard/README.md`.
+
 ## Current integration boundary
 
 Phase 3A adds the narrow authenticated request API and the `orin_api` database

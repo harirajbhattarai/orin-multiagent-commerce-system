@@ -387,6 +387,18 @@ h2 { letter-spacing: -.025em; }
 .connection-summary > svg { color: var(--orange); }
 .verified-strip { margin-bottom: 21px; color: var(--green); background: var(--green-soft); border-color: #c8ead9; }
 .verified-strip span { color: #56806e; }
+.oauth-connect-panel { display: grid; gap: 18px; margin: 22px 0; padding: 20px; border: 1px solid #dce5e9; border-radius: 10px; background: linear-gradient(135deg, #f7fafb, #fff); }
+.oauth-connect-panel > div, .oauth-success-panel { display: flex; align-items: flex-start; gap: 13px; }
+.oauth-connect-panel > div > svg, .oauth-success-panel > svg { flex: 0 0 auto; color: var(--green); }
+.oauth-connect-panel span, .oauth-success-panel > div { display: grid; gap: 4px; color: #71808a; font-size: 10px; line-height: 1.5; }
+.oauth-connect-panel strong, .oauth-success-panel strong { color: #334650; font-size: 11px; }
+.oauth-connect-panel ul { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.oauth-connect-panel li { display: flex; align-items: center; gap: 8px; color: #596a74; font-size: 9px; }
+.oauth-connect-panel li svg { color: var(--green); }
+.oauth-success-panel { padding: 15px; border: 1px solid #c8ead9; border-radius: 9px; background: var(--green-soft); }
+.discovery-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: -8px 0 20px; }
+.discovery-summary span { display: grid; gap: 2px; padding: 11px; color: #72808a; background: #f7f9fa; border: 1px solid var(--line); border-radius: 8px; font-size: 8px; }
+.discovery-summary strong { color: #334650; font-size: 13px; }
 .scope-preview { display: grid; gap: 10px; margin: 20px 0 24px; padding: 15px; border: 1px solid var(--line); border-radius: 9px; background: #f7f9fa; }
 .scope-preview > strong { color: #4a5b65; font-size: 10px; }
 .scope-preview > div { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -607,6 +619,7 @@ h2 { letter-spacing: -.025em; }
   .onboarding-actions { align-items: stretch; flex-direction: column; }
   .onboarding-actions .primary-button, .onboarding-actions .secondary-button { width: 100%; }
   .provision-summary, .safety-checklist { grid-template-columns: 1fr; }
+  .discovery-summary { grid-template-columns: 1fr; }
   .provision-summary div { border-right: 0; border-bottom: 1px solid var(--line) !important; }
   .provision-summary div:last-child { border-bottom: 0 !important; }
   .client-directory-list button { grid-template-columns: 38px minmax(0,1fr) 16px; }
