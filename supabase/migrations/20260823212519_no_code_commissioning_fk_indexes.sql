@@ -1,0 +1,8 @@
+create index client_commissioning_requests_onboarding_fk_idx
+  on public.client_commissioning_requests(onboarding_request_id);
+
+create index client_commissioning_requests_requester_fk_idx
+  on public.client_commissioning_requests(requested_by);
+
+create index client_commissioning_events_composite_fk_idx
+  on public.client_commissioning_events(client_id, commissioning_request_id);

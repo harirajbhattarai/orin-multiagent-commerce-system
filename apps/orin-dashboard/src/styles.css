@@ -540,6 +540,28 @@ h2 { letter-spacing: -.025em; }
 .commissioning-journey strong { color: #41515b; font-size: 9px; }
 .commissioning-journey small { color: #89949b; font-size: 8px; line-height: 1.45; }
 
+.commissioning-progress-card { display: grid; gap: 14px; padding: 18px; border: 1px solid #d9e2e7; border-radius: 10px; background: #fbfcfd; }
+.commissioning-progress-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.commissioning-progress-heading > div { display: grid; gap: 5px; }
+.commissioning-progress-heading strong { color: #1d2d37; font-size: 13px; }
+.commissioning-progress-track { height: 6px; overflow: hidden; border-radius: 999px; background: #e6ecef; }
+.commissioning-progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--green); transition: width 180ms ease; }
+.commissioning-progress-card ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.commissioning-progress-card li { display: grid; grid-template-columns: 25px minmax(0, 1fr); gap: 8px; align-items: start; padding: 10px; border: 1px solid #e1e7ea; border-radius: 8px; background: white; }
+.commissioning-progress-card li > span { width: 24px; height: 24px; display: grid; place-items: center; color: #7a8991; border: 1px solid #d7dfe3; border-radius: 50%; font-size: 8px; font-weight: 850; }
+.commissioning-progress-card li.complete > span { color: white; border-color: var(--green); background: var(--green); }
+.commissioning-progress-card li.current { border-color: #9fc8ef; background: #f3f8fd; }
+.commissioning-progress-card li.current > span { color: #2569a5; border-color: #9fc8ef; }
+.commissioning-progress-card li > div { display: grid; gap: 4px; }
+.commissioning-progress-card li strong { color: #41515b; font-size: 8px; }
+.commissioning-progress-card li small { color: #89949b; font-size: 7px; line-height: 1.45; }
+.commissioning-progress-card > p { display: flex; align-items: center; gap: 7px; margin: 0; color: #527067; font-size: 8px; }
+.commissioning-error { display: flex; align-items: flex-start; gap: 7px; padding: 10px; color: #8b3f2a; border: 1px solid #efc2b5; border-radius: 8px; background: #fff4f0; font-size: 8px; }
+
+@media (max-width: 900px) {
+  .commissioning-progress-card ol { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 1120px) {
   .side-nav { width: 210px; }
   .main-frame { width: calc(100% - 210px); margin-left: 210px; }

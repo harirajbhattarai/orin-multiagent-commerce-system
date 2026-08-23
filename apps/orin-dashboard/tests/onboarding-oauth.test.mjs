@@ -45,3 +45,15 @@ test("public-app OAuth requests expiring offline tokens and stores refresh mater
   assert.match(migration, /shopify_refresh_secret_id/);
   assert.doesNotMatch(await readFile(new URL("apps/orin-dashboard/src/Onboarding.jsx", repositoryRoot), "utf8"), /refresh_token/);
 });
+
+test("no-code commissioning is service mediated and fail closed", async () => {
+  const source = await readFile(new URL("supabase/functions/orin-client-onboarding/index.ts", repositoryRoot), "utf8");
+  const migration = await readFile(new URL("supabase/migrations/20260823211817_no_code_client_commissioning_requests.sql", repositoryRoot), "utf8");
+  assert.match(source, /body\.action === "request_commissioning"/);
+  assert.match(source, /service_request_client_commissioning/);
+  assert.match(migration, /commissioning requires maintenance with every execution and Shopify gate closed/i);
+  assert.match(migration, /commissioning requires zero active jobs/i);
+  assert.match(migration, /commissioning requires zero open incidents/i);
+  assert.match(migration, /grant execute on function public\.service_request_client_commissioning[\s\S]+to service_role/i);
+  assert.doesNotMatch(migration, /grant execute on function public\.service_request_client_commissioning[\s\S]+to authenticated/i);
+});

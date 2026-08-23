@@ -25,12 +25,15 @@ import {
   beginOnboardingShopifyOAuth,
   loadClientManagementData,
   provisionOnboardingClient,
+  requestClientCommissioning,
   selectOnboardingShopifyBlog,
   updateOnboardingScope,
 } from "./lib/dashboardClient.js";
 import {
   clientIdFromName,
   clientManagementPresentation,
+  commissioningProgress,
+  commissioningStageOrder,
   discoveredProductScope,
   normalizeShopifyDomain,
   onboardingStepForRequest,
@@ -150,6 +153,39 @@ function CommissioningJourney({ client, presentation }) {
   );
 }
 
+const commissioningStageLabels = {
+  request_received: "Request accepted",
+  worker_setup: "Isolated worker",
+  dry_run_proof: "Automatic dry-run proof",
+  scheduler_proof: "Recurring schedule",
+  watchdog_proof: "Read-only watchdog",
+  complete: "Commissioning complete",
+};
+
+function CommissioningProgress({ request }) {
+  if (!request) return null;
+  const progress = commissioningProgress(request);
+  return (
+    <div className={`commissioning-progress-card ${request.status}`}>
+      <div className="commissioning-progress-heading">
+        <div><span className="section-kicker">SAFE COMMISSIONING</span><strong>{request.status === "succeeded" ? "Client commissioned" : request.status === "failed" ? "Commissioning needs attention" : "ORIN is preparing this client"}</strong></div>
+        <span className={`status-pill ${request.status === "failed" ? "orange" : request.status === "succeeded" ? "green" : "blue"}`}>{statusLabel(request.status)}</span>
+      </div>
+      <div className="commissioning-progress-track"><span style={{ width: `${progress.progress}%` }} /></div>
+      <ol>
+        {commissioningStageOrder.map((stage, index) => {
+          const event = [...(request.events ?? [])].reverse().find((item) => item.stage === stage);
+          const complete = request.status === "succeeded" || index < progress.currentIndex || event?.status === "passed";
+          const current = !complete && index === progress.currentIndex;
+          return <li key={stage} className={complete ? "complete" : current ? "current" : "pending"}><span>{complete ? <Check size={13} weight="bold" /> : index + 1}</span><div><strong>{commissioningStageLabels[stage]}</strong><small>{event?.summary ?? (current ? "Waiting for a trusted commissioning worker." : "Not started")}</small></div></li>;
+        })}
+      </ol>
+      <p><LockKey size={15} /> Shopify writes and live publishing remain unavailable throughout commissioning.</p>
+      {request.last_error && <div className="commissioning-error"><WarningCircle size={16} /> {request.last_error}</div>}
+    </div>
+  );
+}
+
 function ClientManagement({
   clients,
   selectedClientId,
@@ -158,6 +194,8 @@ function ClientManagement({
   onContinue,
   onOpenWorkspace,
   onRefresh,
+  onRequestCommissioning,
+  commissioningBusy,
   refreshing,
   lastRefreshed,
   message,
@@ -282,8 +320,11 @@ function ClientManagement({
 
             {tab === "setup" && <div className="client-setup-panel"><div className="panel-heading"><ListChecks size={20} weight="duotone" /><div><strong>Commissioning journey</strong><span>Every production capability is earned through a durable proof</span></div></div><CommissioningJourney client={selected} presentation={selectedPresentation} /><div className={`client-next-action ${selectedPresentation.stage.tone}`}><ShieldCheck size={22} weight="duotone" /><div><strong>Current safe boundary</strong><span>{selectedPresentation.nextAction}</span></div></div></div>}
 
+            {selected.commissioningRequest && <CommissioningProgress request={selected.commissioningRequest} />}
+
             <div className="client-detail-actions">
               {selectedPresentation.canContinueOnboarding && selected.request && <button className="secondary-button" type="button" onClick={() => onContinue(selected.request)}>Continue setup</button>}
+              {selectedPresentation.canRequestCommissioning && <button className="primary-button" type="button" onClick={() => onRequestCommissioning(selected.id)} disabled={commissioningBusy === selected.id}>{commissioningBusy === selected.id ? "Requesting…" : selected.commissioningRequest?.status === "failed" ? "Retry safe commissioning" : "Start safe commissioning"}<ArrowRight size={17} /></button>}
               {selected.runtime && <button className="primary-button" type="button" onClick={() => onOpenWorkspace(selected.id)}>Open workspace<ArrowRight size={17} /></button>}
             </div>
           </section>
@@ -541,6 +582,28 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
     });
   };
 
+  const commissionClient = async (clientId) => {
+    setBusy(`commission:${clientId}`);
+    setMessage({ tone: "", text: "" });
+    const retry = clients.find((client) => client.id === clientId)?.commissioningRequest?.status === "failed";
+    const result = await requestClientCommissioning(clientId, { retry });
+    setBusy("");
+    if (result.error) {
+      setMessage({ tone: "error", text: result.error.message });
+      return;
+    }
+    await refreshRequests(clientId);
+    setActiveRequest((current) => current?.client_id === clientId
+      ? { ...current, commissioning_status: "worker_pending" }
+      : current);
+    setMessage({
+      tone: "success",
+      text: result.data?.replayed
+        ? "The existing safe commissioning request is still active. No duplicate was created."
+        : "Safe commissioning requested. Every Shopify and execution gate remains closed until its proofs pass.",
+    });
+  };
+
   if (screen === "manage") {
     return (
       <ClientManagement
@@ -551,6 +614,8 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
         onContinue={resume}
         onOpenWorkspace={onOpenWorkspace}
         onRefresh={refreshManagement}
+        onRequestCommissioning={commissionClient}
+        commissioningBusy={busy.startsWith("commission:") ? busy.slice("commission:".length) : ""}
         refreshing={managementLoading}
         lastRefreshed={lastRefreshed}
         message={message}
@@ -632,7 +697,7 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
               <div className="onboarding-section-heading"><span><Database size={20} weight="duotone" /></span><div><h2>{activeRequest.status === "database_provisioned" ? "Workspace safely provisioned" : "Create the isolated workspace"}</h2><p>The database tenant starts in maintenance. Commissioning remains a separate controlled process.</p></div></div>
               <div className="provision-summary"><div><span>Client</span><strong>{activeRequest.display_name}</strong></div><div><span>Workspace ID</span><strong>{activeRequest.client_id}</strong></div><div><span>Shopify blog</span><strong>{activeRequest.shopify_blog_title}</strong></div><div><span>Initial mode</span><strong>Maintenance · dry-run</strong></div></div>
               <ul className="safety-checklist">{checklist.map((item) => <li key={item.label} className={item.complete ? "complete" : "pending"}>{item.complete ? <CheckCircle size={19} weight="fill" /> : <span className="check-placeholder" />}<span>{item.label}</span></li>)}</ul>
-              {activeRequest.status !== "database_provisioned" ? <div className="onboarding-actions"><button className="text-button" type="button" onClick={() => setStep(3)}><ArrowLeft size={16} /> Back</button><button className="primary-button" type="button" onClick={provision} disabled={busy === "provision"}><ShieldCheck size={18} weight="fill" />{busy === "provision" ? "Provisioning…" : "Create safely disabled workspace"}</button></div> : <><div className={`commissioning-next ${activeRequest.commissioning_status === "identity_verified" ? "verified" : ""}`}>{activeRequest.commissioning_status === "identity_verified" ? <CheckCircle size={21} weight="fill" /> : <WarningCircle size={21} weight="duotone" />}<div><strong>{activeRequest.commissioning_status === "identity_verified" ? "Read-only identity verified" : "Not production-ready yet"}</strong><span>{activeRequest.commissioning_status === "identity_verified" ? "The exact Shopify store, target blog, and product-read access passed with every execution and write gate closed. Dedicated dry-run worker commissioning is next." : "Run the server-side read-only identity audit next. It can inspect the store and product count, but cannot create, edit, or publish Shopify content."}</span></div></div><div className="onboarding-actions"><span><ShieldCheck size={17} /> Every execution and Shopify gate remains closed.</span><div>{activeRequest.commissioning_status !== "identity_verified" && <button className="primary-button" type="button" onClick={auditClient} disabled={busy === "audit"}>{busy === "audit" ? "Checking…" : "Run read-only identity audit"}</button>}<button className="secondary-button" type="button" onClick={() => onOpenWorkspace(activeRequest.client_id)}>Open {activeRequest.display_name}</button></div></div></>}
+              {activeRequest.status !== "database_provisioned" ? <div className="onboarding-actions"><button className="text-button" type="button" onClick={() => setStep(3)}><ArrowLeft size={16} /> Back</button><button className="primary-button" type="button" onClick={provision} disabled={busy === "provision"}><ShieldCheck size={18} weight="fill" />{busy === "provision" ? "Provisioning…" : "Create safely disabled workspace"}</button></div> : <><div className={`commissioning-next ${["identity_verified", "worker_pending", "dry_run_pending", "pilot_pending", "ready"].includes(activeRequest.commissioning_status) ? "verified" : ""}`}>{["identity_verified", "worker_pending", "dry_run_pending", "pilot_pending", "ready"].includes(activeRequest.commissioning_status) ? <CheckCircle size={21} weight="fill" /> : <WarningCircle size={21} weight="duotone" />}<div><strong>{activeRequest.commissioning_status === "identity_verified" ? "Read-only identity verified" : activeRequest.commissioning_status === "worker_pending" ? "Safe commissioning queued" : "Not production-ready yet"}</strong><span>{activeRequest.commissioning_status === "identity_verified" ? "The exact Shopify store, target blog, and product-read access passed. Start commissioning without using SSH or opening write gates." : activeRequest.commissioning_status === "worker_pending" ? "A trusted worker will run the isolated dry-run, schedule, and watchdog proofs. No Shopify write gate is open." : "Run the server-side read-only identity audit next. It can inspect the store and product count, but cannot create, edit, or publish Shopify content."}</span></div></div>{clients.find((client) => client.id === activeRequest.client_id)?.commissioningRequest && <CommissioningProgress request={clients.find((client) => client.id === activeRequest.client_id).commissioningRequest} />}<div className="onboarding-actions"><span><ShieldCheck size={17} /> Every execution and Shopify gate remains closed.</span><div>{!["identity_verified", "worker_pending", "dry_run_pending", "pilot_pending", "ready"].includes(activeRequest.commissioning_status) && <button className="primary-button" type="button" onClick={auditClient} disabled={busy === "audit"}>{busy === "audit" ? "Checking…" : "Run read-only identity audit"}</button>}{activeRequest.commissioning_status === "identity_verified" && <button className="primary-button" type="button" onClick={() => commissionClient(activeRequest.client_id)} disabled={busy === `commission:${activeRequest.client_id}`}>{busy === `commission:${activeRequest.client_id}` ? "Requesting…" : "Start safe commissioning"}</button>}<button className="secondary-button" type="button" onClick={() => onOpenWorkspace(activeRequest.client_id)}>Open {activeRequest.display_name}</button></div></div></>}
             </div>
           )}
         </section>

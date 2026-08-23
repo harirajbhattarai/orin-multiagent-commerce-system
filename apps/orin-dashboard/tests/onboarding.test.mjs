@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   clientIdFromName,
   clientManagementPresentation,
+  commissioningProgress,
   discoveredProductScope,
   normalizeShopifyDomain,
   onboardingStepForRequest,
@@ -66,6 +67,36 @@ test("keeps an unprovisioned client in the safe onboarding path", () => {
   assert.equal(presentation.stage.label, "Ready to provision");
   assert.equal(presentation.credential.label, "Encrypted");
   assert.equal(presentation.canContinueOnboarding, true);
+});
+
+test("presents an idempotent commissioning request without claiming production readiness", () => {
+  const presentation = clientManagementPresentation({
+    status: "maintenance",
+    request: { credential_status: "stored", commissioning_status: "worker_pending" },
+    commissioningRequest: { status: "queued", stage: "request_received" },
+    runtime: {
+      request_intake_enabled: false,
+      automation_enabled: false,
+      shopify_writes_enabled: false,
+      approved_draft_writes_enabled: false,
+      allowed_mode: "dry-run",
+    },
+    health: { state: "disabled", scheduler_owner: null },
+  });
+  assert.equal(presentation.stage.label, "Commissioning queued");
+  assert.equal(presentation.canRequestCommissioning, false);
+  assert.match(presentation.nextAction, /write gate remains closed/i);
+});
+
+test("maps commissioning stages to bounded progress", () => {
+  assert.deepEqual(commissioningProgress(null), {
+    active: false,
+    terminal: false,
+    currentIndex: -1,
+    progress: 0,
+  });
+  assert.equal(commissioningProgress({ status: "running", stage: "dry_run_proof" }).progress, 50);
+  assert.equal(commissioningProgress({ status: "succeeded", stage: "complete" }).progress, 100);
 });
 
 test("accepts only permanent myshopify domains", () => {
