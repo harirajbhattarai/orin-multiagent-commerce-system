@@ -389,7 +389,7 @@ export async function loadClientManagementData() {
     };
   }
 
-  const [runtimeResult, healthResult, jobsResult, incidentsResult, runsResult] = await Promise.all([
+  const [runtimeResult, healthResult, jobsResult, incidentsResult, runsResult, commissioningResult, commissioningEventsResult] = await Promise.all([
     supabase
       .from("client_runtime_settings")
       .select("client_id,request_intake_enabled,automation_enabled,shopify_writes_enabled,approved_draft_writes_enabled,max_concurrency,allowed_mode,updated_at")
@@ -415,12 +415,26 @@ export async function loadClientManagementData() {
       .in("client_id", clientIds)
       .order("started_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("client_commissioning_requests")
+      .select("commissioning_request_id,client_id,status,stage,attempt_count,last_error,requested_at,started_at,finished_at,updated_at")
+      .in("client_id", clientIds)
+      .order("requested_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("client_commissioning_events")
+      .select("event_id,commissioning_request_id,client_id,stage,status,summary,evidence,created_at")
+      .in("client_id", clientIds)
+      .order("created_at", { ascending: true })
+      .limit(500),
   ]);
   const error = runtimeResult.error
     ?? healthResult.error
     ?? jobsResult.error
     ?? incidentsResult.error
-    ?? runsResult.error;
+    ?? runsResult.error
+    ?? commissioningResult.error
+    ?? commissioningEventsResult.error;
   if (error) return { data: null, error };
 
   const runtimeByClient = new Map((runtimeResult.data ?? []).map((row) => [row.client_id, row]));
@@ -430,6 +444,8 @@ export async function loadClientManagementData() {
   const openIncidentsByClient = new Map();
   const incidentsByClient = new Map();
   const runsByClient = new Map();
+  const commissioningByClient = new Map();
+  const commissioningEventsByRequest = new Map();
   for (const row of jobsResult.data ?? []) {
     activeJobsByClient.set(row.client_id, (activeJobsByClient.get(row.client_id) ?? 0) + 1);
   }
@@ -445,6 +461,18 @@ export async function loadClientManagementData() {
     const runs = runsByClient.get(row.client_id) ?? [];
     if (runs.length < 5) runs.push(row);
     runsByClient.set(row.client_id, runs);
+  }
+  for (const row of commissioningEventsResult.data ?? []) {
+    const events = commissioningEventsByRequest.get(row.commissioning_request_id) ?? [];
+    events.push(row);
+    commissioningEventsByRequest.set(row.commissioning_request_id, events);
+  }
+  for (const row of commissioningResult.data ?? []) {
+    if (commissioningByClient.has(row.client_id)) continue;
+    commissioningByClient.set(row.client_id, {
+      ...row,
+      events: commissioningEventsByRequest.get(row.commissioning_request_id) ?? [],
+    });
   }
 
   const clients = workspaces.map((workspace) => {
@@ -462,6 +490,7 @@ export async function loadClientManagementData() {
       openIncidents: openIncidentsByClient.get(workspace.id) ?? 0,
       recentRuns: runsByClient.get(workspace.id) ?? [],
       incidents: incidentsByClient.get(workspace.id) ?? [],
+      commissioningRequest: commissioningByClient.get(workspace.id) ?? null,
     };
   });
 
@@ -480,6 +509,7 @@ export async function loadClientManagementData() {
       openIncidents: 0,
       recentRuns: [],
       incidents: [],
+      commissioningRequest: null,
     });
   }
 
@@ -559,6 +589,26 @@ export async function auditProvisionedClient(clientId) {
     body: { action: "audit_provisioned_client", client_id: clientId },
   });
   return { data: data?.audit ?? null, error: await functionInvokeError(error, data) };
+}
+
+export async function requestClientCommissioning(clientId, { retry = false } = {}) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const storageKey = `orin-commissioning:${clientId}`;
+  if (retry) window.sessionStorage.removeItem(storageKey);
+  const commissioningRequestId = window.sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
+  window.sessionStorage.setItem(storageKey, commissioningRequestId);
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: {
+      action: "request_commissioning",
+      client_id: clientId,
+      commissioning_request_id: commissioningRequestId,
+    },
+  });
+  const resolvedError = await functionInvokeError(error, data);
+  if (!resolvedError && data?.commissioning?.status === "failed") {
+    window.sessionStorage.removeItem(storageKey);
+  }
+  return { data: data?.commissioning ?? null, error: resolvedError };
 }
 
 function decisionRequestStorageKey({ clientId, contentItemId, contentItemVersion, decision }) {

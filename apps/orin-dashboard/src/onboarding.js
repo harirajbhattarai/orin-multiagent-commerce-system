@@ -46,14 +46,39 @@ export function discoveredProductScope(request = {}) {
 }
 
 export function onboardingSafetyChecklist(request) {
+  const safelyProvisioned = ["gates_closed", "identity_verified", "worker_pending", "dry_run_pending", "pilot_pending", "ready"]
+    .includes(request?.commissioning_status);
   return [
     { label: "Business profile saved", complete: Boolean(request?.request_id) },
     { label: "Shopify token verified and encrypted", complete: request?.credential_status === "stored" },
     { label: "Isolated database tenant created", complete: request?.status === "database_provisioned" },
-    { label: "Request intake and automation disabled", complete: ["gates_closed", "identity_verified"].includes(request?.commissioning_status) },
-    { label: "All Shopify write gates disabled", complete: ["gates_closed", "identity_verified"].includes(request?.commissioning_status) },
-    { label: "Scheduler disabled with no owner", complete: ["gates_closed", "identity_verified"].includes(request?.commissioning_status) },
+    { label: "Request intake and automation disabled", complete: safelyProvisioned },
+    { label: "All Shopify write gates disabled", complete: safelyProvisioned },
+    { label: "Scheduler disabled with no owner", complete: safelyProvisioned },
   ];
+}
+
+export const commissioningStageOrder = [
+  "request_received",
+  "worker_setup",
+  "dry_run_proof",
+  "scheduler_proof",
+  "watchdog_proof",
+  "complete",
+];
+
+export function commissioningProgress(request = null) {
+  if (!request) return { active: false, terminal: false, currentIndex: -1, progress: 0 };
+  const currentIndex = Math.max(0, commissioningStageOrder.indexOf(request.stage));
+  const terminal = ["succeeded", "failed", "cancelled"].includes(request.status);
+  return {
+    active: ["queued", "running"].includes(request.status),
+    terminal,
+    currentIndex,
+    progress: request.status === "succeeded"
+      ? 100
+      : Math.round(((currentIndex + 1) / commissioningStageOrder.length) * 100),
+  };
 }
 
 export function clientManagementPresentation(client = {}) {
@@ -68,6 +93,7 @@ export function clientManagementPresentation(client = {}) {
     && runtime?.allowed_mode === "dry-run"
     && health?.state === "healthy"
     && Boolean(health?.scheduler_owner);
+  const commissioning = commissioningProgress(client.commissioningRequest);
 
   let stage = { label: "Onboarding", tone: "neutral" };
   let nextAction = "Continue the safe onboarding steps.";
@@ -77,6 +103,12 @@ export function clientManagementPresentation(client = {}) {
   } else if ((client.activeJobs ?? 0) > 0) {
     stage = { label: "Run active", tone: "blue" };
     nextAction = "Observe the active run and wait for its durable receipt.";
+  } else if (commissioning.active) {
+    stage = { label: client.commissioningRequest.status === "running" ? "Commissioning" : "Commissioning queued", tone: "blue" };
+    nextAction = "ORIN is completing the isolated worker and dry-run proofs. Every Shopify write gate remains closed.";
+  } else if (client.commissioningRequest?.status === "failed") {
+    stage = { label: "Commissioning failed", tone: "orange" };
+    nextAction = "Review the commissioning failure, keep every gate closed, then retry safely.";
   } else if (recurringDryRun) {
     stage = { label: "Recurring dry-run", tone: "green" };
     nextAction = "No setup action is required. Monitor the next scheduled proof.";
@@ -116,6 +148,8 @@ export function clientManagementPresentation(client = {}) {
     credential,
     shopify,
     canContinueOnboarding: Boolean(request) && !recurringDryRun,
+    canRequestCommissioning: identityVerified && !recurringDryRun && !commissioning.active,
+    commissioning,
     recurringDryRun,
   };
 }

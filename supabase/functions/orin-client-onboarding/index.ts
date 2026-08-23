@@ -460,6 +460,28 @@ Deno.serve(async (request: Request) => {
         },
       });
     }
+    if (body.action === "request_commissioning") {
+      const clientId = typeof body.client_id === "string" ? body.client_id.trim() : "";
+      const commissioningRequestId = typeof body.commissioning_request_id === "string"
+        ? body.commissioning_request_id.trim()
+        : "";
+      if (!/^[a-z0-9][a-z0-9_]{1,62}$/.test(clientId)) {
+        return json(origin, 400, { error: "A valid provisioned client ID is required." });
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commissioningRequestId)) {
+        return json(origin, 400, { error: "A valid commissioning request ID is required." });
+      }
+      const { data, error } = await service.rpc("service_request_client_commissioning", {
+        p_operator_id: operatorId,
+        p_client_id: clientId,
+        p_commissioning_request_id: commissioningRequestId,
+      });
+      if (error) throw new Error(error.message);
+      return json(origin, 200, {
+        ok: true,
+        commissioning: Array.isArray(data) ? data[0] : data,
+      });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Onboarding action failed.";
     return json(origin, 422, { error: message });
