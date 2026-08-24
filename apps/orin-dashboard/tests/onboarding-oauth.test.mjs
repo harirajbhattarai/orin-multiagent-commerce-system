@@ -46,6 +46,19 @@ test("public-app OAuth requests expiring offline tokens and stores refresh mater
   assert.doesNotMatch(await readFile(new URL("apps/orin-dashboard/src/Onboarding.jsx", repositoryRoot), "utf8"), /refresh_token/);
 });
 
+test("expired Shopify OAuth access tokens refresh and rotate only through service boundaries", async () => {
+  const source = await readFile(new URL("supabase/functions/orin-client-onboarding/index.ts", repositoryRoot), "utf8");
+  const migration = await readFile(new URL("supabase/migrations/20260824102413_rotate_expiring_shopify_oauth_tokens.sql", repositoryRoot), "utf8");
+  assert.match(source, /grant_type: "refresh_token"/);
+  assert.match(source, /service_rotate_client_shopify_oauth_tokens/);
+  assert.match(source, /await ensureFreshShopifyConnection\(service, operatorId, clientId\)/);
+  assert.match(migration, /perform orin_private\.assert_commissioning_boundary_closed\(p_client_id\)/i);
+  assert.match(migration, /vault\.update_secret/i);
+  assert.match(migration, /revoke all on function public\.service_rotate_client_shopify_oauth_tokens[\s\S]+from public, anon, authenticated/i);
+  assert.match(migration, /grant execute on function public\.service_rotate_client_shopify_oauth_tokens[\s\S]+to service_role/i);
+  assert.doesNotMatch(await readFile(new URL("apps/orin-dashboard/src/Onboarding.jsx", repositoryRoot), "utf8"), /refresh_token/);
+});
+
 test("no-code commissioning is service mediated and fail closed", async () => {
   const source = await readFile(new URL("supabase/functions/orin-client-onboarding/index.ts", repositoryRoot), "utf8");
   const migration = await readFile(new URL("supabase/migrations/20260823211817_no_code_client_commissioning_requests.sql", repositoryRoot), "utf8");
