@@ -52,6 +52,7 @@ def test_generic_pilot_compose_is_one_shot_and_has_no_shopify_secret():
     assert 'profiles: ["generic-pilot-worker"]' in service
     assert 'restart: "no"' in service
     assert "orin_pilot_worker" in service
+    assert "ORIN_CODE_VERSION: ${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}" in service
     assert "ORIN_MODEL_WRITER_ENABLED: \"1\"" in service
     assert "pilot_worker_database_url" in service
     assert "writer_api_key" in service
