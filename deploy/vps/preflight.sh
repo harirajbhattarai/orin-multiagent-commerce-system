@@ -12,6 +12,7 @@ require_hcs_worker_secret=false
 require_hcs_writer_secret=false
 require_hcs_approval_worker_secret=false
 require_hcs_shopify_secret=false
+require_pilot_worker_secret=false
 for argument in "$@"; do
   case "${argument}" in
     --require-secrets)
@@ -57,8 +58,12 @@ for argument in "$@"; do
       require_secrets=true
       require_hcs_shopify_secret=true
       ;;
+    --require-pilot-worker-secret)
+      require_secrets=true
+      require_pilot_worker_secret=true
+      ;;
     *)
-      echo "usage: $0 [--require-secrets] [--require-shopify-secret] [--require-writer-secret] [--require-scheduler-secret] [--require-watchdog-secret] [--require-hcs-watchdog-secret] [--require-evidence-secret] [--require-hcs-worker-secret] [--require-hcs-writer-secret] [--require-hcs-approval-worker-secret] [--require-hcs-shopify-secret]" >&2
+      echo "usage: $0 [--require-secrets] [--require-shopify-secret] [--require-writer-secret] [--require-scheduler-secret] [--require-watchdog-secret] [--require-hcs-watchdog-secret] [--require-evidence-secret] [--require-hcs-worker-secret] [--require-hcs-writer-secret] [--require-hcs-approval-worker-secret] [--require-hcs-shopify-secret] [--require-pilot-worker-secret]" >&2
       exit 2
       ;;
   esac
@@ -169,6 +174,7 @@ if [[ "${require_secrets}" == true ]]; then
     [hcs_writer_api_key]=10005
     [hcs_shopify_worker_database_url]=10006
     [hcs_shopify_access_token]=10006
+    [pilot_worker_database_url]="${ORIN_RUNTIME_UID}"
   )
   secret_names=(control_database_url worker_database_url)
   if [[ "${require_scheduler_secret}" == true ]]; then
@@ -201,6 +207,9 @@ if [[ "${require_secrets}" == true ]]; then
   if [[ "${require_hcs_shopify_secret}" == true ]]; then
     secret_names+=(hcs_shopify_access_token)
   fi
+  if [[ "${require_pilot_worker_secret}" == true ]]; then
+    secret_names+=(pilot_worker_database_url writer_api_key)
+  fi
   for secret_name in "${secret_names[@]}"; do
     secret_path="${ORIN_SECRETS_DIR}/${secret_name}"
     if [[ ! -f "${secret_path}" ]]; then
@@ -220,6 +229,18 @@ if [[ "${require_secrets}" == true ]]; then
       exit 1
     fi
   done
+  if [[ "${require_pilot_worker_secret}" == true ]]; then
+    pilot_evidence_root="${ORIN_EVIDENCE_ROOT}/generic-pilot"
+    if [[ ! -d "${pilot_evidence_root}" || -L "${pilot_evidence_root}" ]]; then
+      echo "generic pilot evidence directory is missing or unsafe: ${pilot_evidence_root}" >&2
+      exit 1
+    fi
+    if [[ "$(stat -c %a "${pilot_evidence_root}")" != "700" \
+          || "$(stat -c %u "${pilot_evidence_root}")" != "${ORIN_RUNTIME_UID}" ]]; then
+      echo "generic pilot evidence directory must be mode 0700 and owned by the runtime UID" >&2
+      exit 1
+    fi
+  fi
   if [[ ! -d "${ORIN_EVIDENCE_ROOT}" ]]; then
     echo "evidence directory is missing: ${ORIN_EVIDENCE_ROOT}" >&2
     exit 1
