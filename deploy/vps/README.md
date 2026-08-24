@@ -352,6 +352,41 @@ human approval exists, and invoke only the one-shot approval service. Keep
 gates, and remove both UID `10006` secrets after the transaction unless the
 next controlled approval begins immediately.
 
+## Generic OAuth pilot dry-run
+
+New OAuth-connected tenants use a separate function-only `orin_pilot_worker`
+role for their first content proof. This one-shot worker receives only a safe
+tenant profile, one version-bound content item, and the file-backed MiniMax
+credential. It has no Vault grant, OAuth token, Shopify token, client override,
+or Shopify mutation path. Hoverboard Store and HCS Gadgets are explicitly
+excluded from this route.
+
+Create a unique database password without putting it in Git, chat, shell
+history, or container environment variables. Temporarily change only
+`orin_pilot_worker` from `NOLOGIN` to `LOGIN` in the Supabase SQL editor, build
+its session-pooler URL, and install it interactively:
+
+```bash
+deploy/vps/install_pilot_worker_db_secret.sh
+deploy/vps/preflight.sh --require-secrets --require-pilot-worker-secret
+```
+
+The installer also creates `/docker/orin/evidence/generic-pilot` with mode
+`0700`. Prepare exactly one pilot job through the operator-only database
+function, then run only the one-shot profile:
+
+```bash
+docker compose --env-file /docker/orin/deployment.env \
+  -f deploy/vps/compose.yml --profile generic-pilot-worker \
+  run --rm generic-pilot-worker
+```
+
+Require one completed dry-run, one durable review draft, zero Shopify creates,
+both Shopify gates false, and the client returned to maintenance. Set the role
+back to `NOLOGIN` and remove its database secret after the proof. Creating an
+unpublished Shopify draft is a separate human-approved transaction and is not
+authorized by this worker.
+
 ## Portable evidence sync
 
 Completed run evidence remains authoritative on the private VPS filesystem
