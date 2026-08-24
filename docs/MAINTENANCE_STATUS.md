@@ -1895,3 +1895,40 @@ Shopify secret file, writer key, Prefect credential, or direct table access.
 The next separate product milestone is a generic tenant-bound content worker
 and controlled pilot promotion; the commissioner deliberately does not route
 new clients through the HBStore or HCS fixed-client workers.
+
+## Generic OAuth content pilot proof — 2026-08-24
+
+The first no-code OAuth-connected tenant, `orin_oauth_test`, completed its
+controlled generic content pilot. The pilot used the tenant's durable business,
+Shopify, and content-scope records and generated “How to Choose Snowboard
+Accessories: A Practical Checklist” through the dedicated one-shot generic
+worker. The worker had no Shopify credential and both Shopify write gates stayed
+closed throughout the pilot.
+
+The first model attempt failed deterministic quality checks and was preserved
+as a failed attempt. The bounded second attempt produced a passing 2,440-word
+review draft. Two rollout defects in the new recovery path—an ambiguous claim
+CTE and an ambiguous onboarding-status predicate—failed closed before any
+external write. PRs #173 through #176 added the durable retry/recovery state,
+strict operator-only reconciliation, and regression coverage. All dashboard,
+database, and Python CI passed before each merged correction was deployed.
+
+Run `pilot_20260824T125211Z_98b93a72` is terminal completed with decision
+`GENERIC_PILOT_REVIEW_DRAFT_CREATED`, requested and effective mode `dry-run`,
+Shopify write state `not_attempted`, zero Shopify creates, no publication, no
+queue change, and reconciliation `not_required`. The database contains exactly
+two attempts for the job and exactly one version-bound review draft. Its body
+SHA-256 is
+`6200d6c2688e35c963bdc7f43c1e02bea4f33a81f2443330327aa00a44b8cb57`,
+matching the private VPS artifact.
+
+After completion, `orin_oauth_test` returned to maintenance with request intake,
+automation, both Shopify write gates, and scheduler ownership disabled. There
+are zero active jobs and zero open incidents. The temporary `orin_pilot_worker`
+role is `NOLOGIN`, and its exact VPS credential file was securely removed. The
+next step is human review in the dashboard. A separate approval-only worker must
+be commissioned and proven before this tenant can create one unpublished
+Shopify draft; live publishing remains unavailable.
+
+Durable details are in
+`docs/evidence/2026-08-24-generic-oauth-content-pilot-proof.json`.
