@@ -549,6 +549,7 @@ services:
     environment:
       ORIN_PILOT_DATABASE_URL_FILE: /run/secrets/pilot_worker_database_url
       ORIN_PILOT_DATABASE_ROLE: orin_pilot_worker
+      ORIN_CODE_VERSION: ${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
       ORIN_MODEL_WRITER_ENABLED: "1"
       ORIN_WRITER_API_KEY_FILE: /run/secrets/writer_api_key
       ORIN_WRITER_TIMEOUT_SECONDS: "240"
