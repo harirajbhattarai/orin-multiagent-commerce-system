@@ -16,6 +16,9 @@ HOTFIX_MIGRATION = Path(
 QUALITY_RETRY_MIGRATION = Path(
     "supabase/migrations/20260824164500_retry_generic_oauth_pilot_quality_failure.sql"
 ).read_text(encoding="utf-8")
+RETRY_STATE_MIGRATION = Path(
+    "supabase/migrations/20260824170000_generic_oauth_pilot_retry_state.sql"
+).read_text(encoding="utf-8")
 COMPOSE = Path("deploy/vps/compose.yml").read_text(encoding="utf-8")
 
 
@@ -93,6 +96,32 @@ def test_generic_pilot_retry_feedback_contains_exact_safe_measurements():
     assert payload["failed_requirements"] == ["META_DESCRIPTION_LENGTH"]
     assert payload["observed"]["meta_description_length"] == 166
     assert payload["required"]["meta_description_length_max"] == 160
+
+
+def test_generic_pilot_retry_is_deferred_and_closes_gates():
+    repository = Path("src/orin_pilot_worker/repository.py").read_text(encoding="utf-8")
+    runner = Path("src/orin_pilot_worker/runner.py").read_text(encoding="utf-8")
+    assert "defer_generic_pilot_job" in repository
+    assert 'replay_disposition="retry" if retryable else "terminal"' in runner
+    assert "orin_private.defer_job" in RETRY_STATE_MIGRATION
+    assert "orin_private.close_generic_pilot_gates" in RETRY_STATE_MIGRATION
+    assert "shopify_write_state' <> 'not_attempted'" in RETRY_STATE_MIGRATION
+    assert "grant execute on function orin_private.defer_generic_pilot_job" in RETRY_STATE_MIGRATION
+
+
+def test_rollout_artifact_recovery_is_operator_only_and_shopify_blind():
+    assert "recover_generic_pilot_success" in RETRY_STATE_MIGRATION
+    assert "v_job.attempt_count <> v_job.max_attempts" in RETRY_STATE_MIGRATION
+    assert "prior.attempt = 1" in RETRY_STATE_MIGRATION
+    assert "attempt.attempt = 2" in RETRY_STATE_MIGRATION
+    assert "GENERIC_PILOT_REVIEW_DRAFT_CREATED" in RETRY_STATE_MIGRATION
+    assert "shopify_writes_enabled = false" in RETRY_STATE_MIGRATION
+    assert "approved_draft_writes_enabled = false" in RETRY_STATE_MIGRATION
+    recovery_grants = "\n".join(
+        line for line in RETRY_STATE_MIGRATION.splitlines()
+        if "recover_generic_pilot_success" in line or "grant execute" in line
+    )
+    assert "grant execute on function orin_private.recover_generic_pilot_success" not in recovery_grants
 
 
 def test_generic_pilot_compose_is_one_shot_and_has_no_shopify_secret():
