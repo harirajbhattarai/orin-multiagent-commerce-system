@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
 const SHOPIFY_API_VERSION = "2026-07";
 const DEFAULT_SHOPIFY_SCOPES = "read_products,write_content";
+const SHOPIFY_REFRESH_WINDOW_MS = 5 * 60 * 1000;
 const DEFAULT_ALLOWED_ORIGINS = new Set([
   "https://orin-hbstore-dashboard.tooxic-ai.chatgpt.site",
   "http://localhost:5173",
@@ -194,6 +195,129 @@ async function readShopify(storeDomain: string, accessToken: string) {
   };
 }
 
+function requiredShopifyScopes() {
+  return (Deno.env.get("SHOPIFY_OAUTH_SCOPES") ?? DEFAULT_SHOPIFY_SCOPES)
+    .split(",").map((scope) => scope.trim()).filter(Boolean);
+}
+
+function connectionRecord(value: unknown) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+async function getShopifyConnection(
+  service: ReturnType<typeof createClient>,
+  operatorId: string,
+  clientId: string,
+) {
+  const result = await service.rpc("service_get_client_shopify_audit_connection", {
+    p_operator_id: operatorId,
+    p_client_id: clientId,
+  });
+  if (result.error) throw new Error(result.error.message);
+  const connection = connectionRecord(result.data);
+  if (!connection?.store_domain || !connection?.access_token || !connection?.blog_gid) {
+    throw new Error("The encrypted Shopify connection is incomplete.");
+  }
+  return connection;
+}
+
+async function ensureFreshShopifyConnection(
+  service: ReturnType<typeof createClient>,
+  operatorId: string,
+  clientId: string,
+) {
+  let connection = await getShopifyConnection(service, operatorId, clientId);
+  if (connection.connection_method !== "oauth") return connection;
+
+  const accessExpiresAt = Date.parse(String(connection.access_token_expires_at ?? ""));
+  const refreshExpiresAt = Date.parse(String(connection.refresh_token_expires_at ?? ""));
+  if (!connection.refresh_token || !Number.isFinite(accessExpiresAt) || !Number.isFinite(refreshExpiresAt)) {
+    throw new Error("The Shopify OAuth refresh connection is incomplete. Reconnect Shopify.");
+  }
+  if (accessExpiresAt > Date.now() + SHOPIFY_REFRESH_WINDOW_MS) return connection;
+  if (refreshExpiresAt <= Date.now() + SHOPIFY_REFRESH_WINDOW_MS) {
+    throw new Error("The Shopify connection has expired. Reconnect Shopify.");
+  }
+
+  const appClientId = Deno.env.get("SHOPIFY_CLIENT_ID") ?? "";
+  const appClientSecret = Deno.env.get("SHOPIFY_CLIENT_SECRET") ?? "";
+  if (!appClientId || !appClientSecret) {
+    throw new Error("Shopify OAuth refresh is not configured.");
+  }
+
+  const refreshResponse = await fetch(
+    `https://${connection.store_domain}/admin/oauth/access_token`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: appClientId,
+        client_secret: appClientSecret,
+        grant_type: "refresh_token",
+        refresh_token: connection.refresh_token,
+      }),
+    },
+  );
+
+  if (!refreshResponse.ok) {
+    const latest = await getShopifyConnection(service, operatorId, clientId);
+    const latestExpiry = Date.parse(String(latest.access_token_expires_at ?? ""));
+    if (latest.connection_method === "oauth" && latestExpiry > Date.now() + SHOPIFY_REFRESH_WINDOW_MS) {
+      return latest;
+    }
+    throw new Error("Shopify could not refresh the connection. Reconnect Shopify.");
+  }
+
+  const payload = await refreshResponse.json();
+  const accessToken = typeof payload.access_token === "string" ? payload.access_token.trim() : "";
+  const refreshToken = typeof payload.refresh_token === "string" ? payload.refresh_token.trim() : "";
+  const accessExpiresIn = Number(payload.expires_in);
+  const refreshExpiresIn = Number(payload.refresh_token_expires_in);
+  const grantedScopes = new Set(
+    String(payload.scope ?? "").split(",").map((scope) => scope.trim()).filter(Boolean),
+  );
+  if (
+    !accessToken
+    || !refreshToken
+    || !Number.isFinite(accessExpiresIn)
+    || accessExpiresIn <= 0
+    || !Number.isFinite(refreshExpiresIn)
+    || refreshExpiresIn <= accessExpiresIn
+    || requiredShopifyScopes().some((scope) => !grantedScopes.has(scope))
+  ) {
+    throw new Error("Shopify returned an invalid refreshed connection. Reconnect Shopify.");
+  }
+
+  const issuedAt = Date.now();
+  const nextAccessExpiry = new Date(issuedAt + accessExpiresIn * 1000).toISOString();
+  const nextRefreshExpiry = new Date(issuedAt + refreshExpiresIn * 1000).toISOString();
+  const rotation = await service.rpc("service_rotate_client_shopify_oauth_tokens", {
+    p_operator_id: operatorId,
+    p_client_id: clientId,
+    p_previous_refresh_token: connection.refresh_token,
+    p_access_token: accessToken,
+    p_refresh_token: refreshToken,
+    p_access_token_expires_at: nextAccessExpiry,
+    p_refresh_token_expires_at: nextRefreshExpiry,
+  });
+  if (rotation.error) {
+    connection = await getShopifyConnection(service, operatorId, clientId);
+    const latestExpiry = Date.parse(String(connection.access_token_expires_at ?? ""));
+    if (latestExpiry > Date.now() + SHOPIFY_REFRESH_WINDOW_MS) return connection;
+    throw new Error("Shopify connection rotation did not complete. Try again.");
+  }
+  return {
+    ...connection,
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    access_token_expires_at: nextAccessExpiry,
+    refresh_token_expires_at: nextRefreshExpiry,
+  };
+}
+
 Deno.serve(async (request: Request) => {
   const origin = request.headers.get("origin");
   if (request.method !== "GET" && origin && !allowedOrigins().has(origin)) {
@@ -271,13 +395,11 @@ Deno.serve(async (request: Request) => {
       const grantedScopes = new Set(
         String(tokenPayload.scope ?? "").split(",").map((scope) => scope.trim()).filter(Boolean),
       );
-      const requiredScopes = (Deno.env.get("SHOPIFY_OAUTH_SCOPES") ?? DEFAULT_SHOPIFY_SCOPES)
-        .split(",").map((scope) => scope.trim()).filter(Boolean);
+      const requiredScopes = requiredShopifyScopes();
       if (
         !accessToken
         || !refreshToken
         || !Number.isFinite(accessExpiresIn)
-        || accessExpiresIn <= 0
         || !Number.isFinite(refreshExpiresIn)
         || refreshExpiresIn <= accessExpiresIn
         || requiredScopes.some((scope) => !grantedScopes.has(scope))
@@ -424,17 +546,7 @@ Deno.serve(async (request: Request) => {
       if (!/^[a-z0-9][a-z0-9_]{1,62}$/.test(clientId)) {
         return json(origin, 400, { error: "A valid provisioned client ID is required." });
       }
-      const connectionResult = await service.rpc("service_get_client_shopify_audit_connection", {
-        p_operator_id: operatorId,
-        p_client_id: clientId,
-      });
-      if (connectionResult.error) throw new Error(connectionResult.error.message);
-      const connection = Array.isArray(connectionResult.data)
-        ? connectionResult.data[0]
-        : connectionResult.data;
-      if (!connection?.store_domain || !connection?.access_token || !connection?.blog_gid) {
-        throw new Error("The encrypted Shopify connection is incomplete.");
-      }
+      const connection = await ensureFreshShopifyConnection(service, operatorId, clientId);
       const shopify = await readShopify(connection.store_domain, connection.access_token);
       const observedBlog = shopify.blogs.find((blog) => blog.id === connection.blog_gid);
       if (shopify.shop.domain.toLowerCase() !== connection.store_domain.toLowerCase() || !observedBlog) {
@@ -471,6 +583,7 @@ Deno.serve(async (request: Request) => {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(commissioningRequestId)) {
         return json(origin, 400, { error: "A valid commissioning request ID is required." });
       }
+      await ensureFreshShopifyConnection(service, operatorId, clientId);
       const { data, error } = await service.rpc("service_request_client_commissioning", {
         p_operator_id: operatorId,
         p_client_id: clientId,
