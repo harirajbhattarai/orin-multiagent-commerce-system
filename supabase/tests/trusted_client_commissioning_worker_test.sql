@@ -21,9 +21,18 @@ select isnt(
   true,
   'commissioner cannot bypass RLS'
 );
-select has_column('public', 'client_commissioning_requests', 'worker_id');
-select has_column('public', 'client_commissioning_requests', 'lease_expires_at');
-select has_column('public', 'client_commissioning_requests', 'heartbeat_at');
+select has_column(
+  'public', 'client_commissioning_requests', 'worker_id',
+  'commissioning requests record the lease owner'
+);
+select has_column(
+  'public', 'client_commissioning_requests', 'lease_expires_at',
+  'commissioning requests record lease expiry'
+);
+select has_column(
+  'public', 'client_commissioning_requests', 'heartbeat_at',
+  'commissioning requests record worker heartbeat'
+);
 select has_function('orin_private', 'claim_next_client_commissioning', array['text', 'integer']);
 select has_function('orin_private', 'renew_client_commissioning_lease', array['uuid', 'text', 'integer']);
 select has_function('orin_private', 'get_client_commissioning_context', array['uuid', 'text']);
