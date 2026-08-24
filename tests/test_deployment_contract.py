@@ -5,6 +5,7 @@ COMPOSE = Path("deploy/vps/compose.yml").read_text(encoding="utf-8")
 
 
 def test_deployment_is_manual_and_not_publicly_routed():
+    assert 'profiles: ["commissioner"]' in COMPOSE
     assert 'profiles: ["manual-api"]' in COMPOSE
     assert 'profiles: ["manual-worker"]' in COMPOSE
     assert 'profiles: ["automatic-worker"]' in COMPOSE
@@ -18,7 +19,7 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert "traefik." not in COMPOSE.lower()
     assert "50083" not in COMPOSE
     assert "network_mode: host" not in COMPOSE
-    assert COMPOSE.count("pull_policy: never") == 9
+    assert COMPOSE.count("pull_policy: never") == 10
     assert ":latest" not in COMPOSE
 
 
@@ -27,13 +28,18 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert "/data/.openclaw" not in COMPOSE
     assert "privileged:" not in COMPOSE
     assert COMPOSE.count("read_only: true") >= 6
-    assert COMPOSE.count('cap_drop: ["ALL"]') == 9
-    assert COMPOSE.count("no-new-privileges:true") == 9
+    assert COMPOSE.count('cap_drop: ["ALL"]') == 10
+    assert COMPOSE.count("no-new-privileges:true") == 10
     assert COMPOSE.count('restart: "no"') == 5
-    assert COMPOSE.count("restart: unless-stopped") == 4
+    assert COMPOSE.count("restart: unless-stopped") == 5
 
 
 def test_database_credentials_are_file_backed_and_role_separated():
+    assert (
+        "ORIN_COMMISSIONER_DATABASE_URL_FILE: "
+        "/run/secrets/commissioner_database_url"
+    ) in COMPOSE
+    assert "ORIN_COMMISSIONER_DATABASE_ROLE: orin_commissioner" in COMPOSE
     assert "ORIN_DATABASE_URL_FILE: /run/secrets/control_database_url" in COMPOSE
     assert "ORIN_WORKER_DATABASE_URL_FILE: /run/secrets/worker_database_url" in COMPOSE
     assert (
@@ -49,6 +55,7 @@ def test_database_credentials_are_file_backed_and_role_separated():
     assert "ORIN_WORKER_DATABASE_URL:" not in COMPOSE
     assert "ORIN_SCHEDULER_DATABASE_URL:" not in COMPOSE
     assert "ORIN_WATCHDOG_DATABASE_URL:" not in COMPOSE
+    assert "ORIN_COMMISSIONER_DATABASE_URL:" not in COMPOSE
     assert "service_role" not in COMPOSE
     assert "postgresql://" not in COMPOSE
 
