@@ -114,6 +114,34 @@ def validate_generic_article(body_html: str, *, title: str, target_keyword: str)
     }
 
 
+def generic_quality_retry_payload(receipt: dict[str, Any]) -> dict[str, Any]:
+    """Return only deterministic, non-secret measurements for a model retry."""
+    return {
+        "failed_requirements": list(receipt.get("failures", [])),
+        "observed": {
+            "word_count": receipt.get("word_count"),
+            "h2_count": receipt.get("h2_count"),
+            "paragraph_count": receipt.get("paragraph_count"),
+            "target_keyword_count": receipt.get("target_keyword_count"),
+            "meta_title_length": len(str(receipt.get("meta_title", ""))),
+            "meta_description_length": len(
+                str(receipt.get("meta_description", ""))
+            ),
+        },
+        "required": {
+            "word_count_min": MIN_WORD_COUNT,
+            "h2_count_min": MIN_H2_COUNT,
+            "paragraph_count_min": MIN_PARAGRAPH_COUNT,
+            "target_keyword_count_min": 3,
+            "target_keyword_count_max": 8,
+            "meta_title_length_min": 30,
+            "meta_title_length_max": 60,
+            "meta_description_length_min": 120,
+            "meta_description_length_max": 160,
+        },
+    }
+
+
 def _writer_plan(context: dict[str, Any]) -> dict[str, Any]:
     item = context["content_item"]
     title = str(item["topic"])
@@ -189,7 +217,7 @@ def execute_generic_pilot(
                 quality_retry=(
                     None
                     if attempt == 1
-                    else {"failed_requirements": receipt.get("failures", [])}
+                    else generic_quality_retry_payload(receipt)
                 ),
             )
             body_html = result.body_html

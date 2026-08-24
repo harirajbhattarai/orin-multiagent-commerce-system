@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from orin_pilot_worker.runner import validate_generic_article
+from orin_pilot_worker.runner import (
+    generic_quality_retry_payload,
+    validate_generic_article,
+)
 from tools.shopify_publisher.orin.model_writer import build_request_payload
 
 
@@ -9,6 +12,9 @@ MIGRATION = Path(
 ).read_text(encoding="utf-8")
 HOTFIX_MIGRATION = Path(
     "supabase/migrations/20260824163000_fix_generic_oauth_pilot_claim.sql"
+).read_text(encoding="utf-8")
+QUALITY_RETRY_MIGRATION = Path(
+    "supabase/migrations/20260824164500_retry_generic_oauth_pilot_quality_failure.sql"
 ).read_text(encoding="utf-8")
 COMPOSE = Path("deploy/vps/compose.yml").read_text(encoding="utf-8")
 
@@ -58,6 +64,35 @@ def test_generic_pilot_claim_is_unambiguous_and_recovery_stays_dry_run_only():
     assert "set state = 'disabled', scheduler_owner = null" in HOTFIX_MIGRATION
     assert "from public, anon, authenticated, orin_pilot_worker" in HOTFIX_MIGRATION
     assert "grant execute" not in HOTFIX_MIGRATION
+
+
+def test_generic_pilot_quality_retry_is_bounded_and_keeps_shopify_closed():
+    assert "job.status in ('queued', 'failed')" in QUALITY_RETRY_MIGRATION
+    assert "job.attempt_count < job.max_attempts" in QUALITY_RETRY_MIGRATION
+    assert "ORIN_GENERIC_PILOT_DRAFT_FAILED" in QUALITY_RETRY_MIGRATION
+    assert "item.status in ('in_progress', 'checks_failed')" in QUALITY_RETRY_MIGRATION
+    assert "shopify_writes_enabled = false" in QUALITY_RETRY_MIGRATION
+    assert "approved_draft_writes_enabled = false" in QUALITY_RETRY_MIGRATION
+    assert "set state = 'disabled', scheduler_owner = null" in QUALITY_RETRY_MIGRATION
+    assert "from public, anon, authenticated, orin_pilot_worker" in QUALITY_RETRY_MIGRATION
+    assert "grant execute" not in QUALITY_RETRY_MIGRATION
+
+
+def test_generic_pilot_retry_feedback_contains_exact_safe_measurements():
+    payload = generic_quality_retry_payload(
+        {
+            "failures": ["META_DESCRIPTION_LENGTH"],
+            "word_count": 2520,
+            "h2_count": 11,
+            "paragraph_count": 34,
+            "target_keyword_count": 3,
+            "meta_title": "Snowboard Accessories Guide: A Practical Checklist",
+            "meta_description": "x" * 166,
+        }
+    )
+    assert payload["failed_requirements"] == ["META_DESCRIPTION_LENGTH"]
+    assert payload["observed"]["meta_description_length"] == 166
+    assert payload["required"]["meta_description_length_max"] == 160
 
 
 def test_generic_pilot_compose_is_one_shot_and_has_no_shopify_secret():
