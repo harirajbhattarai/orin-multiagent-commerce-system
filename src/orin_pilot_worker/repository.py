@@ -141,7 +141,7 @@ class PostgresPilotRepository:
             self._assert_role(connection)
             statement = text(
                 """
-                select * from orin_private.defer_job(
+                select * from orin_private.defer_generic_pilot_job(
                   :job_id, :worker_id, :final_result
                 )
                 """

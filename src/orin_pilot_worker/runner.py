@@ -23,6 +23,7 @@ MIN_WORD_COUNT = 1200
 MIN_H2_COUNT = 5
 MIN_PARAGRAPH_COUNT = 10
 MAX_ARTICLE_BYTES = 500_000
+MAX_PILOT_JOB_ATTEMPTS = 2
 
 
 def _now() -> str:
@@ -233,6 +234,7 @@ def execute_generic_pilot(
             raise ModelWriterError("generic article failed deterministic quality checks")
     except Exception as exc:
         finished_at = _now()
+        retryable = job.attempt_count < MAX_PILOT_JOB_ATTEMPTS
         final = FinalResult(
             schema=SCHEMA_VERSION,
             run_id=run_id,
@@ -243,11 +245,15 @@ def execute_generic_pilot(
             requested_mode="dry-run",
             effective_mode="dry-run",
             status="failed",
-            decision="GENERIC_PILOT_DRAFT_FAILED",
+            decision=(
+                "GENERIC_PILOT_DRAFT_RETRY"
+                if retryable
+                else "GENERIC_PILOT_DRAFT_FAILED"
+            ),
             code_version=_code_version(),
             config_version=PILOT_CONFIG_VERSION,
             idempotency_key=f"{job.client_id}:{job.request_id}",
-            replay_disposition="terminal",
+            replay_disposition="retry" if retryable else "terminal",
             shopify_write_state="not_attempted",
             shopify_idempotency_marker=None,
             shopify_article_id=None,
