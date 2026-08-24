@@ -260,7 +260,7 @@ begin
       and job.attempt_count >= job.max_attempts
     returning job.client_id, job.job_id
   ), closed_clients as (
-    select distinct client_id from exhausted
+    select distinct exhausted.client_id from exhausted
   ), closed_gates as (
     update public.clients client
     set status = 'maintenance'

@@ -7,6 +7,9 @@ from tools.shopify_publisher.orin.model_writer import build_request_payload
 MIGRATION = Path(
     "supabase/migrations/20260824160000_generic_oauth_pilot_worker.sql"
 ).read_text(encoding="utf-8")
+HOTFIX_MIGRATION = Path(
+    "supabase/migrations/20260824163000_fix_generic_oauth_pilot_claim.sql"
+).read_text(encoding="utf-8")
 COMPOSE = Path("deploy/vps/compose.yml").read_text(encoding="utf-8")
 
 
@@ -43,6 +46,18 @@ def test_generic_pilot_never_routes_dedicated_tenants_or_opens_shopify():
     assert "shopify_writes_enabled = false" in preparation
     assert "approved_draft_writes_enabled = false" in preparation
     assert "commissioning_status = 'dry_run_pending'" in preparation
+
+
+def test_generic_pilot_claim_is_unambiguous_and_recovery_stays_dry_run_only():
+    assert "select distinct exhausted.client_id from exhausted" in MIGRATION
+    assert "select distinct client_id from exhausted" not in MIGRATION
+    assert "resume_generic_pilot_dry_run" in HOTFIX_MIGRATION
+    assert "exactly one eligible queued job" in HOTFIX_MIGRATION
+    assert "shopify_writes_enabled = false" in HOTFIX_MIGRATION
+    assert "approved_draft_writes_enabled = false" in HOTFIX_MIGRATION
+    assert "set state = 'disabled', scheduler_owner = null" in HOTFIX_MIGRATION
+    assert "from public, anon, authenticated, orin_pilot_worker" in HOTFIX_MIGRATION
+    assert "grant execute" not in HOTFIX_MIGRATION
 
 
 def test_generic_pilot_compose_is_one_shot_and_has_no_shopify_secret():
