@@ -1,0 +1,82 @@
+{
+  "schema": "orin.generic-oauth-content-pilot-proof/v1",
+  "recorded_at": "2026-08-24T13:20:35Z",
+  "client_id": "orin_oauth_test",
+  "content_item": {
+    "content_item_id": "e97406fe-9ec4-439a-ae6e-f754c235650b",
+    "topic": "How to Choose Snowboard Accessories: A Practical Checklist",
+    "target_keyword": "snowboard accessories guide",
+    "terminal_status": "local_draft_created",
+    "terminal_version": 3
+  },
+  "job": {
+    "job_id": "f1a3d169-f668-4173-ab91-4dd27b707e5b",
+    "source_job_key": "pilot:orin_oauth_test:e97406fe-9ec4-439a-ae6e-f754c235650b:v1",
+    "status": "completed",
+    "attempt_count": 2,
+    "max_attempts": 2,
+    "lock_owner": null,
+    "lease_expires_at": null
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "run_id": "pilot_20260824T123608Z_faaee151",
+      "status": "failed",
+      "decision": "GENERIC_PILOT_DRAFT_FAILED",
+      "error_code": "ORIN_GENERIC_PILOT_DRAFT_FAILED",
+      "code_version": "da4488ef561137327777a45dca52195a9988f482",
+      "shopify_write_state": "not_attempted",
+      "shopify_create_count": 0
+    },
+    {
+      "attempt": 2,
+      "run_id": "pilot_20260824T125211Z_98b93a72",
+      "status": "completed",
+      "decision": "GENERIC_PILOT_REVIEW_DRAFT_CREATED",
+      "error_code": null,
+      "code_version": "14afe4b4e9027a01ad8498008b0c6d82fdda1c6c",
+      "shopify_write_state": "not_attempted",
+      "shopify_create_count": 0,
+      "shopify_published": false,
+      "queue_changed": false,
+      "reconciliation_status": "not_required"
+    }
+  ],
+  "review_draft": {
+    "draft_id": "33149eea-9eb0-4009-b89e-613989aad6c9",
+    "source_run_id": "pilot_20260824T125211Z_98b93a72",
+    "content_item_version": 3,
+    "word_count": 2440,
+    "quality_score": 100,
+    "meta_title": "Snowboard Accessories Guide: How to Choose Well",
+    "body_sha256": "6200d6c2688e35c963bdc7f43c1e02bea4f33a81f2443330327aa00a44b8cb57",
+    "artifact_path": "/docker/orin/evidence/generic-pilot/orin_oauth_test/pilot_20260824T125211Z_98b93a72/review_draft.html"
+  },
+  "release": {
+    "recovery_deployment": "32dca433ac561fe2e2b3a38b8da4664a19d99b29",
+    "recovery_pull_request": 176,
+    "tests": {
+      "focused": "passed",
+      "full_python": "passed",
+      "github_dashboard": "passed",
+      "github_database": "passed",
+      "github_test": "passed"
+    }
+  },
+  "terminal_safety": {
+    "client_status": "maintenance",
+    "request_intake_enabled": false,
+    "automation_enabled": false,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": false,
+    "allowed_mode": "dry-run",
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "active_jobs": 0,
+    "open_incidents": 0,
+    "pilot_worker_role_login": false,
+    "pilot_worker_vps_secret_present": false
+  },
+  "next_step": "Human review, followed by a separately commissioned approval-only unpublished Shopify draft proof."
+}
