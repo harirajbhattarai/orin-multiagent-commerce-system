@@ -7,6 +7,28 @@ project.
 The current verified production state and next approved step are recorded in
 [`docs/MAINTENANCE_STATUS.md`](../../docs/MAINTENANCE_STATUS.md).
 
+## Trusted no-code commissioner
+
+The `commissioner` profile consumes only durable onboarding commissioning
+requests. It uses the function-only `orin_commissioner` database role, performs
+read-only Shopify GraphQL verification, and force-closes every execution,
+scheduler, and Shopify gate on both success and failure. A successful request
+ends in `pilot_pending`; it does not activate recurring content production.
+
+Install the dedicated session-pooler URL without printing it, then build and
+start the immutable service from a reviewed release:
+
+```bash
+deploy/vps/install_commissioner_db_secret.sh
+docker compose --env-file /docker/orin/deployment.env \
+  -f deploy/vps/compose.yml --profile commissioner build commissioner
+docker compose --env-file /docker/orin/deployment.env \
+  -f deploy/vps/compose.yml --profile commissioner up -d commissioner
+```
+
+Never give this service a Shopify write credential, Docker socket, repository
+write mount, content-worker database URL, or Prefect owner credential.
+
 ## Invariants
 
 - Every service requires an explicit Compose profile; a normal `compose up`

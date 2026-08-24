@@ -1870,3 +1870,28 @@ watchdog remains healthy. There are zero active jobs and zero open incidents.
 
 Durable details are in
 `docs/evidence/2026-08-12-job36-quality-gated-hidden-draft-proof.json`.
+
+## No-code trusted commissioning worker — 2026-08-24
+
+The dashboard commissioning request now has a reviewed implementation path to
+a dedicated `orin_commissioner` control-plane worker. The worker is globally
+single-concurrency, lease-bound, function-only, and receives one claimed
+client's encrypted-at-rest Shopify credential only through a private
+lease-checked database function. It performs only read-only Shopify GraphQL
+queries for the exact store, blog, and product count.
+
+The worker records durable receipts for isolated setup, read-only dry-run,
+exclusive request identity, and a second fail-closed boundary observation. A
+successful request ends in `pilot_pending`. It does not activate Prefect,
+create a content job, start recurring automation, enable either Shopify write
+gate, or claim production readiness. Every success and failure path returns
+the client to maintenance with intake, automation, scheduler ownership, broad
+Shopify writes, and approved-draft writes disabled.
+
+The deployment is disabled by the explicit `commissioner` Compose profile and
+uses a unique `orin_commissioner` session-pooler credential owned by UID/GID
+`10009:10009` at mode `0400`. It has no Docker socket, workspace mount,
+Shopify secret file, writer key, Prefect credential, or direct table access.
+The next separate product milestone is a generic tenant-bound content worker
+and controlled pilot promotion; the commissioner deliberately does not route
+new clients through the HBStore or HCS fixed-client workers.

@@ -27,6 +27,7 @@ orin-worker = "orin_worker.cli:main"
 orin-watchdog = "orin_watchdog.cli:main"
 orin-evidence-sync = "orin_evidence_sync.cli:main"
 orin-prefect-shadow-bootstrap = "orin_prefect_shadow.bootstrap:main"
+orin-commissioner = "orin_commissioner.cli:main"
 
 [dependency-groups]
 dev = [
@@ -45,6 +46,7 @@ packages = [
   "src/orin_evidence_sync",
   "src/orin_prefect_shadow",
   "src/orin_prefect_owner",
+  "src/orin_commissioner",
 ]
 
 [tool.pytest.ini_options]

@@ -1,0 +1,33 @@
+FROM python:3.12.13-slim-bookworm@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b
+
+ARG VERSION=dev
+ARG VCS_REF=unknown
+
+LABEL org.opencontainers.image.title="ORIN Commissioner" \
+      org.opencontainers.image.description="Lease-bound, fail-closed no-code client commissioning worker" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.source="https://github.com/harirajbhattarai/orin-multiagent-commerce-system"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH=/app/.venv/bin:${PATH} \
+    ORIN_CODE_VERSION=${VCS_REF}
+
+RUN groupadd --gid 10009 orin-commissioner \
+    && useradd --uid 10009 --gid 10009 --create-home --shell /usr/sbin/nologin orin-commissioner
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+COPY src/ ./src/
+
+RUN python -m pip install --no-cache-dir uv==0.11.16 \
+    && python -m uv sync --frozen --no-dev --no-editable \
+    && /usr/local/bin/python -m pip uninstall --yes uv \
+    && chown -R 10009:10009 /app
+
+USER 10009:10009
+
+ENTRYPOINT ["python", "-m", "orin_commissioner"]
+CMD ["--help"]

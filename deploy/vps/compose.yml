@@ -1,6 +1,56 @@
 name: orin-control
 
 services:
+  commissioner:
+    profiles: ["commissioner"]
+    image: local/orin-commissioner:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
+    pull_policy: never
+    build:
+      context: ${ORIN_PROJECT_ROOT:?set ORIN_PROJECT_ROOT}
+      dockerfile: Dockerfile.commissioner
+      args:
+        VERSION: ${ORIN_DEPLOY_SHA}
+        VCS_REF: ${ORIN_DEPLOY_SHA}
+    init: true
+    user: "10009:10009"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 96
+    mem_limit: 384m
+    cpus: 0.35
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      ORIN_COMMISSIONER_DATABASE_URL_FILE: /run/secrets/commissioner_database_url
+      ORIN_COMMISSIONER_DATABASE_ROLE: orin_commissioner
+    secrets:
+      - commissioner_database_url
+    command:
+      - serve
+      - --worker-id
+      - orin-platform-commissioner
+      - --lease-seconds
+      - "300"
+      - --poll-seconds
+      - "15"
+      - --error-backoff-seconds
+      - "60"
+    healthcheck:
+      test: ["CMD", "python", "-m", "orin_commissioner", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   watchdog:
     profiles: ["watchdog"]
     image: local/orin-watchdog:${ORIN_WATCHDOG_DEPLOY_SHA:?set ORIN_WATCHDOG_DEPLOY_SHA}
@@ -520,6 +570,8 @@ services:
         max-file: "3"
 
 secrets:
+  commissioner_database_url:
+    file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/commissioner_database_url
   watchdog_database_url:
     file: ${ORIN_SECRETS_DIR:?set ORIN_SECRETS_DIR}/watchdog_database_url
   hcs_watchdog_database_url:
