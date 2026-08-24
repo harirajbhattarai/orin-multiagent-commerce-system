@@ -19,6 +19,9 @@ QUALITY_RETRY_MIGRATION = Path(
 RETRY_STATE_MIGRATION = Path(
     "supabase/migrations/20260824170000_generic_oauth_pilot_retry_state.sql"
 ).read_text(encoding="utf-8")
+RECOVERY_STATUS_HOTFIX = Path(
+    "supabase/migrations/20260824171500_fix_generic_pilot_recovery_status.sql"
+).read_text(encoding="utf-8")
 COMPOSE = Path("deploy/vps/compose.yml").read_text(encoding="utf-8")
 
 
@@ -122,6 +125,15 @@ def test_rollout_artifact_recovery_is_operator_only_and_shopify_blind():
         if "recover_generic_pilot_success" in line or "grant execute" in line
     )
     assert "grant execute on function orin_private.recover_generic_pilot_success" not in recovery_grants
+
+
+def test_rollout_artifact_recovery_qualifies_onboarding_status():
+    assert "client_onboarding_requests onboarding" in RECOVERY_STATUS_HOTFIX
+    assert "onboarding.status = 'database_provisioned'" in RECOVERY_STATUS_HOTFIX
+    assert "and status = 'database_provisioned'" not in RECOVERY_STATUS_HOTFIX
+    assert "shopify_writes_enabled = false" in RECOVERY_STATUS_HOTFIX
+    assert "approved_draft_writes_enabled = false" in RECOVERY_STATUS_HOTFIX
+    assert "grant execute" not in RECOVERY_STATUS_HOTFIX
 
 
 def test_generic_pilot_compose_is_one_shot_and_has_no_shopify_secret():
