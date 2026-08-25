@@ -138,7 +138,7 @@ def test_rollout_artifact_recovery_qualifies_onboarding_status():
 
 def test_generic_pilot_compose_is_one_shot_and_has_no_shopify_secret():
     service = COMPOSE.split("  generic-pilot-worker:", 1)[1].split(
-        "\n  evidence-sync:", 1
+        "\n  oauth-draft-worker:", 1
     )[0]
     assert 'profiles: ["generic-pilot-worker"]' in service
     assert 'restart: "no"' in service
