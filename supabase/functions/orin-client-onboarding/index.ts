@@ -208,11 +208,17 @@ async function getShopifyConnection(
   service: ReturnType<typeof createClient>,
   operatorId: string,
   clientId: string,
+  approvalBoundary = false,
 ) {
-  const result = await service.rpc("service_get_client_shopify_audit_connection", {
-    p_operator_id: operatorId,
-    p_client_id: clientId,
-  });
+  const result = await service.rpc(
+    approvalBoundary
+      ? "service_get_client_shopify_approval_connection"
+      : "service_get_client_shopify_audit_connection",
+    {
+      p_operator_id: operatorId,
+      p_client_id: clientId,
+    },
+  );
   if (result.error) throw new Error(result.error.message);
   const connection = connectionRecord(result.data);
   if (!connection?.store_domain || !connection?.access_token || !connection?.blog_gid) {
@@ -225,8 +231,11 @@ async function ensureFreshShopifyConnection(
   service: ReturnType<typeof createClient>,
   operatorId: string,
   clientId: string,
+  approvalBoundary = false,
 ) {
-  let connection = await getShopifyConnection(service, operatorId, clientId);
+  let connection = await getShopifyConnection(
+    service, operatorId, clientId, approvalBoundary,
+  );
   if (connection.connection_method !== "oauth") return connection;
 
   const accessExpiresAt = Date.parse(String(connection.access_token_expires_at ?? ""));
@@ -263,7 +272,9 @@ async function ensureFreshShopifyConnection(
   );
 
   if (!refreshResponse.ok) {
-    const latest = await getShopifyConnection(service, operatorId, clientId);
+    const latest = await getShopifyConnection(
+      service, operatorId, clientId, approvalBoundary,
+    );
     const latestExpiry = Date.parse(String(latest.access_token_expires_at ?? ""));
     if (latest.connection_method === "oauth" && latestExpiry > Date.now() + SHOPIFY_REFRESH_WINDOW_MS) {
       return latest;
@@ -294,17 +305,24 @@ async function ensureFreshShopifyConnection(
   const issuedAt = Date.now();
   const nextAccessExpiry = new Date(issuedAt + accessExpiresIn * 1000).toISOString();
   const nextRefreshExpiry = new Date(issuedAt + refreshExpiresIn * 1000).toISOString();
-  const rotation = await service.rpc("service_rotate_client_shopify_oauth_tokens", {
-    p_operator_id: operatorId,
-    p_client_id: clientId,
-    p_previous_refresh_token: connection.refresh_token,
-    p_access_token: accessToken,
-    p_refresh_token: refreshToken,
-    p_access_token_expires_at: nextAccessExpiry,
-    p_refresh_token_expires_at: nextRefreshExpiry,
-  });
+  const rotation = await service.rpc(
+    approvalBoundary
+      ? "service_rotate_client_shopify_approval_tokens"
+      : "service_rotate_client_shopify_oauth_tokens",
+    {
+      p_operator_id: operatorId,
+      p_client_id: clientId,
+      p_previous_refresh_token: connection.refresh_token,
+      p_access_token: accessToken,
+      p_refresh_token: refreshToken,
+      p_access_token_expires_at: nextAccessExpiry,
+      p_refresh_token_expires_at: nextRefreshExpiry,
+    },
+  );
   if (rotation.error) {
-    connection = await getShopifyConnection(service, operatorId, clientId);
+    connection = await getShopifyConnection(
+      service, operatorId, clientId, approvalBoundary,
+    );
     const latestExpiry = Date.parse(String(connection.access_token_expires_at ?? ""));
     if (latestExpiry > Date.now() + SHOPIFY_REFRESH_WINDOW_MS) return connection;
     throw new Error("Shopify connection rotation did not complete. Try again.");
@@ -593,6 +611,23 @@ Deno.serve(async (request: Request) => {
       return json(origin, 200, {
         ok: true,
         commissioning: Array.isArray(data) ? data[0] : data,
+      });
+    }
+    if (body.action === "refresh_approved_draft_connection") {
+      const clientId = typeof body.client_id === "string" ? body.client_id.trim() : "";
+      if (!/^[a-z0-9][a-z0-9_]{1,62}$/.test(clientId)) {
+        return json(origin, 400, { error: "A valid client ID is required." });
+      }
+      const connection = await ensureFreshShopifyConnection(
+        service, operatorId, clientId, true,
+      );
+      return json(origin, 200, {
+        ok: true,
+        connection: {
+          store_domain: connection.store_domain,
+          blog_gid: connection.blog_gid,
+          access_token_expires_at: connection.access_token_expires_at,
+        },
       });
     }
   } catch (error) {
