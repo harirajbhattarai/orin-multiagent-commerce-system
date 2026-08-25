@@ -611,6 +611,17 @@ export async function requestClientCommissioning(clientId, { retry = false } = {
   return { data: data?.commissioning ?? null, error: resolvedError };
 }
 
+export async function refreshApprovedDraftConnection(clientId) {
+  if (!supabase) return { data: null, error: null };
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: { action: "refresh_approved_draft_connection", client_id: clientId },
+  });
+  return {
+    data: data?.connection ?? null,
+    error: await functionInvokeError(error, data),
+  };
+}
+
 function decisionRequestStorageKey({ clientId, contentItemId, contentItemVersion, decision }) {
   return `orin-decision:${clientId}:${contentItemId}:${contentItemVersion}:${decision}`;
 }

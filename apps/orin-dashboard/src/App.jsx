@@ -32,6 +32,7 @@ import {
   loadOnboardingAccess,
   loadReviewItem,
   recordContentDecision,
+  refreshApprovedDraftConnection,
   sendMagicLink,
   signOutDashboard,
   subscribeToAuthChanges,
@@ -558,6 +559,17 @@ function Review({ data, jobId, navigate, dataSource }) {
   const saveDecision = async (kind, decisionNote = "") => {
     setSaving(true);
     setDecisionError("");
+    if (kind === "approve_hidden_draft") {
+      const refreshed = await refreshApprovedDraftConnection(data.client.id);
+      if (refreshed.error) {
+        setSaving(false);
+        setDecisionError(
+          refreshed.error.message
+            ?? "Shopify could not refresh the secure connection. Reconnect Shopify and try again.",
+        );
+        return;
+      }
+    }
     const result = await recordContentDecision({
       clientId: data.client.id,
       contentItemId: article.contentItemId,

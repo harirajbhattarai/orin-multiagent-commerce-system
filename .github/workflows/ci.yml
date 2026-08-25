@@ -78,6 +78,8 @@ jobs:
           docker run --rm orin-worker:ci --help
           docker run --rm --entrypoint python orin-worker:ci \
             -c 'from orin_worker.cli import build_parser; parsed = build_parser().parse_args(["serve", "--client-id", "hcs_gadgets"]); assert parsed.client_id == "hcs_gadgets"'
+          docker run --rm --entrypoint python orin-worker:ci \
+            -c 'from orin_oauth_draft_worker.cli import build_parser; parsed = build_parser().parse_args(["serve", "--client-id", "orin_oauth_test"]); assert parsed.client_id == "orin_oauth_test"'
           test "$(docker image inspect orin-worker:ci --format '{{.Config.User}}')" = "10001:10001"
       - name: Build and smoke-test scheduler trigger image
         run: |

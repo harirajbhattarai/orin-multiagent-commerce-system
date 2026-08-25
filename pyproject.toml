@@ -29,6 +29,7 @@ orin-evidence-sync = "orin_evidence_sync.cli:main"
 orin-prefect-shadow-bootstrap = "orin_prefect_shadow.bootstrap:main"
 orin-commissioner = "orin_commissioner.cli:main"
 orin-pilot-worker = "orin_pilot_worker.cli:main"
+orin-oauth-draft-worker = "orin_oauth_draft_worker.cli:main"
 
 [dependency-groups]
 dev = [
@@ -49,6 +50,7 @@ packages = [
   "src/orin_prefect_owner",
   "src/orin_commissioner",
   "src/orin_pilot_worker",
+  "src/orin_oauth_draft_worker",
 ]
 
 [tool.pytest.ini_options]

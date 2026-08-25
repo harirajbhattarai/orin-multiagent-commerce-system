@@ -36,6 +36,7 @@ from orin_shopify import (
     DraftReconciliationError,
     ReviewedDraftContractError,
     ShopifyRequestError,
+    ShopifyRuntimeConfig,
     approved_review_draft_from_snapshot,
     canonical_shopify_body_sha256,
     ensure_approved_review_draft,
@@ -414,6 +415,7 @@ def _reviewed_hidden_draft_result(
     started_at: str,
     artifact_uri: str,
     attempt: int,
+    shopify_runtime_config: ShopifyRuntimeConfig | None = None,
 ) -> FinalResult:
     """Execute the frozen review draft directly; never invoke the writer pipeline."""
     marker = idempotency_marker(f"{client_id}:{request_id}")
@@ -442,11 +444,13 @@ def _reviewed_hidden_draft_result(
         )
 
     try:
-        draft_result = ensure_approved_review_draft(
-            approved,
-            client_id=client_id,
-            request_id=request_id,
-        )
+        draft_kwargs = {
+            "client_id": client_id,
+            "request_id": request_id,
+        }
+        if shopify_runtime_config is not None:
+            draft_kwargs["config"] = shopify_runtime_config
+        draft_result = ensure_approved_review_draft(approved, **draft_kwargs)
     except (OSError, ReviewedDraftContractError, ValueError) as error:
         _atomic_json(
             run_dir / "reviewed_draft_transaction.json",
@@ -580,9 +584,17 @@ def run_client(
     pipeline_command: Sequence[str] | None = None,
     pipeline_preview_path: Path = PIPELINE_PREVIEW_PATH,
     pipeline_timeout_seconds: float = 900,
+    shopify_runtime_config: ShopifyRuntimeConfig | None = None,
 ) -> dict[str, Any]:
     """Run one idempotent client request and return its final-result payload."""
-    if client_id not in SUPPORTED_CLIENTS:
+    dynamic_oauth_hidden_draft = (
+        client_id not in SUPPORTED_CLIENTS
+        and mode == "hidden-draft"
+        and durable_db_mode
+        and content_plan_snapshot is not None
+        and shopify_runtime_config is not None
+    )
+    if client_id not in SUPPORTED_CLIENTS and not dynamic_oauth_hidden_draft:
         raise UnsupportedClientError(f"unsupported client: {client_id}")
     if client_id == "hcs_gadgets" and mode != "dry-run" and not (
         mode == "hidden-draft" and durable_db_mode
@@ -653,6 +665,7 @@ def run_client(
                 started_at=started_at,
                 artifact_uri=artifact_uri,
                 attempt=attempt,
+                shopify_runtime_config=shopify_runtime_config,
             )
             payload = result.to_dict()
             _atomic_json(final_path, payload)
