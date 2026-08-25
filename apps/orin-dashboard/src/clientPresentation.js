@@ -4,15 +4,21 @@ const CLIENT_PRESENTATIONS = Object.freeze({
     policyLabel: "Reviewed against Hoverboard Store policy",
     previewTheme: "hoverboard-store",
     requiredWrapper: { element: "div", className: "hs-article" },
-    forbiddenClassName: "hcs-article",
+    forbiddenClassNames: ["hcs-article", "orin-article"],
   }),
   hcs_gadgets: Object.freeze({
     articleLabel: "HCS GADGETS GUIDE",
     policyLabel: "Reviewed against HCS Gadgets policy",
     previewTheme: "hcs-gadgets",
     requiredWrapper: { element: "article", className: "hcs-article" },
-    forbiddenClassName: "hs-article",
+    forbiddenClassNames: ["hs-article", "orin-article"],
   }),
+});
+
+const GENERIC_PRESENTATION = Object.freeze({
+  previewTheme: "generic",
+  requiredWrapper: Object.freeze({ element: "article", className: "orin-article" }),
+  forbiddenClassNames: Object.freeze(["hs-article", "hcs-article"]),
 });
 
 function normalizedClientId(client) {
@@ -29,9 +35,7 @@ export function reviewPresentationForClient(client) {
     clientId,
     articleLabel: "CLIENT CONTENT REVIEW",
     policyLabel: `Reviewed against ${clientName} policy`,
-    previewTheme: "generic",
-    requiredWrapper: null,
-    forbiddenClassName: null,
+    ...GENERIC_PRESENTATION,
   };
 }
 
@@ -63,10 +67,12 @@ export function validateArticleHtmlForClient(bodyHtml, client) {
       reason: "This client does not have a registered article design contract.",
     };
   }
-  if (hasClass(bodyHtml, presentation.forbiddenClassName)) {
+  const forbiddenClassName = presentation.forbiddenClassNames
+    .find((className) => hasClass(bodyHtml, className));
+  if (forbiddenClassName) {
     return {
       ok: false,
-      reason: `The draft contains another client's ${presentation.forbiddenClassName} wrapper.`,
+      reason: `The draft contains another client's ${forbiddenClassName} wrapper.`,
     };
   }
   if (!hasElementWithClass(bodyHtml, presentation.requiredWrapper)) {

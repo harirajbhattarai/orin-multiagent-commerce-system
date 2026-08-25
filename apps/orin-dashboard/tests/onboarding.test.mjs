@@ -160,3 +160,24 @@ test("provisioning checklist stays incomplete until the fail-closed tenant exist
   });
   assert.equal(audited.every((item) => item.complete), true);
 });
+
+test("labels a completed read-only pilot accurately while Shopify remains closed", () => {
+  const presentation = clientManagementPresentation({
+    status: "maintenance",
+    request: { status: "database_provisioned", commissioning_status: "pilot_pending", credential_status: "stored" },
+    commissioningRequest: { status: "succeeded", stage: "complete" },
+    runtime: {
+      request_intake_enabled: false,
+      automation_enabled: false,
+      shopify_writes_enabled: false,
+      approved_draft_writes_enabled: false,
+      allowed_mode: "dry-run",
+    },
+    health: { state: "disabled", scheduler_owner: null },
+    activeJobs: 0,
+    openIncidents: 0,
+  });
+
+  assert.equal(presentation.stage.label, "Pilot draft ready");
+  assert.match(presentation.nextAction, /Review the version-bound pilot draft/);
+});

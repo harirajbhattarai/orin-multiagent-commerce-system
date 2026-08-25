@@ -112,6 +112,9 @@ export function clientManagementPresentation(client = {}) {
   } else if (recurringDryRun) {
     stage = { label: "Recurring dry-run", tone: "green" };
     nextAction = "No setup action is required. Monitor the next scheduled proof.";
+  } else if (client.commissioningRequest?.status === "succeeded" && request?.commissioning_status === "pilot_pending") {
+    stage = { label: "Pilot draft ready", tone: "green" };
+    nextAction = "Review the version-bound pilot draft. Approval-only Shopify setup is the next controlled step.";
   } else if (identityVerified) {
     stage = { label: "Identity verified", tone: "blue" };
     nextAction = "Commission the isolated worker, automatic dry-run, and watchdog.";
