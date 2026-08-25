@@ -228,6 +228,17 @@ test("fails closed when article HTML belongs to another client", () => {
   assert.equal(validateArticleHtmlForClient("<article></article>", hcsClient).ok, false);
 });
 
+test("registers the generic OAuth article contract without accepting fixed-client wrappers", () => {
+  const oauthClient = { id: "orin_oauth_test", name: "ORIN OAuth Test" };
+  const presentation = reviewPresentationForClient(oauthClient);
+
+  assert.deepEqual(presentation.requiredWrapper, { element: "article", className: "orin-article" });
+  assert.equal(validateArticleHtmlForClient('<article class="orin-article"></article>', oauthClient).ok, true);
+  assert.equal(validateArticleHtmlForClient('<article class="hcs-article"></article>', oauthClient).ok, false);
+  assert.equal(validateArticleHtmlForClient('<div class="hs-article"></div>', oauthClient).ok, false);
+  assert.equal(validateArticleHtmlForClient("<article></article>", oauthClient).ok, false);
+});
+
 test("uses the database tenant identity instead of stale snapshot branding", () => {
   const identity = authoritativeClientIdentity(
     { id: "hoverboard_store", name: "Hoverboard Store", plan: "Pilot workspace" },
