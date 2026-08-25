@@ -1932,3 +1932,29 @@ Shopify draft; live publishing remains unavailable.
 
 Durable details are in
 `docs/evidence/2026-08-24-generic-oauth-content-pilot-proof.json`.
+
+## Generic OAuth approval-only Shopify draft proof — 2026-08-25
+
+The no-code OAuth tenant `orin_oauth_test` completed its first approval-only
+Shopify write at reviewed revision
+`cc0bc6b27155671a86d7bdfa9911c080a371900a` (PR #179). A fresh dashboard
+session refreshed the tenant's Shopify OAuth token without exposing either
+token, then reused the existing version-bound approval decision rather than
+creating a duplicate.
+
+The persistent generic OAuth draft worker consumed exactly one decision, job,
+run, and attempt. Run `run_20260825T140331Z_577ce807` completed with decision
+`APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED`, one Shopify create, no
+publication, no queue mutation, and successful reconciliation. Shopify article
+`621705855264` was observed as unpublished. The approved body SHA-256 remained
+`6200d6c2688e35c963bdc7f43c1e02bea4f33a81f2443330327aa00a44b8cb57`,
+matching the immutable version-3 review draft.
+
+The worker remains healthy at the exact reviewed image with restart count zero.
+The narrow approved-draft gate is enabled for manual human approvals, while
+broad Shopify writes remain disabled. The scheduler has no owner and remains
+disabled; live publishing is unavailable. Postflight checks found zero active
+jobs and zero open incidents.
+
+Durable details are in
+`docs/evidence/2026-08-25-generic-oauth-approved-draft-proof.json`.

@@ -1,0 +1,83 @@
+{
+  "schema": "orin.generic-oauth-approved-draft-proof/v1",
+  "recorded_at": "2026-08-25T14:08:26Z",
+  "client_id": "orin_oauth_test",
+  "result": "passed",
+  "release": {
+    "merged_pull_request": 179,
+    "code_version": "cc0bc6b27155671a86d7bdfa9911c080a371900a",
+    "worker_image": "local/orin-worker:cc0bc6b27155671a86d7bdfa9911c080a371900a",
+    "checkout_clean_and_exact": true,
+    "image_revision_exact": true,
+    "worker_restart_count": 0,
+    "dashboard_deployment_version": 17,
+    "edge_function_version": 9
+  },
+  "approval": {
+    "decision_id": "5fa417ba-f345-4b89-95dd-af76f52643a4",
+    "decision": "approve_hidden_draft",
+    "decision_count": 1,
+    "processing_status": "consumed",
+    "content_item_id": "e97406fe-9ec4-439a-ae6e-f754c235650b",
+    "content_item_version": 3,
+    "draft_id": "33149eea-9eb0-4009-b89e-613989aad6c9",
+    "body_sha256": "6200d6c2688e35c963bdc7f43c1e02bea4f33a81f2443330327aa00a44b8cb57",
+    "outcome": "Exact OAuth-client reviewed HTML frozen for one unpublished Shopify draft."
+  },
+  "oauth_refresh": {
+    "completed": true,
+    "access_token_expires_at": "2026-08-25T15:03:15.031Z",
+    "refresh_token_expires_at": "2026-11-23T15:03:15.031Z",
+    "secret_values_recorded": false
+  },
+  "transaction": {
+    "request_id": "c17e01d1-4fa4-4283-9278-8222277eabad",
+    "job_id": "6303a35b-68fe-46c5-9618-cebddb8b497f",
+    "source_job_key": "decision:5fa417ba-f345-4b89-95dd-af76f52643a4",
+    "run_id": "run_20260825T140331Z_577ce807",
+    "status": "completed",
+    "decision": "APPROVED_REVIEW_DRAFT_CREATED_VERIFICATION_PASSED",
+    "requested_mode": "hidden-draft",
+    "job_count": 1,
+    "run_count": 1,
+    "attempt_count": 1,
+    "attempt_number": 1,
+    "replay_disposition": "terminal",
+    "replayed": false,
+    "pipeline_exit_code": 0,
+    "error_code": null,
+    "shopify_article_id": "621705855264",
+    "shopify_create_count": 1,
+    "shopify_published": false,
+    "shopify_write_state": "article_observed",
+    "queue_changed": false,
+    "reconciliation_status": "reconciled",
+    "approved_body_sha256": "6200d6c2688e35c963bdc7f43c1e02bea4f33a81f2443330327aa00a44b8cb57",
+    "started_at": "2026-08-25T14:03:31.144065Z",
+    "finished_at": "2026-08-25T14:03:32.508296Z"
+  },
+  "postflight": {
+    "client_status": "active",
+    "request_intake_enabled": true,
+    "automation_enabled": true,
+    "shopify_writes_enabled": false,
+    "approved_draft_writes_enabled": true,
+    "allowed_mode": "dry-run",
+    "max_concurrency": 1,
+    "scheduler_state": "disabled",
+    "scheduler_owner": null,
+    "worker_container_state": "running",
+    "worker_restart_count": 0,
+    "active_jobs": 0,
+    "open_incidents": 0
+  },
+  "safety": {
+    "broad_shopify_gate_opened": false,
+    "live_publishing_enabled": false,
+    "live_article_created": false,
+    "exact_approval_binding_enforced": true,
+    "duplicate_decision_created": false,
+    "duplicate_job_created": false
+  },
+  "next_action": "Keep the OAuth tenant on manual approval-only unpublished drafts while productizing the remaining no-code setup and monitoring surfaces."
+}
