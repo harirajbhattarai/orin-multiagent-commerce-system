@@ -157,6 +157,7 @@ jobs:
           ORIN_RUNTIME_UID=1000 \
           ORIN_RUNTIME_GID=1000 \
           ORIN_API_PORT=58080 \
+          ORIN_OAUTH_DRAFT_CLIENT_ID=orin_oauth_test \
             docker compose -f deploy/vps/compose.yml --profile "*" config --quiet
           test -z "$(ORIN_DEPLOY_SHA="${GITHUB_SHA}" \
             ORIN_WATCHDOG_DEPLOY_SHA="${GITHUB_SHA}" \
@@ -168,6 +169,7 @@ jobs:
             ORIN_RUNTIME_UID=1000 \
             ORIN_RUNTIME_GID=1000 \
             ORIN_API_PORT=58080 \
+            ORIN_OAUTH_DRAFT_CLIENT_ID=orin_oauth_test \
               docker compose -f deploy/vps/compose.yml config --services)"
       - name: Validate disabled Prefect shadow deployment contract
         run: |
