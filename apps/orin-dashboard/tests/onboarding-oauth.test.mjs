@@ -83,3 +83,17 @@ test("no-code commissioning is service mediated and fail closed", async () => {
   assert.match(migration, /grant execute on function public\.service_request_client_commissioning[\s\S]+to service_role/i);
   assert.doesNotMatch(migration, /grant execute on function public\.service_request_client_commissioning[\s\S]+to authenticated/i);
 });
+
+test("recurring pilot activation is no-code, idempotent, and Shopify-blind", async () => {
+  const source = await readFile(new URL("supabase/functions/orin-client-onboarding/index.ts", repositoryRoot), "utf8");
+  const client = await readFile(new URL("apps/orin-dashboard/src/lib/dashboardClient.js", repositoryRoot), "utf8");
+  const migration = await readFile(new URL("supabase/migrations/20260826113000_generic_recurring_pilot.sql", repositoryRoot), "utf8");
+  assert.match(source, /body\.action === "request_recurring_pilot"/);
+  assert.match(source, /service_activate_client_recurring_pilot/);
+  assert.match(client, /requestClientRecurringPilot/);
+  assert.match(client, /activation_request_id: activationRequestId/);
+  assert.match(migration, /shopify_writes_enabled = false/i);
+  assert.match(migration, /requested_mode[\s\S]+dry-run/i);
+  assert.match(migration, /grant execute on function public\.service_activate_client_recurring_pilot[\s\S]+to service_role/i);
+  assert.doesNotMatch(migration, /grant execute on function public\.service_activate_client_recurring_pilot[\s\S]+to authenticated/i);
+});

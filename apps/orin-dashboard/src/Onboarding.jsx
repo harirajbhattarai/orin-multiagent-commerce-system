@@ -26,6 +26,7 @@ import {
   loadClientManagementData,
   provisionOnboardingClient,
   requestClientCommissioning,
+  requestClientRecurringPilot,
   selectOnboardingShopifyBlog,
   updateOnboardingScope,
 } from "./lib/dashboardClient.js";
@@ -195,7 +196,9 @@ function ClientManagement({
   onOpenWorkspace,
   onRefresh,
   onRequestCommissioning,
+  onStartRecurringPilot,
   commissioningBusy,
+  recurringPilotBusy,
   refreshing,
   lastRefreshed,
   message,
@@ -302,6 +305,7 @@ function ClientManagement({
                   <GateStatus label="Scheduler" detail={selected.health?.scheduler_owner ? `Owned by ${selected.health.scheduler_owner}` : "No scheduler owner is assigned."} active={selected.health?.state === "healthy"} attention={["late", "error"].includes(selected.health?.state)} />
                   <GateStatus label="Watchdog signal" detail={selected.health?.state === "healthy" ? "Aligned with the latest healthy scheduler receipt." : "Monitoring is paused or needs attention."} active={selected.health?.state === "healthy"} attention={["late", "error"].includes(selected.health?.state)} />
                   <div className="client-observation"><CalendarCheck size={17} /><span><strong>Last observed</strong>{formatMoment(selected.health?.last_heartbeat_at ?? selected.health?.updated_at)}</span></div>
+                  {selected.recurringSchedule && <div className="client-observation"><CalendarCheck size={17} /><span><strong>Next dry-run</strong>{formatMoment(selected.recurringSchedule.next_run_at)} · {selected.recurringSchedule.timezone}</span></div>}
                 </div>
               </div>
 
@@ -325,6 +329,7 @@ function ClientManagement({
             <div className="client-detail-actions">
               {selectedPresentation.canContinueOnboarding && selected.request && <button className="secondary-button" type="button" onClick={() => onContinue(selected.request)}>Continue setup</button>}
               {selectedPresentation.canRequestCommissioning && <button className="primary-button" type="button" onClick={() => onRequestCommissioning(selected.id)} disabled={commissioningBusy === selected.id}>{commissioningBusy === selected.id ? "Requesting…" : selected.commissioningRequest?.status === "failed" ? "Retry safe commissioning" : "Start safe commissioning"}<ArrowRight size={17} /></button>}
+              {selectedPresentation.canStartRecurringPilot && <button className="primary-button" type="button" onClick={() => onStartRecurringPilot(selected.id)} disabled={recurringPilotBusy === selected.id}>{recurringPilotBusy === selected.id ? "Starting…" : "Start recurring dry-runs"}<ArrowRight size={17} /></button>}
               {selected.runtime && <button className="primary-button" type="button" onClick={() => onOpenWorkspace(selected.id)}>Open workspace<ArrowRight size={17} /></button>}
             </div>
           </section>
@@ -604,6 +609,24 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
     });
   };
 
+  const startRecurringPilot = async (clientId) => {
+    setBusy(`recurring:${clientId}`);
+    setMessage({ tone: "", text: "" });
+    const result = await requestClientRecurringPilot(clientId);
+    setBusy("");
+    if (result.error) {
+      setMessage({ tone: "error", text: result.error.message });
+      return;
+    }
+    await refreshRequests(clientId);
+    setMessage({
+      tone: "success",
+      text: result.data?.replayed
+        ? "Recurring dry-runs were already activated. No duplicate schedule was created."
+        : "Recurring dry-runs activated. The first automatic proof is due within a few minutes; Shopify publishing remains unavailable.",
+    });
+  };
+
   if (screen === "manage") {
     return (
       <ClientManagement
@@ -615,7 +638,9 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
         onOpenWorkspace={onOpenWorkspace}
         onRefresh={refreshManagement}
         onRequestCommissioning={commissionClient}
+        onStartRecurringPilot={startRecurringPilot}
         commissioningBusy={busy.startsWith("commission:") ? busy.slice("commission:".length) : ""}
+        recurringPilotBusy={busy.startsWith("recurring:") ? busy.slice("recurring:".length) : ""}
         refreshing={managementLoading}
         lastRefreshed={lastRefreshed}
         message={message}

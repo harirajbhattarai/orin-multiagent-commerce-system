@@ -29,6 +29,10 @@ case "${mode}" in
     export PREFECT_API_AUTH_STRING="${api_auth}"
     exec python -c 'from orin_prefect_shadow.bootstrap import bootstrap_hcs; bootstrap_hcs()'
     ;;
+  tenant-bootstrap)
+    export PREFECT_API_AUTH_STRING="${api_auth}"
+    exec python -c 'from orin_prefect_shadow.bootstrap import bootstrap_tenant; bootstrap_tenant()'
+    ;;
   worker)
     export PREFECT_API_AUTH_STRING="${api_auth}"
     exec prefect worker start \
@@ -58,8 +62,18 @@ case "${mode}" in
       --no-create-pool-if-not-found \
       --install-policy never
     ;;
+  tenant-owner-worker)
+    export PREFECT_API_AUTH_STRING="${api_auth}"
+    exec prefect worker start \
+      --pool orin-tenant-owner-process \
+      --name orin-tenant-prefect-scheduler-1 \
+      --limit 1 \
+      --with-healthcheck \
+      --no-create-pool-if-not-found \
+      --install-policy never
+    ;;
   *)
-    echo "usage: entrypoint.sh {server|bootstrap|hcs-bootstrap|worker|owner-worker|hcs-owner-worker}" >&2
+    echo "usage: entrypoint.sh {server|bootstrap|hcs-bootstrap|tenant-bootstrap|worker|owner-worker|hcs-owner-worker|tenant-owner-worker}" >&2
     exit 2
     ;;
 esac

@@ -37,6 +37,7 @@ test("presents a proven recurring client without offering more onboarding", () =
       allowed_mode: "dry-run",
     },
     health: { state: "healthy", scheduler_owner: "prefect:orin-hcs-prod" },
+    recurringSchedule: { enabled: true },
     request: { credential_status: "stored", commissioning_status: "identity_verified" },
   });
   assert.equal(presentation.stage.label, "Recurring dry-run");
@@ -178,6 +179,7 @@ test("labels a completed read-only pilot accurately while Shopify remains closed
     openIncidents: 0,
   });
 
-  assert.equal(presentation.stage.label, "Pilot draft ready");
-  assert.match(presentation.nextAction, /Review the version-bound pilot draft/);
+  assert.equal(presentation.stage.label, "Pilot proven");
+  assert.match(presentation.nextAction, /Start recurring dry-runs/);
+  assert.equal(presentation.canStartRecurringPilot, true);
 });

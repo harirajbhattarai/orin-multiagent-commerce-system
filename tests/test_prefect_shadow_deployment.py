@@ -28,7 +28,7 @@ def service(name: str, next_name: str | None) -> str:
 
 
 def test_every_prefect_service_is_disabled_by_default_and_pinned():
-    assert COMPOSE.count("profiles:") == 7
+    assert COMPOSE.count("profiles:") == 9
     assert ":latest" not in COMPOSE
     assert "prefecthq/prefect:3.8.1" not in COMPOSE
     assert "postgres:16.10-bookworm@sha256:" in COMPOSE
@@ -88,14 +88,17 @@ def test_owner_worker_has_only_its_fixed_scheduler_secret_and_is_resilient():
 
 def test_bootstrap_and_worker_do_not_receive_prefect_database_password():
     bootstrap = service("prefect-bootstrap", "prefect-hcs-bootstrap")
-    hcs_bootstrap = service("prefect-hcs-bootstrap", "prefect-shadow-worker")
+    hcs_bootstrap = service("prefect-hcs-bootstrap", "prefect-tenant-bootstrap")
+    tenant_bootstrap = service("prefect-tenant-bootstrap", "prefect-shadow-worker")
     worker = service("prefect-shadow-worker", "prefect-owner-worker")
     owner = service("prefect-owner-worker", "prefect-hcs-owner-worker")
-    hcs_owner = service("prefect-hcs-owner-worker", None).split("\nsecrets:", 1)[0]
+    hcs_owner = service("prefect-hcs-owner-worker", "prefect-tenant-owner-worker")
     assert "prefect_server_database_password" not in bootstrap
     assert "prefect_postgres_password" not in bootstrap
     assert "prefect_server_database_password" not in hcs_bootstrap
     assert "prefect_postgres_password" not in hcs_bootstrap
+    assert "prefect_server_database_password" not in tenant_bootstrap
+    assert "prefect_postgres_password" not in tenant_bootstrap
     assert "prefect_server_database_password" not in worker
     assert "prefect_postgres_password" not in worker
     assert "prefect_server_database_password" not in owner
@@ -153,7 +156,7 @@ def test_daily_prefect_schedule_is_exact_and_disabled_by_default():
 
 
 def test_hcs_owner_worker_and_schedule_are_isolated_and_disabled():
-    worker = service("prefect-hcs-owner-worker", None).split("\nsecrets:", 1)[0]
+    worker = service("prefect-hcs-owner-worker", "prefect-tenant-owner-worker")
     assert 'profiles: ["hcs-owner-worker"]' in worker
     assert 'user: "10007:10007"' in worker
     assert "HOME: /home/orin-hcs-prefect" in worker
@@ -203,7 +206,7 @@ def test_hcs_owner_worker_and_schedule_are_isolated_and_disabled():
 
 def test_hcs_bootstrap_cannot_mutate_hbstore_prefect_objects():
     hcs_bootstrap_service = service(
-        "prefect-hcs-bootstrap", "prefect-shadow-worker"
+        "prefect-hcs-bootstrap", "prefect-tenant-bootstrap"
     )
     hcs_bootstrap_code = BOOTSTRAP.split("def bootstrap_hcs()", 1)[1].split(
         "\ndef main()", 1
@@ -221,6 +224,22 @@ def test_hcs_bootstrap_cannot_mutate_hbstore_prefect_objects():
     assert "orin-owner-process" not in hcs_bootstrap_code
     assert "orin-shadow-process" not in hcs_bootstrap_code
     assert "ORIN_HCS_PREFECT_BOOTSTRAP_OK" in hcs_bootstrap_code
+
+
+def test_shared_tenant_scheduler_is_isolated_and_disabled_by_default():
+    worker = service("prefect-tenant-owner-worker", None).split("\nsecrets:", 1)[0]
+    bootstrap = service("prefect-tenant-bootstrap", "prefect-shadow-worker")
+    assert 'profiles: ["tenant-bootstrap"]' in bootstrap
+    assert 'profiles: ["tenant-owner-worker"]' in worker
+    assert 'user: "10010:10010"' in worker
+    assert "tenant_owner_database_url" in worker
+    assert "source: tenant_prefect_api_auth" in worker
+    assert "target: prefect_api_auth" in worker
+    assert "shopify" not in worker.lower()
+    assert 'TENANT_SCHEDULER_CRON = "*/5 * * * *"' in BOOTSTRAP
+    assert 'TENANT_SCHEDULER_TIMEZONE = "UTC"' in BOOTSTRAP
+    assert "def bootstrap_tenant()" in BOOTSTRAP
+    assert "ORIN_TENANT_PREFECT_BOOTSTRAP_OK" in BOOTSTRAP
 
 
 def test_hcs_scheduler_database_boundary_is_fixed_and_dry_run_only():

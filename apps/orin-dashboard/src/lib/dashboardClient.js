@@ -389,7 +389,7 @@ export async function loadClientManagementData() {
     };
   }
 
-  const [runtimeResult, healthResult, jobsResult, incidentsResult, runsResult, commissioningResult, commissioningEventsResult] = await Promise.all([
+  const [runtimeResult, healthResult, jobsResult, incidentsResult, runsResult, commissioningResult, commissioningEventsResult, recurringScheduleResult] = await Promise.all([
     supabase
       .from("client_runtime_settings")
       .select("client_id,request_intake_enabled,automation_enabled,shopify_writes_enabled,approved_draft_writes_enabled,max_concurrency,allowed_mode,updated_at")
@@ -427,6 +427,10 @@ export async function loadClientManagementData() {
       .in("client_id", clientIds)
       .order("created_at", { ascending: true })
       .limit(500),
+    supabase
+      .from("client_recurring_pilot_schedules")
+      .select("client_id,enabled,local_run_time,timezone,next_run_at,last_enqueued_date,last_enqueued_job_id,activated_at,updated_at")
+      .in("client_id", clientIds),
   ]);
   const error = runtimeResult.error
     ?? healthResult.error
@@ -434,7 +438,8 @@ export async function loadClientManagementData() {
     ?? incidentsResult.error
     ?? runsResult.error
     ?? commissioningResult.error
-    ?? commissioningEventsResult.error;
+    ?? commissioningEventsResult.error
+    ?? recurringScheduleResult.error;
   if (error) return { data: null, error };
 
   const runtimeByClient = new Map((runtimeResult.data ?? []).map((row) => [row.client_id, row]));
@@ -446,6 +451,9 @@ export async function loadClientManagementData() {
   const runsByClient = new Map();
   const commissioningByClient = new Map();
   const commissioningEventsByRequest = new Map();
+  const recurringScheduleByClient = new Map(
+    (recurringScheduleResult.data ?? []).map((row) => [row.client_id, row]),
+  );
   for (const row of jobsResult.data ?? []) {
     activeJobsByClient.set(row.client_id, (activeJobsByClient.get(row.client_id) ?? 0) + 1);
   }
@@ -491,6 +499,7 @@ export async function loadClientManagementData() {
       recentRuns: runsByClient.get(workspace.id) ?? [],
       incidents: incidentsByClient.get(workspace.id) ?? [],
       commissioningRequest: commissioningByClient.get(workspace.id) ?? null,
+      recurringSchedule: recurringScheduleByClient.get(workspace.id) ?? null,
     };
   });
 
@@ -510,6 +519,7 @@ export async function loadClientManagementData() {
       recentRuns: [],
       incidents: [],
       commissioningRequest: null,
+      recurringSchedule: null,
     });
   }
 
@@ -609,6 +619,25 @@ export async function requestClientCommissioning(clientId, { retry = false } = {
     window.sessionStorage.removeItem(storageKey);
   }
   return { data: data?.commissioning ?? null, error: resolvedError };
+}
+
+export async function requestClientRecurringPilot(clientId, { retry = false } = {}) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const storageKey = `orin-recurring-pilot:${clientId}`;
+  if (retry) window.sessionStorage.removeItem(storageKey);
+  const activationRequestId = window.sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
+  window.sessionStorage.setItem(storageKey, activationRequestId);
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: {
+      action: "request_recurring_pilot",
+      client_id: clientId,
+      activation_request_id: activationRequestId,
+    },
+  });
+  return {
+    data: data?.recurring_pilot ?? null,
+    error: await functionInvokeError(error, data),
+  };
 }
 
 export async function refreshApprovedDraftConnection(clientId) {

@@ -9,7 +9,12 @@ from pathlib import Path
 from prefect import flow, get_run_logger
 from prefect.artifacts import create_markdown_artifact
 
-from .repository import DailyOwnerRepository, HcsDailyOwnerRepository, OwnerRepository
+from .repository import (
+    DailyOwnerRepository,
+    HcsDailyOwnerRepository,
+    OwnerRepository,
+    TenantDailyOwnerRepository,
+)
 
 
 @flow(
@@ -114,6 +119,41 @@ def hcs_daily_scheduler_flow() -> dict[str, object]:
     create_markdown_artifact(
         key="orin-hcs-prefect-scheduler",
         description="Daily credential-free HCS dry-run scheduler receipt.",
+        markdown=f"```json\n{rendered}\n```",
+    )
+    return result
+
+
+@flow(
+    name="orin-tenant-prefect-scheduler",
+    description="Shared due-tenant dry-run enqueue; no Shopify credentials or tenant parameters.",
+    log_prints=True,
+    retries=0,
+    persist_result=False,
+)
+def tenant_daily_scheduler_flow() -> dict[str, object]:
+    database_url_file = Path(
+        os.environ.get(
+            "ORIN_TENANT_PREFECT_DATABASE_URL_FILE",
+            "/run/secrets/tenant_owner_database_url",
+        )
+    )
+    expected_role = os.environ.get(
+        "ORIN_TENANT_PREFECT_DATABASE_ROLE", "orin_tenant_prefect_scheduler"
+    )
+    receipt = TenantDailyOwnerRepository(
+        database_url_file, expected_role=expected_role
+    ).enqueue()
+    result: dict[str, object] = {
+        "schema": "orin.tenant-prefect-scheduler/v1",
+        "status": "accepted" if receipt is not None else "no_tenant_due",
+        **({} if receipt is None else receipt.as_json()),
+    }
+    rendered = json.dumps(result, sort_keys=True, indent=2)
+    get_run_logger().info("ORIN_TENANT_PREFECT_SCHEDULER_RESULT %s", rendered)
+    create_markdown_artifact(
+        key="orin-tenant-prefect-scheduler",
+        description="Shared credential-free tenant dry-run scheduler receipt.",
         markdown=f"```json\n{rendered}\n```",
     )
     return result

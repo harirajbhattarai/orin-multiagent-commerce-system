@@ -87,7 +87,10 @@ export function clientManagementPresentation(client = {}) {
   const health = client.health ?? null;
   const identityVerified = ["identity_verified", "worker_pending", "dry_run_pending", "pilot_pending", "ready"]
     .includes(request?.commissioning_status);
-  const recurringDryRun = client.status === "active"
+  const dedicatedRecurring = ["hoverboard_store", "hcs_gadgets"].includes(client.id)
+    && Boolean(health?.scheduler_owner);
+  const recurringDryRun = (client.recurringSchedule?.enabled === true || dedicatedRecurring)
+    && client.status === "active"
     && runtime?.request_intake_enabled === true
     && runtime?.automation_enabled === true
     && runtime?.allowed_mode === "dry-run"
@@ -113,8 +116,8 @@ export function clientManagementPresentation(client = {}) {
     stage = { label: "Recurring dry-run", tone: "green" };
     nextAction = "No setup action is required. Monitor the next scheduled proof.";
   } else if (client.commissioningRequest?.status === "succeeded" && request?.commissioning_status === "pilot_pending") {
-    stage = { label: "Pilot draft ready", tone: "green" };
-    nextAction = "Review the version-bound pilot draft. Approval-only Shopify setup is the next controlled step.";
+    stage = { label: "Pilot proven", tone: "green" };
+    nextAction = "Start recurring dry-runs. The first automatic proof runs within a few minutes; Shopify publishing stays unavailable.";
   } else if (identityVerified) {
     stage = { label: "Identity verified", tone: "blue" };
     nextAction = "Commission the isolated worker, automatic dry-run, and watchdog.";
@@ -151,7 +154,15 @@ export function clientManagementPresentation(client = {}) {
     credential,
     shopify,
     canContinueOnboarding: Boolean(request) && !recurringDryRun,
-    canRequestCommissioning: identityVerified && !recurringDryRun && !commissioning.active,
+    canRequestCommissioning: identityVerified
+      && request?.commissioning_status !== "pilot_pending"
+      && !recurringDryRun
+      && !commissioning.active,
+    canStartRecurringPilot: client.commissioningRequest?.status === "succeeded"
+      && request?.commissioning_status === "pilot_pending"
+      && !recurringDryRun
+      && (client.activeJobs ?? 0) === 0
+      && (client.openIncidents ?? 0) === 0,
     commissioning,
     recurringDryRun,
   };

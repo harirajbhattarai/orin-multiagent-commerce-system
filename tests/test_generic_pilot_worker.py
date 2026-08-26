@@ -138,7 +138,7 @@ def test_rollout_artifact_recovery_qualifies_onboarding_status():
 
 def test_generic_pilot_compose_is_one_shot_and_has_no_shopify_secret():
     service = COMPOSE.split("  generic-pilot-worker:", 1)[1].split(
-        "\n  oauth-draft-worker:", 1
+        "\n  tenant-content-worker:", 1
     )[0]
     assert 'profiles: ["generic-pilot-worker"]' in service
     assert 'restart: "no"' in service
@@ -152,6 +152,20 @@ def test_generic_pilot_compose_is_one_shot_and_has_no_shopify_secret():
     assert "ports:" not in service
     assert "- once" in service
     assert "- serve" not in service
+
+
+def test_shared_tenant_worker_is_persistent_and_shopify_blind():
+    service = COMPOSE.split("  tenant-content-worker:", 1)[1].split(
+        "\n  oauth-draft-worker:", 1
+    )[0]
+    assert 'profiles: ["tenant-content-worker"]' in service
+    assert "restart: unless-stopped" in service
+    assert "- serve" in service
+    assert "pilot_worker_database_url" in service
+    assert "writer_api_key" in service
+    assert "shopify_access_token" not in service
+    assert "refresh_token" not in service
+    assert "ports:" not in service
 
 
 def test_generic_pilot_secret_install_and_preflight_are_private():
