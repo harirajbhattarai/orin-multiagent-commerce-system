@@ -613,6 +613,29 @@ Deno.serve(async (request: Request) => {
         commissioning: Array.isArray(data) ? data[0] : data,
       });
     }
+    if (body.action === "request_recurring_pilot") {
+      const clientId = typeof body.client_id === "string" ? body.client_id.trim() : "";
+      const activationRequestId = typeof body.activation_request_id === "string"
+        ? body.activation_request_id.trim()
+        : "";
+      if (!/^[a-z0-9][a-z0-9_]{1,62}$/.test(clientId)) {
+        return json(origin, 400, { error: "A valid provisioned client ID is required." });
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(activationRequestId)) {
+        return json(origin, 400, { error: "A valid recurring-pilot request ID is required." });
+      }
+      await ensureFreshShopifyConnection(service, operatorId, clientId);
+      const { data, error } = await service.rpc("service_activate_client_recurring_pilot", {
+        p_operator_id: operatorId,
+        p_client_id: clientId,
+        p_activation_request_id: activationRequestId,
+      });
+      if (error) throw new Error(error.message);
+      return json(origin, 200, {
+        ok: true,
+        recurring_pilot: Array.isArray(data) ? data[0] : data,
+      });
+    }
     if (body.action === "refresh_approved_draft_connection") {
       const clientId = typeof body.client_id === "string" ? body.client_id.trim() : "";
       if (!/^[a-z0-9][a-z0-9_]{1,62}$/.test(clientId)) {

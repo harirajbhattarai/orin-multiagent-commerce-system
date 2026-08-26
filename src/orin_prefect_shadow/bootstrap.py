@@ -18,6 +18,7 @@ from orin_prefect_owner.flow import (
     hbstore_daily_scheduler_flow,
     hbstore_owner_commissioning_flow,
     hcs_daily_scheduler_flow,
+    tenant_daily_scheduler_flow,
 )
 
 from .flow import hbstore_shadow_flow
@@ -36,6 +37,57 @@ HCS_SCHEDULER_DEPLOYMENT_NAME = "orin-hcs-prefect-scheduler"
 HCS_SCHEDULER_CRON = "30 11 * * *"
 HCS_SCHEDULER_TIMEZONE = "Europe/London"
 HCS_SCHEDULER_SLUG = "hcs-daily-dry-run"
+TENANT_OWNER_WORK_POOL_NAME = "orin-tenant-owner-process"
+TENANT_SCHEDULER_DEPLOYMENT_NAME = "orin-tenant-prefect-scheduler"
+TENANT_SCHEDULER_CRON = "*/5 * * * *"
+TENANT_SCHEDULER_TIMEZONE = "UTC"
+TENANT_SCHEDULER_SLUG = "tenant-recurring-dry-run"
+
+
+def _tenant_scheduler_deployment():
+    return tenant_daily_scheduler_flow.to_deployment(
+        name=TENANT_SCHEDULER_DEPLOYMENT_NAME,
+        paused=True,
+        schedules=[
+            Cron(
+                TENANT_SCHEDULER_CRON,
+                timezone=TENANT_SCHEDULER_TIMEZONE,
+                active=False,
+                slug=TENANT_SCHEDULER_SLUG,
+            )
+        ],
+        concurrency_limit=ConcurrencyLimitConfig(
+            limit=1,
+            collision_strategy=ConcurrencyLimitStrategy.CANCEL_NEW,
+        ),
+        tags=[
+            "orin", "scheduler", "multi-tenant", "dry-run-only",
+            "no-shopify-credentials", "disabled-by-default",
+        ],
+        version=os.environ.get("ORIN_CODE_VERSION", "dev"),
+        work_pool_name=TENANT_OWNER_WORK_POOL_NAME,
+        entrypoint_type=EntrypointType.MODULE_PATH,
+        job_variables={"working_dir": "/app"},
+    )
+
+
+async def _verify_tenant() -> None:
+    async with get_client() as client:
+        pool = await client.read_work_pool(TENANT_OWNER_WORK_POOL_NAME)
+        if not pool.is_paused or pool.concurrency_limit != 1:
+            raise RuntimeError("tenant owner pool must be paused with concurrency one")
+        deployment = await client.read_deployment_by_name(
+            f"orin-tenant-prefect-scheduler/{TENANT_SCHEDULER_DEPLOYMENT_NAME}"
+        )
+        if deployment.paused is not True or len(deployment.schedules) != 1:
+            raise RuntimeError("tenant scheduler must be installed paused with one schedule")
+        schedule = deployment.schedules[0]
+        if schedule.active or schedule.slug != TENANT_SCHEDULER_SLUG:
+            raise RuntimeError("tenant scheduler must remain inactive after bootstrap")
+        if schedule.schedule.cron != TENANT_SCHEDULER_CRON:
+            raise RuntimeError("tenant scheduler cron is invalid")
+        if schedule.schedule.timezone != TENANT_SCHEDULER_TIMEZONE:
+            raise RuntimeError("tenant scheduler timezone is invalid")
 
 
 def _hcs_scheduler_deployment():
@@ -166,7 +218,54 @@ def bootstrap_hcs() -> None:
     print("ORIN_HCS_PREFECT_BOOTSTRAP_OK")
 
 
+def bootstrap_tenant() -> None:
+    """Install only the disabled shared tenant pool/deployment."""
+    subprocess.run(
+        [
+            "prefect",
+            "work-pool",
+            "create",
+            "--type",
+            "process",
+            "--paused",
+            "--overwrite",
+            TENANT_OWNER_WORK_POOL_NAME,
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "prefect",
+            "work-pool",
+            "set-concurrency-limit",
+            TENANT_OWNER_WORK_POOL_NAME,
+            "1",
+        ],
+        check=True,
+    )
+    _tenant_scheduler_deployment().apply()
+    subprocess.run(
+        ["prefect", "work-pool", "pause", TENANT_OWNER_WORK_POOL_NAME],
+        check=True,
+    )
+    asyncio.run(_verify_tenant())
+    print("ORIN_TENANT_PREFECT_BOOTSTRAP_OK")
+
+
 def main() -> None:
+    subprocess.run(
+        [
+            "prefect",
+            "work-pool",
+            "create",
+            "--type",
+            "process",
+            "--paused",
+            "--overwrite",
+            TENANT_OWNER_WORK_POOL_NAME,
+        ],
+        check=True,
+    )
     subprocess.run(
         [
             "prefect",
@@ -203,6 +302,16 @@ def main() -> None:
             "--paused",
             "--overwrite",
             OWNER_WORK_POOL_NAME,
+        ],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "prefect",
+            "work-pool",
+            "set-concurrency-limit",
+            TENANT_OWNER_WORK_POOL_NAME,
+            "1",
         ],
         check=True,
     )
@@ -303,6 +412,7 @@ def main() -> None:
     )
     scheduler_deployment.apply()
     _hcs_scheduler_deployment().apply()
+    _tenant_scheduler_deployment().apply()
     subprocess.run(["prefect", "work-pool", "pause", WORK_POOL_NAME], check=True)
     subprocess.run(
         ["prefect", "work-pool", "pause", OWNER_WORK_POOL_NAME], check=True
@@ -310,8 +420,12 @@ def main() -> None:
     subprocess.run(
         ["prefect", "work-pool", "pause", HCS_OWNER_WORK_POOL_NAME], check=True
     )
+    subprocess.run(
+        ["prefect", "work-pool", "pause", TENANT_OWNER_WORK_POOL_NAME], check=True
+    )
     asyncio.run(_verify())
     asyncio.run(_verify_hcs())
+    asyncio.run(_verify_tenant())
     print("ORIN_PREFECT_SHADOW_BOOTSTRAP_OK")
 
 

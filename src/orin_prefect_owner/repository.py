@@ -120,3 +120,32 @@ class HcsDailyOwnerRepository:
         if row is None:
             raise RuntimeError("HCS daily scheduler function returned no receipt")
         return CommissioningJob(*row)
+
+
+class TenantDailyOwnerRepository:
+    """Run the zero-argument shared tenant scheduler boundary."""
+
+    def __init__(self, database_url_file: Path, *, expected_role: str) -> None:
+        self.database_url_file = database_url_file
+        self.expected_role = expected_role
+
+    def enqueue(self) -> CommissioningJob | None:
+        database_url = self.database_url_file.read_text(encoding="utf-8").strip()
+        if not database_url:
+            raise RuntimeError("tenant scheduler database URL file is empty")
+        with psycopg.connect(database_url, autocommit=True) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("select current_user")
+                current_role = cursor.fetchone()[0]
+                if current_role != self.expected_role:
+                    raise RuntimeError(
+                        "database role mismatch: "
+                        f"required={self.expected_role}, received={current_role}"
+                    )
+                cursor.execute(
+                    "select job_id, client_id, request_id, requested_mode, "
+                    "job_status, scheduled_for, created_at, replayed "
+                    "from orin_private.enqueue_due_tenant_prefect_jobs()"
+                )
+                row = cursor.fetchone()
+        return None if row is None else CommissioningJob(*row)

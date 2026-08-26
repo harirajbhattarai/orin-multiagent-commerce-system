@@ -188,16 +188,58 @@ def execute_generic_pilot(
         raise RuntimeError("generic pilot accepts only an empty dry-run job")
     if context.get("client_id") != job.client_id:
         raise RuntimeError("pilot context crossed the claimed client boundary")
-    item = context.get("content_item")
-    if not isinstance(item, dict) or str(item.get("status")) != "in_progress":
-        raise RuntimeError("pilot content item is not version-bound and in progress")
-
     started_at = _now()
     run_id = f"pilot_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_{uuid.uuid4().hex[:8]}"
     run_dir = (artifact_root / job.client_id / run_id).resolve()
     run_dir.mkdir(parents=True, mode=0o700)
     run_dir.chmod(0o700)
     os.environ["ORIN_RUN_ARTIFACT_DIR"] = str(run_dir)
+    item = context.get("content_item")
+    if item is None and context.get("source_kind") == "recurring":
+        finished_at = _now()
+        final = FinalResult(
+            schema=SCHEMA_VERSION,
+            run_id=run_id,
+            request_id=str(job.request_id),
+            client_id=job.client_id,
+            job_id=None,
+            attempt=job.attempt_count,
+            requested_mode="dry-run",
+            effective_mode="dry-run",
+            status="completed",
+            decision="no_job_due",
+            code_version=_code_version(),
+            config_version=PILOT_CONFIG_VERSION,
+            idempotency_key=f"{job.client_id}:{job.request_id}",
+            replay_disposition="terminal",
+            shopify_write_state="not_attempted",
+            shopify_idempotency_marker=None,
+            shopify_article_id=None,
+            shopify_create_count=0,
+            shopify_published=False,
+            queue_changed=False,
+            reconciliation_status="not_required",
+            started_at=started_at,
+            finished_at=finished_at,
+            artifact_uri=str(run_dir),
+            error_code=None,
+            pipeline_exit_code=0,
+        ).to_dict()
+        _private_json(
+            run_dir / "scheduler_receipt.json",
+            {
+                "schema": "orin.generic-recurring-dry-run/v1",
+                "client_id": job.client_id,
+                "decision": "no_job_due",
+                "shopify_create_count": 0,
+                "shopify_published": False,
+            },
+        )
+        _private_json(run_dir / "final_result.json", final)
+        return final
+    if not isinstance(item, dict) or str(item.get("status")) != "in_progress":
+        raise RuntimeError("pilot content item is not version-bound and in progress")
+
     plan = _writer_plan(context)
     safe_context = {
         "client_id": job.client_id,
