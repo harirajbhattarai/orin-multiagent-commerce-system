@@ -576,6 +576,67 @@ services:
         max-size: 10m
         max-file: "3"
 
+  tenant-content-worker:
+    profiles: ["tenant-content-worker"]
+    image: local/orin-worker:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
+    pull_policy: never
+    build:
+      context: ${ORIN_PROJECT_ROOT:?set ORIN_PROJECT_ROOT}
+      dockerfile: Dockerfile.worker
+      args:
+        VERSION: ${ORIN_DEPLOY_SHA}
+        VCS_REF: ${ORIN_DEPLOY_SHA}
+    init: true
+    user: "${ORIN_RUNTIME_UID:-1000}:${ORIN_RUNTIME_GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 192
+    mem_limit: 768m
+    cpus: 0.75
+    restart: unless-stopped
+    stop_grace_period: 300s
+    environment:
+      ORIN_PILOT_DATABASE_URL_FILE: /run/secrets/pilot_worker_database_url
+      ORIN_PILOT_DATABASE_ROLE: orin_pilot_worker
+      ORIN_CODE_VERSION: ${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}
+      ORIN_MODEL_WRITER_ENABLED: "1"
+      ORIN_WRITER_API_KEY_FILE: /run/secrets/writer_api_key
+      ORIN_WRITER_TIMEOUT_SECONDS: "240"
+    secrets:
+      - pilot_worker_database_url
+      - writer_api_key
+    volumes:
+      - type: bind
+        source: ${ORIN_EVIDENCE_ROOT:?set ORIN_EVIDENCE_ROOT}/generic-pilot
+        target: /evidence
+    entrypoint:
+      - python
+      - -m
+      - orin_pilot_worker
+    command:
+      - serve
+      - --artifact-root
+      - /evidence
+      - --worker-id
+      - orin-tenant-content
+      - --poll-seconds
+      - "15"
+    healthcheck:
+      test: ["CMD", "python", "-m", "orin_pilot_worker", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
   oauth-draft-worker:
     profiles: ["oauth-draft-worker"]
     image: local/orin-worker:${ORIN_DEPLOY_SHA:?set ORIN_DEPLOY_SHA}

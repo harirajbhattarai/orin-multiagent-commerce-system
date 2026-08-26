@@ -4,15 +4,17 @@ set -euo pipefail
 require_shadow_secret=false
 require_owner_secret=false
 require_hcs_owner_secret=false
+require_tenant_owner_secret=false
 allow_running_server=false
 for argument in "$@"; do
   case "${argument}" in
     --require-shadow-secret) require_shadow_secret=true ;;
     --require-owner-secret) require_owner_secret=true ;;
     --require-hcs-owner-secret) require_hcs_owner_secret=true ;;
+    --require-tenant-owner-secret) require_tenant_owner_secret=true ;;
     --allow-running-server) allow_running_server=true ;;
     *)
-      echo "usage: $0 [--require-shadow-secret] [--require-owner-secret] [--require-hcs-owner-secret] [--allow-running-server]" >&2
+      echo "usage: $0 [--require-shadow-secret] [--require-owner-secret] [--require-hcs-owner-secret] [--require-tenant-owner-secret] [--allow-running-server]" >&2
       exit 2
       ;;
   esac
@@ -69,6 +71,8 @@ declare -A expected_uid=(
   [shadow_database_url]=10004
   [owner_database_url]=10004
   [hcs_owner_database_url]=10007
+  [tenant_prefect_api_auth]=10010
+  [tenant_owner_database_url]=10010
 )
 secret_names=(
   prefect_postgres_password
@@ -83,6 +87,9 @@ if [[ "${require_owner_secret}" == true ]]; then
 fi
 if [[ "${require_hcs_owner_secret}" == true ]]; then
   secret_names+=(hcs_owner_database_url hcs_prefect_api_auth)
+fi
+if [[ "${require_tenant_owner_secret}" == true ]]; then
+  secret_names+=(tenant_owner_database_url tenant_prefect_api_auth)
 fi
 for name in "${secret_names[@]}"; do
   path="${ORIN_PREFECT_SECRETS_DIR}/${name}"
@@ -107,6 +114,12 @@ if [[ "${require_hcs_owner_secret}" == true ]] && ! cmp -s \
   "${ORIN_PREFECT_SECRETS_DIR}/prefect_api_auth" \
   "${ORIN_PREFECT_SECRETS_DIR}/hcs_prefect_api_auth"; then
   echo "HCS Prefect API auth copy does not match the server credential" >&2
+  exit 1
+fi
+if [[ "${require_tenant_owner_secret}" == true ]] && ! cmp -s \
+  "${ORIN_PREFECT_SECRETS_DIR}/prefect_api_auth" \
+  "${ORIN_PREFECT_SECRETS_DIR}/tenant_prefect_api_auth"; then
+  echo "Tenant Prefect API auth copy does not match the server credential" >&2
   exit 1
 fi
 if ! cmp -s \
