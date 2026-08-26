@@ -43,6 +43,7 @@ import {
   nextPlannedJobId,
   reviewJobIdFromPath,
   selectRouteBoundReviewArticle,
+  stageArticleCount,
 } from "./reviewArticle.js";
 import { approvalAvailability } from "./operationalState.js";
 import { Onboarding } from "./Onboarding.jsx";
@@ -461,7 +462,7 @@ function Queue({ data, navigate, onPlan }) {
 
       <section className="stage-board">
         {stages.map((stage, index) => {
-          const count = data.queue.filter((item) => item.stage === stage).length + (stage === "Approved" ? data.counts.approved : 0);
+          const count = stageArticleCount(data, stage);
           return (
             <button type="button" key={stage} className={`stage-column ${activeFilter === stage ? "selected" : ""}`} onClick={() => setActiveFilter(activeFilter === stage ? "All" : stage)}>
               <span className="stage-number">{String(index + 1).padStart(2, "0")}</span>
@@ -488,7 +489,12 @@ function Queue({ data, navigate, onPlan }) {
               const reviewable = isReviewableQueueItem(item);
               return (
                 <button type="button" className={`queue-row ${item.stage === "Review" ? "attention" : ""}`} key={item.id} onClick={() => reviewable && navigate(`/review/${item.id}`)}>
-                  <span className="queue-article"><small>JOB {item.id}</small><strong>{item.title}</strong><em>{item.keyword}</em></span>
+                  <span className="queue-article">
+                    <small>JOB {item.id}</small>
+                    <strong>{item.title}</strong>
+                    <em>{item.keyword}</em>
+                    {item.approvalRecorded && <span className="queue-progress"><CheckCircle size={12} weight="fill" />{item.progressLabel}</span>}
+                  </span>
                   <span><StatusPill tone={item.stage === "Review" ? "orange" : item.stage === "Drafting" ? "blue" : "neutral"}>{item.stage}</StatusPill></span>
                   <span className="priority-cell"><i className={item.priority === "High" ? "high" : ""} />{item.priority}</span>
                   <span className="due-cell">{item.due}</span>
