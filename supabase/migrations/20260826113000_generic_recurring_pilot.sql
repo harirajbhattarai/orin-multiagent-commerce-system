@@ -159,7 +159,7 @@ begin
   ) values (
     p_client_id, p_activation_request_id, p_operator_id, true, v_profile.timezone, v_next_run
   )
-  on conflict (client_id) do update
+  on conflict on constraint client_recurring_pilot_schedules_pkey do update
   set activation_request_id = excluded.activation_request_id,
       activated_by = excluded.activated_by,
       enabled = true,
