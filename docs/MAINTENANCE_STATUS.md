@@ -1958,3 +1958,35 @@ jobs and zero open incidents.
 
 Durable details are in
 `docs/evidence/2026-08-25-generic-oauth-approved-draft-proof.json`.
+
+## Generic OAuth recurring dry-run activation — 2026-08-26
+
+The first no-code OAuth tenant, `orin_oauth_test`, now has production-owned
+recurring dry-run scheduling under the shared generic Prefect boundary. The
+reviewed, merged, deployed checkout and both generic tenant worker images are
+exactly `66901413bc2a02625ac9ab4d1b94dc876ea2a738`. The shared work pool has
+concurrency one, the scheduler deployment and five-minute due-tenant dispatcher
+are active, and the client itself is scheduled once daily at 11:00
+Europe/London.
+
+Prefect automatically created flow run
+`01a03da6-4bbd-7f1d-b024-5b2fdebb8ebd` at the 10:40 UTC boundary with empty
+parameters, run count one, zero retries, and no manual flow invocation. The
+flow returned `accepted` with `replayed=false`. Source key
+`scheduler:orin-tenant-pilot:orin_oauth_test:2026-08-26` exists exactly once.
+The persistent generic content worker then terminalized exactly one job, run,
+and attempt at the reviewed revision.
+
+Run `pilot_20260826T104019Z_6487801c` completed with decision `no_job_due`,
+zero Shopify creates, Shopify write state `not_attempted`, no publication, no
+queue mutation, reconciliation `not_required`, and no error. Broad Shopify
+writes remain disabled, the scheduler path has no Shopify credentials, and
+live publishing remains unavailable. There are zero active jobs and zero open
+incidents. The next client run is 2026-08-27 at 11:00 Europe/London.
+
+Hoverboard Store and HCS Gadgets retain their separate healthy scheduler
+owners and have no active jobs; the shared generic scheduler continues to
+exclude both dedicated clients.
+
+Durable details are in
+`docs/evidence/2026-08-26-generic-recurring-dry-run-activation.json`.
