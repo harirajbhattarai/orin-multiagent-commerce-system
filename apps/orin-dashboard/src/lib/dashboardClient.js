@@ -256,6 +256,29 @@ export async function loadReviewItem(clientId, itemNumber) {
   };
 }
 
+export async function planNextContentArticle({
+  clientId,
+  topic,
+  targetKeyword,
+  cluster,
+  targetDate,
+  notes = "",
+}) {
+  if (!supabase) {
+    return { data: null, error: new Error("Live Supabase access is required to plan content.") };
+  }
+  const { data, error } = await supabase.rpc("plan_next_content_article", {
+    p_client_id: clientId,
+    p_topic: topic,
+    p_target_keyword: targetKeyword,
+    p_cluster: cluster,
+    p_target_date: targetDate,
+    p_notes: notes,
+  });
+  const planned = Array.isArray(data) ? data[0] : data;
+  return { data: planned ?? null, error };
+}
+
 export async function sendMagicLink(email) {
   if (!supabase) {
     return { error: new Error("Supabase sign-in is not enabled in this preview.") };

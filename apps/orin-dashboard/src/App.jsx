@@ -31,6 +31,7 @@ import {
   loadDashboardData,
   loadOnboardingAccess,
   loadReviewItem,
+  planNextContentArticle,
   recordContentDecision,
   refreshApprovedDraftConnection,
   sendMagicLink,
@@ -326,7 +327,7 @@ function MetricCard({ label, value, tone, icon: Icon }) {
   );
 }
 
-function Overview({ data, navigate }) {
+function Overview({ data, navigate, onPlan }) {
   const paused = data.operations.isPaused;
   const heading = dashboardHeading(data.generatedAt);
   return (
@@ -367,10 +368,13 @@ function Overview({ data, navigate }) {
             <span><Clock size={16} /> {data.nextArticle.readingTime}</span>
           </div>
         </article> : <article className="next-article-card empty-workspace-card">
-          <div>
+          <div className="empty-workspace-copy">
             <span className="section-kicker">SAFE WORKSPACE</span>
             <h2>No content plan has been commissioned yet</h2>
-            <p>This client is visible and isolated. ORIN will add its first concepts only after the read-only audit and dry-run checks pass.</p>
+            <p>This client is visible and isolated. Add the first concept without code; planning never contacts Shopify or opens execution gates.</p>
+            <button className="primary-button" type="button" onClick={onPlan}>
+              <Sparkle size={17} weight="fill" /> Plan first article
+            </button>
           </div>
           <ShieldCheck size={42} weight="duotone" />
         </article>}
@@ -426,7 +430,7 @@ function Overview({ data, navigate }) {
 
 const stages = ["Planned", "Research", "Drafting", "Review", "Approved"];
 
-function Queue({ data, navigate }) {
+function Queue({ data, navigate, onPlan }) {
   const [activeFilter, setActiveFilter] = useState("All");
   const [query, setQuery] = useState("");
   const plannedJobId = nextPlannedJobId(data);
@@ -448,8 +452,7 @@ function Queue({ data, navigate }) {
           <button
             className="primary-button"
             type="button"
-            disabled={plannedJobId == null}
-            onClick={() => plannedJobId != null && navigate(`/review/${plannedJobId}`)}
+            onClick={() => plannedJobId != null ? navigate(`/review/${plannedJobId}`) : onPlan()}
           >
             <Sparkle size={17} weight="fill" /> Plan next article
           </button>
@@ -508,6 +511,68 @@ function Queue({ data, navigate }) {
           </div>
           <div className="activity-safe"><ShieldCheck size={21} weight="duotone" /><span><strong>{data.operations.isPaused ? "Workflow is paused" : "Write protection is on"}</strong>{data.operations.isPaused ? "No approval can start work while maintenance gates are closed." : "No article can go live without your approval."}</span></div>
         </aside>
+      </section>
+    </div>
+  );
+}
+
+function londonDateAfter(days) {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Europe/London",
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(now).map((part) => [part.type, part.value]));
+  const date = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) + days));
+  return date.toISOString().slice(0, 10);
+}
+
+function ContentPlanDialog({ client, onClose, onCreated }) {
+  const [form, setForm] = useState({
+    topic: "",
+    targetKeyword: "",
+    cluster: "Buyer guide",
+    targetDate: londonDateAfter(14),
+    notes: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+  const submit = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    const result = await planNextContentArticle({ clientId: client.id, ...form });
+    setSaving(false);
+    if (result.error || !result.data) {
+      setError(result.error?.message ?? "The article could not be planned.");
+      return;
+    }
+    onCreated(result.data.item_number);
+  };
+
+  return (
+    <div className="planner-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !saving && onClose()}>
+      <section className="planner-dialog" role="dialog" aria-modal="true" aria-labelledby="planner-title">
+        <div className="planner-heading">
+          <div><span className="section-kicker">NO-CODE PLANNING</span><h2 id="planner-title">Plan the next article</h2><p>Create one reviewable concept for {client.name}.</p></div>
+          <button className="icon-button" type="button" onClick={onClose} disabled={saving} aria-label="Close planner"><X size={18} /></button>
+        </div>
+        <form className="planner-form" onSubmit={submit}>
+          <label><span>Article title</span><input required maxLength={240} value={form.topic} onChange={(event) => update("topic", event.target.value)} placeholder="Example: Beginner Snowboard Boots: A Fit Guide" autoFocus /></label>
+          <label><span>Target keyword</span><input required maxLength={160} value={form.targetKeyword} onChange={(event) => update("targetKeyword", event.target.value)} placeholder="beginner snowboard boots fit guide" /></label>
+          <div className="planner-form-row">
+            <label><span>Content category</span><input required maxLength={160} value={form.cluster} onChange={(event) => update("cluster", event.target.value)} placeholder="Buyer guide" /></label>
+            <label><span>Target publication date</span><input required type="date" min={londonDateAfter(14)} max={londonDateAfter(365)} value={form.targetDate} onChange={(event) => update("targetDate", event.target.value)} /></label>
+          </div>
+          <label><span>Planning guidance <em>Optional</em></span><textarea maxLength={4000} value={form.notes} onChange={(event) => update("notes", event.target.value)} placeholder="Products to mention, claims to avoid, internal links, or audience details." /></label>
+          <div className="planner-safety"><ShieldCheck size={20} weight="duotone" /><span><strong>Planning only</strong>This creates one deduplicated concept. It does not start a worker, contact Shopify, or publish anything.</span></div>
+          {error && <p className="planner-error" role="alert"><WarningCircle size={16} />{error}</p>}
+          <div className="planner-actions"><button className="secondary-button" type="button" onClick={onClose} disabled={saving}>Cancel</button><button className="primary-button" type="submit" disabled={saving}><Sparkle size={17} weight="fill" />{saving ? "Planning…" : "Create concept"}</button></div>
+        </form>
       </section>
     </div>
   );
@@ -709,6 +774,7 @@ export function App() {
   const { route, path, navigate, location } = useRoute();
   const [state, setState] = useState({ data: null, source: "loading", error: null, requiresAuth: false });
   const [operatorAccess, setOperatorAccess] = useState(false);
+  const [plannerOpen, setPlannerOpen] = useState(false);
 
   const reload = () => {
     setState((current) => ({ ...current, source: "loading", error: null }));
@@ -753,13 +819,16 @@ export function App() {
   }
 
   return (
-    <AppShell route={route} navigate={navigate} dataSource={state.source} operations={state.data.operations} queueCount={state.data.counts.review} onSignOut={signOutDashboard} operatorAccess={operatorAccess} client={state.data.client} workspaces={state.workspaces ?? []} onWorkspaceChange={switchWorkspace}>
-      {route === "overview" && <Overview data={state.data} navigate={navigate} />}
-      {route === "queue" && <Queue data={state.data} navigate={navigate} />}
-      {route === "review" && <Review data={state.data} jobId={reviewJobIdFromPath(path)} navigate={navigate} dataSource={state.source} />}
-      {route === "onboarding" && (operatorAccess
-        ? <Onboarding requestedClientId={state.data.client.id} onSelectWorkspace={switchWorkspace} onOpenWorkspace={openWorkspace} />
-        : <div className="empty-state"><WarningCircle size={26} /><strong>Platform operator access required</strong><span>This route cannot create or view onboarding records for your account.</span></div>)}
-    </AppShell>
+    <>
+      <AppShell route={route} navigate={navigate} dataSource={state.source} operations={state.data.operations} queueCount={state.data.counts.review} onSignOut={signOutDashboard} operatorAccess={operatorAccess} client={state.data.client} workspaces={state.workspaces ?? []} onWorkspaceChange={switchWorkspace}>
+        {route === "overview" && <Overview data={state.data} navigate={navigate} onPlan={() => setPlannerOpen(true)} />}
+        {route === "queue" && <Queue data={state.data} navigate={navigate} onPlan={() => setPlannerOpen(true)} />}
+        {route === "review" && <Review data={state.data} jobId={reviewJobIdFromPath(path)} navigate={navigate} dataSource={state.source} />}
+        {route === "onboarding" && (operatorAccess
+          ? <Onboarding requestedClientId={state.data.client.id} onSelectWorkspace={switchWorkspace} onOpenWorkspace={openWorkspace} />
+          : <div className="empty-state"><WarningCircle size={26} /><strong>Platform operator access required</strong><span>This route cannot create or view onboarding records for your account.</span></div>)}
+      </AppShell>
+      {plannerOpen && <ContentPlanDialog client={state.data.client} onClose={() => setPlannerOpen(false)} onCreated={(itemNumber) => { setPlannerOpen(false); navigate(`/review/${itemNumber}`); }} />}
+    </>
   );
 }
