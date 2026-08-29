@@ -31,9 +31,9 @@ import {
   loadDashboardData,
   loadOnboardingAccess,
   loadReviewItem,
+  approveUnpublishedDraft,
   planNextContentArticle,
   recordContentDecision,
-  refreshApprovedDraftConnection,
   sendMagicLink,
   signOutDashboard,
   subscribeToAuthChanges,
@@ -43,6 +43,7 @@ import {
   nextPlannedJobId,
   reviewJobIdFromPath,
   selectRouteBoundReviewArticle,
+  stageArticleCount,
 } from "./reviewArticle.js";
 import { approvalAvailability } from "./operationalState.js";
 import { Onboarding } from "./Onboarding.jsx";
@@ -461,7 +462,7 @@ function Queue({ data, navigate, onPlan }) {
 
       <section className="stage-board">
         {stages.map((stage, index) => {
-          const count = data.queue.filter((item) => item.stage === stage).length + (stage === "Approved" ? data.counts.approved : 0);
+          const count = stageArticleCount(data, stage);
           return (
             <button type="button" key={stage} className={`stage-column ${activeFilter === stage ? "selected" : ""}`} onClick={() => setActiveFilter(activeFilter === stage ? "All" : stage)}>
               <span className="stage-number">{String(index + 1).padStart(2, "0")}</span>
@@ -488,7 +489,12 @@ function Queue({ data, navigate, onPlan }) {
               const reviewable = isReviewableQueueItem(item);
               return (
                 <button type="button" className={`queue-row ${item.stage === "Review" ? "attention" : ""}`} key={item.id} onClick={() => reviewable && navigate(`/review/${item.id}`)}>
-                  <span className="queue-article"><small>JOB {item.id}</small><strong>{item.title}</strong><em>{item.keyword}</em></span>
+                  <span className="queue-article">
+                    <small>JOB {item.id}</small>
+                    <strong>{item.title}</strong>
+                    <em>{item.keyword}</em>
+                    {item.approvalRecorded && <span className="queue-progress"><CheckCircle size={12} weight="fill" />{item.progressLabel}</span>}
+                  </span>
                   <span><StatusPill tone={item.stage === "Review" ? "orange" : item.stage === "Drafting" ? "blue" : "neutral"}>{item.stage}</StatusPill></span>
                   <span className="priority-cell"><i className={item.priority === "High" ? "high" : ""} />{item.priority}</span>
                   <span className="due-cell">{item.due}</span>
@@ -625,15 +631,24 @@ function Review({ data, jobId, navigate, dataSource }) {
     setSaving(true);
     setDecisionError("");
     if (kind === "approve_hidden_draft") {
-      const refreshed = await refreshApprovedDraftConnection(data.client.id);
-      if (refreshed.error) {
+      const approved = await approveUnpublishedDraft({
+        clientId: data.client.id,
+        contentItemId: article.contentItemId,
+        contentItemVersion: article.version,
+        note: decisionNote,
+      });
+      if (approved.error) {
         setSaving(false);
         setDecisionError(
-          refreshed.error.message
-            ?? "Shopify could not refresh the secure connection. Reconnect Shopify and try again.",
+          approved.error.message
+            ?? "The secure unpublished-draft approval did not start. Try again.",
         );
         return;
       }
+      setSaving(false);
+      setDecision("approved");
+      setChangesOpen(false);
+      return;
     }
     const result = await recordContentDecision({
       clientId: data.client.id,
@@ -749,7 +764,7 @@ function Review({ data, jobId, navigate, dataSource }) {
 
             {!changesOpen ? (
               <div className="decision-actions">
-                <button className="approve-button" type="button" onClick={approve} disabled={saving || !approvalKind || !approvalState.allowed} title={approvalState.allowed ? "" : approvalState.reason}><CheckCircle size={19} weight="fill" /> {saving ? "Saving…" : approvalLabel}</button>
+                <button className="approve-button" type="button" onClick={approve} disabled={saving || !approvalKind || !approvalState.allowed} title={approvalState.allowed ? "" : approvalState.reason}><CheckCircle size={19} weight="fill" /> {saving ? (article.reviewKind === "draft" ? "Securing approval…" : "Saving…") : approvalLabel}</button>
                 {!approvalState.allowed && approvalKind && <p className="approval-paused-note"><WarningCircle size={15} /> {approvalState.reason}</p>}
                 <button className="changes-button" type="button" onClick={() => setChangesOpen(true)} disabled={saving}><NotePencil size={18} /> Request changes</button>
               </div>

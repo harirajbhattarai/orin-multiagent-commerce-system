@@ -636,6 +636,111 @@ Deno.serve(async (request: Request) => {
         recurring_pilot: Array.isArray(data) ? data[0] : data,
       });
     }
+    if (body.action === "approve_unpublished_draft") {
+      const clientId = typeof body.client_id === "string" ? body.client_id.trim() : "";
+      const contentItemId = typeof body.content_item_id === "string"
+        ? body.content_item_id.trim()
+        : "";
+      const contentItemVersion = Number(body.content_item_version);
+      const requestId = typeof body.request_id === "string" ? body.request_id.trim() : "";
+      const note = typeof body.note === "string" ? body.note.trim() : "";
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!/^[a-z0-9][a-z0-9_]{1,62}$/.test(clientId)
+        || !uuidPattern.test(contentItemId)
+        || !Number.isInteger(contentItemVersion)
+        || contentItemVersion < 2
+        || !uuidPattern.test(requestId)
+        || note.length > 4000) {
+        return json(origin, 400, { error: "A valid exact draft approval is required." });
+      }
+
+      let handoffId = "";
+      try {
+        const begun = await service.rpc("service_begin_oauth_approval_handoff", {
+          p_operator_id: operatorId,
+          p_client_id: clientId,
+          p_content_item_id: contentItemId,
+          p_content_item_version: contentItemVersion,
+          p_request_id: requestId,
+        });
+        if (begun.error) throw new Error(begun.error.message);
+        const handoff = connectionRecord(begun.data);
+        handoffId = String(handoff?.handoff_id ?? "");
+        const decisionRequestId = String(handoff?.decision_request_id ?? "");
+        if (!uuidPattern.test(handoffId) || !uuidPattern.test(decisionRequestId)) {
+          throw new Error("The secure approval handoff did not start.");
+        }
+        if (handoff?.status === "processing") {
+          return json(origin, 200, {
+            ok: true,
+            approval: { handoff_id: handoffId, status: "processing", replayed: true },
+          });
+        }
+
+        await ensureFreshShopifyConnection(service, operatorId, clientId, true);
+        let decision: Record<string, unknown> | null = null;
+        const inserted = await supabase
+          .from("content_decisions")
+          .insert({
+            client_id: clientId,
+            content_item_id: contentItemId,
+            content_item_version: contentItemVersion,
+            decision: "approve_hidden_draft",
+            note,
+            request_id: decisionRequestId,
+          })
+          .select("decision_id,decision,processing_status,created_at,request_id")
+          .single();
+        if (!inserted.error) {
+          decision = inserted.data;
+        } else if (inserted.error.code === "23505") {
+          const existing = await supabase
+            .from("content_decisions")
+            .select("decision_id,decision,note,content_item_id,content_item_version,processing_status,created_at,request_id")
+            .eq("client_id", clientId)
+            .eq("request_id", decisionRequestId)
+            .maybeSingle();
+          if (existing.error
+            || !existing.data
+            || existing.data.decision !== "approve_hidden_draft"
+            || existing.data.note !== note
+            || existing.data.content_item_id !== contentItemId
+            || existing.data.content_item_version !== contentItemVersion) {
+            throw new Error("This approval request conflicts with an existing decision.");
+          }
+          decision = existing.data;
+        } else {
+          throw new Error(inserted.error.message);
+        }
+
+        const bound = await service.rpc("service_bind_oauth_approval_handoff", {
+          p_operator_id: operatorId,
+          p_handoff_id: handoffId,
+          p_decision_id: decision?.decision_id,
+        });
+        if (bound.error) throw new Error(bound.error.message);
+        const approval = connectionRecord(bound.data);
+        return json(origin, 200, {
+          ok: true,
+          approval: {
+            handoff_id: handoffId,
+            decision_id: decision?.decision_id,
+            content_job_id: approval?.content_job_id,
+            status: approval?.status ?? "processing",
+            replayed: Boolean(handoff?.replayed || approval?.replayed),
+          },
+        });
+      } catch (error) {
+        if (handoffId) {
+          await service.rpc("service_cancel_oauth_approval_handoff", {
+            p_operator_id: operatorId,
+            p_handoff_id: handoffId,
+            p_error: "Approval preparation did not complete.",
+          });
+        }
+        throw error;
+      }
+    }
     if (body.action === "refresh_approved_draft_connection") {
       const clientId = typeof body.client_id === "string" ? body.client_id.trim() : "";
       if (!/^[a-z0-9][a-z0-9_]{1,62}$/.test(clientId)) {

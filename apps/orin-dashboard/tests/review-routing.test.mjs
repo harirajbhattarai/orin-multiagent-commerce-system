@@ -6,6 +6,7 @@ import {
   nextPlannedJobId,
   reviewJobIdFromPath,
   selectRouteBoundReviewArticle,
+  stageArticleCount,
 } from "../src/reviewArticle.js";
 import { approvalAvailability, deriveOperationalState } from "../src/operationalState.js";
 import {
@@ -73,6 +74,20 @@ test("selects the preferred planned article for the primary queue action", () =>
     ],
   }), 35);
   assert.equal(nextPlannedJobId({ queue: [] }), null);
+});
+
+test("uses authoritative stage totals without double counting queue rows", () => {
+  const stageData = {
+    counts: { planned: 1, drafting: 0, review: 0, approved: 1 },
+    queue: [
+      { id: 1, stage: "Approved" },
+      { id: 2, stage: "Planned" },
+    ],
+  };
+
+  assert.equal(stageArticleCount(stageData, "Approved"), 1);
+  assert.equal(stageArticleCount(stageData, "Planned"), 1);
+  assert.equal(stageArticleCount(stageData, "Research"), 0);
 });
 
 test("allows only fully bound planned or review queue items to open", () => {

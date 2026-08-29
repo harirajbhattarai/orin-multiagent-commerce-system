@@ -21,6 +21,20 @@ export function nextPlannedJobId(data) {
   return isReviewableQueueItem(fallback) ? Number(fallback.id) : null;
 }
 
+const COUNT_KEY_BY_STAGE = {
+  Planned: "planned",
+  Drafting: "drafting",
+  Review: "review",
+  Approved: "approved",
+};
+
+export function stageArticleCount(data, stage) {
+  const countKey = COUNT_KEY_BY_STAGE[stage];
+  const authoritativeCount = countKey ? Number(data?.counts?.[countKey]) : Number.NaN;
+  if (Number.isFinite(authoritativeCount)) return authoritativeCount;
+  return (data?.queue ?? []).filter((item) => item.stage === stage).length;
+}
+
 export function reviewJobIdFromPath(pathname) {
   const match = /^\/review\/([1-9]\d*)\/?$/.exec(pathname ?? "");
   if (!match) return null;

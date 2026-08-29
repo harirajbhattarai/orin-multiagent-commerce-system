@@ -34,13 +34,16 @@ function formatMoment(value, options) {
   return new Intl.DateTimeFormat("en-GB", options).format(date);
 }
 
-function normalizeSnapshot(snapshot, { client, runtime, health }) {
+function normalizeSnapshot(snapshot, { client, runtime, health, reviewItems = [] }) {
   const operations = deriveOperationalState({
     client,
     runtime,
     health,
     snapshotOperations: snapshot.operations,
   });
+  const reviewByItemNumber = new Map(
+    reviewItems.map((item) => [Number(item.item_number), item]),
+  );
   return {
     ...snapshot,
     client: authoritativeClientIdentity(snapshot.client, client),
@@ -64,6 +67,19 @@ function normalizeSnapshot(snapshot, { client, runtime, health }) {
         minute: "2-digit",
       }),
     })),
+    queue: (snapshot.queue ?? []).map((item) => {
+      const review = reviewByItemNumber.get(Number(item.id));
+      const approvalRecorded = item.stage === "Planned"
+        && review?.latest_decision === "approve_concept"
+        && ["recorded", "consumed"].includes(review?.latest_decision_status);
+      return {
+        ...item,
+        approvalRecorded,
+        progressLabel: approvalRecorded
+          ? "Concept approved — waiting for scheduled drafting"
+          : item.status,
+      };
+    }),
     activity: (snapshot.activity ?? []).map((item) => ({
       ...item,
       time: formatMoment(item.time, { hour: "2-digit", minute: "2-digit" }),
@@ -159,7 +175,7 @@ export async function loadDashboardData(requestedClientId = null) {
       ? dashboardData.client.id
       : workspaces[0].id;
 
-  const [snapshotResult, runtimeResult, clientResult, healthResult] = await Promise.all([
+  const [snapshotResult, runtimeResult, clientResult, healthResult, reviewItemsResult] = await Promise.all([
     supabase
       .from("client_dashboard_snapshot")
       .select("snapshot")
@@ -180,6 +196,10 @@ export async function loadDashboardData(requestedClientId = null) {
       .select("state,scheduler_owner,last_heartbeat_at,updated_at")
       .eq("client_id", selectedClientId)
       .maybeSingle(),
+    supabase
+      .from("client_content_review_items")
+      .select("item_number,latest_decision,latest_decision_status")
+      .eq("client_id", selectedClientId),
   ]);
 
   const { data, error } = snapshotResult;
@@ -192,6 +212,7 @@ export async function loadDashboardData(requestedClientId = null) {
     || runtimeResult.error
     || clientResult.error
     || healthResult.error
+    || reviewItemsResult.error
     || !data?.snapshot
     || !runtime
     || !client
@@ -204,13 +225,19 @@ export async function loadDashboardData(requestedClientId = null) {
         ?? runtimeResult.error?.message
         ?? clientResult.error?.message
         ?? healthResult.error?.message
+        ?? reviewItemsResult.error?.message
         ?? "Your account is not connected to a client workspace yet.",
       requiresAuth: false,
     };
   }
 
   return {
-    data: normalizeSnapshot(data.snapshot, { client, runtime, health }),
+    data: normalizeSnapshot(data.snapshot, {
+      client,
+      runtime,
+      health,
+      reviewItems: reviewItemsResult.data ?? [],
+    }),
     workspaces,
     selectedClientId,
     source: "supabase",
@@ -676,6 +703,41 @@ export async function refreshApprovedDraftConnection(clientId) {
 
 function decisionRequestStorageKey({ clientId, contentItemId, contentItemVersion, decision }) {
   return `orin-decision:${clientId}:${contentItemId}:${contentItemVersion}:${decision}`;
+}
+
+export async function approveUnpublishedDraft({
+  clientId,
+  contentItemId,
+  contentItemVersion,
+  note = "",
+}) {
+  if (!supabase) {
+    return { data: { status: "processing", replayed: false }, error: null };
+  }
+  if (!contentItemId || !Number.isInteger(contentItemVersion)) {
+    return { data: null, error: new Error("Refresh the article before recording approval.") };
+  }
+  const storageKey = decisionRequestStorageKey({
+    clientId,
+    contentItemId,
+    contentItemVersion,
+    decision: "approve_hidden_draft",
+  });
+  const requestId = window.sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
+  window.sessionStorage.setItem(storageKey, requestId);
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: {
+      action: "approve_unpublished_draft",
+      client_id: clientId,
+      content_item_id: contentItemId,
+      content_item_version: contentItemVersion,
+      note,
+      request_id: requestId,
+    },
+  });
+  const resolvedError = await functionInvokeError(error, data);
+  if (!resolvedError) window.sessionStorage.removeItem(storageKey);
+  return { data: data?.approval ?? null, error: resolvedError };
 }
 
 export async function recordContentDecision({

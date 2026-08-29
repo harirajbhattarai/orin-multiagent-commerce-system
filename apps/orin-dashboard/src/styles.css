@@ -213,6 +213,7 @@ h2 { letter-spacing: -.025em; }
 .queue-article small { color: var(--orange); font-size: 8px; font-weight: 850; letter-spacing: .1em; }
 .queue-article strong { overflow: hidden; color: #263641; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .queue-article em { overflow: hidden; color: #87929a; font-size: 9px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.queue-progress { display: inline-flex; align-items: center; gap: 4px; width: fit-content; color: #167354; font-size: 8px; font-weight: 750; }
 .priority-cell { display: inline-flex; align-items: center; gap: 6px; color: #7a878f; font-size: 9px; }
 .priority-cell i { width: 7px; height: 7px; border-radius: 50%; background: #bdc5ca; }
 .priority-cell i.high { background: var(--orange); }
