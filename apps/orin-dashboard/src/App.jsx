@@ -31,9 +31,9 @@ import {
   loadDashboardData,
   loadOnboardingAccess,
   loadReviewItem,
+  approveUnpublishedDraft,
   planNextContentArticle,
   recordContentDecision,
-  refreshApprovedDraftConnection,
   sendMagicLink,
   signOutDashboard,
   subscribeToAuthChanges,
@@ -631,15 +631,24 @@ function Review({ data, jobId, navigate, dataSource }) {
     setSaving(true);
     setDecisionError("");
     if (kind === "approve_hidden_draft") {
-      const refreshed = await refreshApprovedDraftConnection(data.client.id);
-      if (refreshed.error) {
+      const approved = await approveUnpublishedDraft({
+        clientId: data.client.id,
+        contentItemId: article.contentItemId,
+        contentItemVersion: article.version,
+        note: decisionNote,
+      });
+      if (approved.error) {
         setSaving(false);
         setDecisionError(
-          refreshed.error.message
-            ?? "Shopify could not refresh the secure connection. Reconnect Shopify and try again.",
+          approved.error.message
+            ?? "The secure unpublished-draft approval did not start. Try again.",
         );
         return;
       }
+      setSaving(false);
+      setDecision("approved");
+      setChangesOpen(false);
+      return;
     }
     const result = await recordContentDecision({
       clientId: data.client.id,
@@ -755,7 +764,7 @@ function Review({ data, jobId, navigate, dataSource }) {
 
             {!changesOpen ? (
               <div className="decision-actions">
-                <button className="approve-button" type="button" onClick={approve} disabled={saving || !approvalKind || !approvalState.allowed} title={approvalState.allowed ? "" : approvalState.reason}><CheckCircle size={19} weight="fill" /> {saving ? "Saving…" : approvalLabel}</button>
+                <button className="approve-button" type="button" onClick={approve} disabled={saving || !approvalKind || !approvalState.allowed} title={approvalState.allowed ? "" : approvalState.reason}><CheckCircle size={19} weight="fill" /> {saving ? (article.reviewKind === "draft" ? "Securing approval…" : "Saving…") : approvalLabel}</button>
                 {!approvalState.allowed && approvalKind && <p className="approval-paused-note"><WarningCircle size={15} /> {approvalState.reason}</p>}
                 <button className="changes-button" type="button" onClick={() => setChangesOpen(true)} disabled={saving}><NotePencil size={18} /> Request changes</button>
               </div>

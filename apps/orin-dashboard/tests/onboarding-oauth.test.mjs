@@ -59,16 +59,19 @@ test("expired Shopify OAuth access tokens refresh and rotate only through servic
   assert.doesNotMatch(await readFile(new URL("apps/orin-dashboard/src/Onboarding.jsx", repositoryRoot), "utf8"), /refresh_token/);
 });
 
-test("draft approval refreshes OAuth server-side before recording the decision", async () => {
+test("draft approval uses one server-mediated scheduler handoff", async () => {
   const app = await readFile(new URL("apps/orin-dashboard/src/App.jsx", repositoryRoot), "utf8");
   const client = await readFile(new URL("apps/orin-dashboard/src/lib/dashboardClient.js", repositoryRoot), "utf8");
   const source = await readFile(new URL("supabase/functions/orin-client-onboarding/index.ts", repositoryRoot), "utf8");
-  const migration = await readFile(new URL("supabase/migrations/20260825094846_generic_oauth_approved_draft_worker.sql", repositoryRoot), "utf8");
-  assert.match(app, /kind === "approve_hidden_draft"[\s\S]+refreshApprovedDraftConnection[\s\S]+recordContentDecision/);
-  assert.match(client, /action: "refresh_approved_draft_connection"/);
-  assert.match(source, /body\.action === "refresh_approved_draft_connection"/);
+  const migration = await readFile(new URL("supabase/migrations/20260829091501_oauth_approval_handoff.sql", repositoryRoot), "utf8");
+  assert.match(app, /kind === "approve_hidden_draft"[\s\S]+approveUnpublishedDraft/);
+  assert.match(client, /action: "approve_unpublished_draft"/);
+  assert.match(source, /body\.action === "approve_unpublished_draft"/);
+  assert.match(source, /service_begin_oauth_approval_handoff/);
   assert.match(source, /ensureFreshShopifyConnection\([\s\S]*service,[\s\S]*operatorId,[\s\S]*clientId,[\s\S]*true,[\s\S]*\)/);
-  assert.match(migration, /service_get_client_shopify_approval_connection[\s\S]+to service_role/i);
+  assert.match(source, /service_bind_oauth_approval_handoff/);
+  assert.match(source, /service_cancel_oauth_approval_handoff/);
+  assert.match(migration, /service_begin_oauth_approval_handoff[\s\S]+to service_role/i);
   assert.doesNotMatch(app, /refresh_token/);
 });
 

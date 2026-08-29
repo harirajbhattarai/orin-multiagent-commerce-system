@@ -705,6 +705,41 @@ function decisionRequestStorageKey({ clientId, contentItemId, contentItemVersion
   return `orin-decision:${clientId}:${contentItemId}:${contentItemVersion}:${decision}`;
 }
 
+export async function approveUnpublishedDraft({
+  clientId,
+  contentItemId,
+  contentItemVersion,
+  note = "",
+}) {
+  if (!supabase) {
+    return { data: { status: "processing", replayed: false }, error: null };
+  }
+  if (!contentItemId || !Number.isInteger(contentItemVersion)) {
+    return { data: null, error: new Error("Refresh the article before recording approval.") };
+  }
+  const storageKey = decisionRequestStorageKey({
+    clientId,
+    contentItemId,
+    contentItemVersion,
+    decision: "approve_hidden_draft",
+  });
+  const requestId = window.sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
+  window.sessionStorage.setItem(storageKey, requestId);
+  const { data, error } = await supabase.functions.invoke("orin-client-onboarding", {
+    body: {
+      action: "approve_unpublished_draft",
+      client_id: clientId,
+      content_item_id: contentItemId,
+      content_item_version: contentItemVersion,
+      note,
+      request_id: requestId,
+    },
+  });
+  const resolvedError = await functionInvokeError(error, data);
+  if (!resolvedError) window.sessionStorage.removeItem(storageKey);
+  return { data: data?.approval ?? null, error: resolvedError };
+}
+
 export async function recordContentDecision({
   clientId,
   contentItemId,
