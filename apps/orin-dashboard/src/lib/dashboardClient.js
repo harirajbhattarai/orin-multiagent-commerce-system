@@ -3,6 +3,7 @@ import { dashboardData, dashboardPreviewForClient, previewWorkspaces } from "../
 import { functionInvokeError } from "../functionErrors.js";
 import { deriveOperationalState } from "../operationalState.js";
 import { authoritativeClientIdentity } from "../clientPresentation.js";
+import { normalizeSubscription } from "../subscription.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -34,7 +35,7 @@ function formatMoment(value, options) {
   return new Intl.DateTimeFormat("en-GB", options).format(date);
 }
 
-function normalizeSnapshot(snapshot, { client, runtime, health, reviewItems = [] }) {
+function normalizeSnapshot(snapshot, { client, runtime, health, subscription, reviewItems = [] }) {
   const operations = deriveOperationalState({
     client,
     runtime,
@@ -46,7 +47,11 @@ function normalizeSnapshot(snapshot, { client, runtime, health, reviewItems = []
   );
   return {
     ...snapshot,
-    client: authoritativeClientIdentity(snapshot.client, client),
+    client: {
+      ...authoritativeClientIdentity(snapshot.client, client),
+      plan: subscription?.plan_name ?? snapshot.client?.plan ?? "Client workspace",
+    },
+    subscription: normalizeSubscription(subscription),
     nextArticle: snapshot.nextArticle?.id ? snapshot.nextArticle : null,
     article: snapshot.article?.id ? snapshot.article : null,
     operations: {
@@ -175,7 +180,7 @@ export async function loadDashboardData(requestedClientId = null) {
       ? dashboardData.client.id
       : workspaces[0].id;
 
-  const [snapshotResult, runtimeResult, clientResult, healthResult, reviewItemsResult] = await Promise.all([
+  const [snapshotResult, runtimeResult, clientResult, healthResult, subscriptionResult, reviewItemsResult] = await Promise.all([
     supabase
       .from("client_dashboard_snapshot")
       .select("snapshot")
@@ -197,6 +202,11 @@ export async function loadDashboardData(requestedClientId = null) {
       .eq("client_id", selectedClientId)
       .maybeSingle(),
     supabase
+      .from("client_subscription_summary")
+      .select("client_id,plan_key,plan_name,description,status,billing_provider,trial_ends_at,current_period_ends_at,cancel_at_period_end,monthly_article_limit,team_member_limit,can_create_unpublished_drafts,can_publish_live,features,articles_used_this_month")
+      .eq("client_id", selectedClientId)
+      .maybeSingle(),
+    supabase
       .from("client_content_review_items")
       .select("item_number,latest_decision,latest_decision_status")
       .eq("client_id", selectedClientId),
@@ -206,17 +216,20 @@ export async function loadDashboardData(requestedClientId = null) {
   const runtime = runtimeResult.data;
   const client = clientResult.data;
   const health = healthResult.data;
+  const subscription = subscriptionResult.data;
 
   if (
     error
     || runtimeResult.error
     || clientResult.error
     || healthResult.error
+    || subscriptionResult.error
     || reviewItemsResult.error
     || !data?.snapshot
     || !runtime
     || !client
     || !health
+    || !subscription
   ) {
     return {
       data: null,
@@ -225,6 +238,7 @@ export async function loadDashboardData(requestedClientId = null) {
         ?? runtimeResult.error?.message
         ?? clientResult.error?.message
         ?? healthResult.error?.message
+        ?? subscriptionResult.error?.message
         ?? reviewItemsResult.error?.message
         ?? "Your account is not connected to a client workspace yet.",
       requiresAuth: false,
@@ -236,6 +250,7 @@ export async function loadDashboardData(requestedClientId = null) {
       client,
       runtime,
       health,
+      subscription,
       reviewItems: reviewItemsResult.data ?? [],
     }),
     workspaces,

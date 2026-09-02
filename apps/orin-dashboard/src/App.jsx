@@ -9,6 +9,7 @@ import {
   CheckCircle,
   Clock,
   CloudCheck,
+  CreditCard,
   Eye,
   FileText,
   Gauge,
@@ -46,6 +47,7 @@ import {
   stageArticleCount,
 } from "./reviewArticle.js";
 import { approvalAvailability } from "./operationalState.js";
+import { canPlanContent, subscriptionPresentation } from "./subscription.js";
 import { Onboarding } from "./Onboarding.jsx";
 import {
   reviewPresentationForClient,
@@ -65,6 +67,7 @@ const BASE_DRAFT_PREVIEW_CSS = `
 
 function readPath(path = window.location.pathname) {
   if (path.startsWith("/onboarding")) return "onboarding";
+  if (path.startsWith("/plan")) return "plan";
   if (path.startsWith("/review/")) return "review";
   if (path.startsWith("/queue")) return "queue";
   return "overview";
@@ -151,6 +154,7 @@ function AppShell({ route, navigate, children, dataSource, operations, queueCoun
   const navItems = [
     { id: "overview", label: "Overview", icon: House, path: "/" },
     { id: "queue", label: "Content queue", icon: ListChecks, path: "/queue" },
+    { id: "plan", label: "Plan & usage", icon: CreditCard, path: "/plan" },
     ...(operatorAccess ? [{ id: "onboarding", label: "Clients", icon: UserPlus, path: "/onboarding" }] : []),
   ];
   const liveSource = dataSource === "supabase";
@@ -584,6 +588,78 @@ function ContentPlanDialog({ client, onClose, onCreated }) {
   );
 }
 
+function formatPlanDate(value) {
+  if (!value) return "No fixed renewal date";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Date unavailable";
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Europe/London",
+  }).format(date);
+}
+
+function PlanAndUsage({ data, onPlan }) {
+  const plan = subscriptionPresentation(data.subscription);
+  return (
+    <div className="plan-page">
+      <PageHeading
+        eyebrow="ACCOUNT"
+        title="Plan & usage"
+        description="See what is included, how much content capacity remains, and whether this workspace can accept new plans."
+        action={<StatusPill tone={plan.statusTone}>{plan.statusLabel}</StatusPill>}
+      />
+
+      <section className="plan-layout">
+        <article className="current-plan-card">
+          <div className="plan-card-heading">
+            <span className="plan-icon"><CreditCard size={22} weight="duotone" /></span>
+            <div><span className="section-kicker">CURRENT PLAN</span><h2>{plan.planName}</h2><p>{plan.description}</p></div>
+            <StatusPill tone={plan.statusTone}>{plan.billingLabel}</StatusPill>
+          </div>
+
+          <div className="usage-card">
+            <div className="usage-heading">
+              <div><span>Articles planned this month</span><strong>{plan.articlesUsedThisMonth} of {plan.monthlyArticleLimit}</strong></div>
+              <span>{plan.usagePercent}% used</span>
+            </div>
+            <div className="usage-track" role="progressbar" aria-valuemin="0" aria-valuemax={plan.monthlyArticleLimit} aria-valuenow={plan.articlesUsedThisMonth}>
+              <span style={{ width: `${plan.usagePercent}%` }} />
+            </div>
+            <p>{plan.planningMessage}</p>
+          </div>
+
+          <div className="plan-facts">
+            <div><span>Workspace</span><strong>{data.client.name}</strong></div>
+            <div><span>Team allowance</span><strong>{plan.teamMemberLimit} member{plan.teamMemberLimit === 1 ? "" : "s"}</strong></div>
+            <div><span>{plan.status === "trialing" ? "Trial ends" : "Current period"}</span><strong>{formatPlanDate(plan.trialEndsAt ?? plan.currentPeriodEndsAt)}</strong></div>
+          </div>
+
+          <div className="plan-included">
+            <h3>Included in this plan</h3>
+            <ul>{plan.features.map((feature) => <li key={feature}><CheckCircle size={17} weight="fill" />{feature}</li>)}</ul>
+          </div>
+
+          <div className="plan-primary-action">
+            <div><strong>{plan.allowanceAvailable ? "Ready to plan more content" : "Planning needs attention"}</strong><span>{plan.allowanceAvailable ? "Your next concept can be added without code." : plan.planningMessage}</span></div>
+            <button className="primary-button" type="button" onClick={onPlan} disabled={!plan.allowanceAvailable}><Sparkle size={17} weight="fill" /> Plan next article</button>
+          </div>
+        </article>
+
+        <aside className="plan-safety-card">
+          <span className="section-kicker">COMMERCE BOUNDARY</span>
+          <h2>Clear, safe access</h2>
+          <div className="plan-safety-row"><CheckCircle size={19} weight="fill" /><span><strong>Unpublished drafts</strong>{plan.canCreateUnpublishedDrafts ? "Available after your explicit approval." : "Not included in this plan."}</span></div>
+          <div className="plan-safety-row"><ShieldCheck size={19} weight="duotone" /><span><strong>Live publishing</strong>Never available from this dashboard.</span></div>
+          <div className="plan-safety-row"><CloudCheck size={19} weight="duotone" /><span><strong>Billing status</strong>{plan.billingProvider === "shopify" ? "Managed securely through Shopify." : "No payment method is required during the managed pilot."}</span></div>
+          <p className="plan-next-note"><Info size={16} /> Self-serve Shopify checkout is the next commercial activation step. Prices are not exposed until the plan catalogue is approved.</p>
+        </aside>
+      </section>
+    </div>
+  );
+}
+
 function Review({ data, jobId, navigate, dataSource }) {
   const [decision, setDecision] = useState(null);
   const [changesOpen, setChangesOpen] = useState(false);
@@ -801,6 +877,10 @@ export function App() {
   };
 
   const openWorkspace = (clientId) => navigate(`/?client=${encodeURIComponent(clientId)}`);
+  const openPlanner = () => {
+    if (canPlanContent(state.data?.subscription)) setPlannerOpen(true);
+    else navigate("/plan");
+  };
 
   useEffect(() => {
     let active = true;
@@ -836,8 +916,9 @@ export function App() {
   return (
     <>
       <AppShell route={route} navigate={navigate} dataSource={state.source} operations={state.data.operations} queueCount={state.data.counts.review} onSignOut={signOutDashboard} operatorAccess={operatorAccess} client={state.data.client} workspaces={state.workspaces ?? []} onWorkspaceChange={switchWorkspace}>
-        {route === "overview" && <Overview data={state.data} navigate={navigate} onPlan={() => setPlannerOpen(true)} />}
-        {route === "queue" && <Queue data={state.data} navigate={navigate} onPlan={() => setPlannerOpen(true)} />}
+        {route === "overview" && <Overview data={state.data} navigate={navigate} onPlan={openPlanner} />}
+        {route === "queue" && <Queue data={state.data} navigate={navigate} onPlan={openPlanner} />}
+        {route === "plan" && <PlanAndUsage data={state.data} onPlan={openPlanner} />}
         {route === "review" && <Review data={state.data} jobId={reviewJobIdFromPath(path)} navigate={navigate} dataSource={state.source} />}
         {route === "onboarding" && (operatorAccess
           ? <Onboarding requestedClientId={state.data.client.id} onSelectWorkspace={switchWorkspace} onOpenWorkspace={openWorkspace} />
