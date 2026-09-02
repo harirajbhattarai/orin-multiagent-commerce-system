@@ -5,7 +5,8 @@ Authenticated, tenant-isolated content operations and client onboarding for ORIN
 - operational health, schedules, and durable run receipts;
 - the content queue and version-bound approval workflow;
 - fail-closed client onboarding;
-- Shopify OAuth, catalogue discovery, blog selection, and encrypted credential storage.
+- Shopify OAuth, catalogue discovery, blog selection, and encrypted credential storage;
+- tenant-scoped plan status, monthly content usage, and no-code planning entitlements.
 
 ## Local development
 
@@ -55,6 +56,14 @@ https://<project-ref>.supabase.co/functions/v1/orin-client-onboarding
 - Connecting Shopify does not open execution, scheduler, or Shopify write gates.
 - Customer approval can create only an unpublished draft after the separate worker commissioning boundary passes.
 - The dashboard has no live-publish capability.
+
+## Subscription foundation
+
+The **Plan & usage** page reads a tenant-isolated subscription summary from Supabase. Subscription status and monthly article allowance are enforced in the database when a customer uses **Plan next article**; hiding or disabling a browser button is never the security boundary.
+
+This foundation does not create Shopify charges. Existing commissioned clients retain managed pilot access, while newly created clients receive a 14-day trial. Prices and self-serve Shopify checkout remain intentionally unavailable until the commercial catalogue is approved and the billing lifecycle is implemented.
+
+See [`docs/SUBSCRIPTIONS.md`](../../docs/SUBSCRIPTIONS.md) for the data contract, failure behaviour, and next billing milestone.
 
 ## Verification
 
