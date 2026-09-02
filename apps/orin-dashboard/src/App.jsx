@@ -33,10 +33,13 @@ import {
   loadOnboardingAccess,
   loadReviewItem,
   approveUnpublishedDraft,
+  cancelSubscription,
+  confirmSubscriptionCheckout,
   planNextContentArticle,
   recordContentDecision,
   sendMagicLink,
   signOutDashboard,
+  startSubscriptionCheckout,
   subscribeToAuthChanges,
 } from "./lib/dashboardClient.js";
 import {
@@ -47,7 +50,7 @@ import {
   stageArticleCount,
 } from "./reviewArticle.js";
 import { approvalAvailability } from "./operationalState.js";
-import { canPlanContent, subscriptionPresentation } from "./subscription.js";
+import { canPlanContent, formatPlanPrice, subscriptionPresentation } from "./subscription.js";
 import { Onboarding } from "./Onboarding.jsx";
 import {
   reviewPresentationForClient,
@@ -600,8 +603,54 @@ function formatPlanDate(value) {
   }).format(date);
 }
 
-function PlanAndUsage({ data, onPlan }) {
+function PlanAndUsage({ data, onPlan, onReload, dataSource }) {
   const plan = subscriptionPresentation(data.subscription);
+  const [billing, setBilling] = useState({ busy: "", error: "", message: "" });
+
+  useEffect(() => {
+    if (dataSource !== "supabase") return;
+    const params = new URLSearchParams(window.location.search);
+    const attemptId = params.get("billing_attempt");
+    if (params.get("billing") !== "return" || !attemptId) return;
+    let active = true;
+    setBilling({ busy: "confirm", error: "", message: "Confirming your Shopify plan…" });
+    confirmSubscriptionCheckout(data.client.id, attemptId).then((result) => {
+      if (!active) return;
+      if (result.error) {
+        setBilling({ busy: "", error: result.error.message, message: "" });
+        return;
+      }
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete("billing");
+      clean.searchParams.delete("billing_attempt");
+      window.history.replaceState({}, "", `${clean.pathname}${clean.search}`);
+      setBilling({ busy: "", error: "", message: "Plan activated securely through Shopify." });
+      onReload();
+    });
+    return () => { active = false; };
+  }, [data.client.id, dataSource, onReload]);
+
+  const choosePlan = async (selected) => {
+    setBilling({ busy: selected.planKey, error: "", message: "Preparing secure Shopify checkout…" });
+    const result = await startSubscriptionCheckout(data.client.id, selected.planKey);
+    if (result.error || !result.data?.confirmation_url) {
+      setBilling({ busy: "", error: result.error?.message ?? "Shopify checkout could not be started.", message: "" });
+      return;
+    }
+    window.location.assign(result.data.confirmation_url);
+  };
+
+  const cancelCurrentPlan = async () => {
+    if (!window.confirm("Cancel this plan at the end of the current billing period? You will not be charged again.")) return;
+    setBilling({ busy: "cancel", error: "", message: "Scheduling cancellation with Shopify…" });
+    const result = await cancelSubscription(data.client.id);
+    if (result.error) {
+      setBilling({ busy: "", error: result.error.message, message: "" });
+      return;
+    }
+    setBilling({ busy: "", error: "", message: "Cancellation scheduled. Access continues through the paid period." });
+    onReload();
+  };
   return (
     <div className="plan-page">
       <PageHeading
@@ -621,7 +670,7 @@ function PlanAndUsage({ data, onPlan }) {
 
           <div className="usage-card">
             <div className="usage-heading">
-              <div><span>Articles planned this month</span><strong>{plan.articlesUsedThisMonth} of {plan.monthlyArticleLimit}</strong></div>
+              <div><span>Articles planned this billing period</span><strong>{plan.articlesUsedThisPeriod} of {plan.monthlyArticleLimit}</strong></div>
               <span>{plan.usagePercent}% used</span>
             </div>
             <div className="usage-track" role="progressbar" aria-valuemin="0" aria-valuemax={plan.monthlyArticleLimit} aria-valuenow={plan.articlesUsedThisMonth}>
@@ -633,7 +682,7 @@ function PlanAndUsage({ data, onPlan }) {
           <div className="plan-facts">
             <div><span>Workspace</span><strong>{data.client.name}</strong></div>
             <div><span>Team allowance</span><strong>{plan.teamMemberLimit} member{plan.teamMemberLimit === 1 ? "" : "s"}</strong></div>
-            <div><span>{plan.status === "trialing" ? "Trial ends" : "Current period"}</span><strong>{formatPlanDate(plan.trialEndsAt ?? plan.currentPeriodEndsAt)}</strong></div>
+            <div><span>{plan.trialEndsAt && Date.parse(plan.trialEndsAt) > Date.now() ? "Trial ends" : plan.cancelAtPeriodEnd ? "Access ends" : "Renews"}</span><strong>{formatPlanDate(plan.trialEndsAt && Date.parse(plan.trialEndsAt) > Date.now() ? plan.trialEndsAt : plan.currentPeriodEndsAt)}</strong></div>
           </div>
 
           <div className="plan-included">
@@ -645,6 +694,13 @@ function PlanAndUsage({ data, onPlan }) {
             <div><strong>{plan.allowanceAvailable ? "Ready to plan more content" : "Planning needs attention"}</strong><span>{plan.allowanceAvailable ? "Your next concept can be added without code." : plan.planningMessage}</span></div>
             <button className="primary-button" type="button" onClick={onPlan} disabled={!plan.allowanceAvailable}><Sparkle size={17} weight="fill" /> Plan next article</button>
           </div>
+
+          {plan.pendingPlanName && <p className="plan-pending-note"><Clock size={17} /> {plan.pendingPlanName} begins when the free trial ends.</p>}
+          {plan.billingProvider === "shopify" && !plan.cancelAtPeriodEnd && (
+            <button className="text-button plan-cancel-button" type="button" onClick={cancelCurrentPlan} disabled={Boolean(billing.busy)}>
+              {billing.busy === "cancel" ? "Cancelling…" : "Cancel plan at period end"}
+            </button>
+          )}
         </article>
 
         <aside className="plan-safety-card">
@@ -653,8 +709,38 @@ function PlanAndUsage({ data, onPlan }) {
           <div className="plan-safety-row"><CheckCircle size={19} weight="fill" /><span><strong>Unpublished drafts</strong>{plan.canCreateUnpublishedDrafts ? "Available after your explicit approval." : "Not included in this plan."}</span></div>
           <div className="plan-safety-row"><ShieldCheck size={19} weight="duotone" /><span><strong>Live publishing</strong>Never available from this dashboard.</span></div>
           <div className="plan-safety-row"><CloudCheck size={19} weight="duotone" /><span><strong>Billing status</strong>{plan.billingProvider === "shopify" ? "Managed securely through Shopify." : "No payment method is required during the managed pilot."}</span></div>
-          <p className="plan-next-note"><Info size={16} /> Self-serve Shopify checkout is the next commercial activation step. Prices are not exposed until the plan catalogue is approved.</p>
+          <p className="plan-next-note"><Info size={16} /> Shopify handles plan approval and recurring charges. ORIN never receives card details.</p>
         </aside>
+      </section>
+
+      {(billing.message || billing.error) && <div className={`billing-message ${billing.error ? "error" : "success"}`} role={billing.error ? "alert" : "status"}>{billing.error ? <WarningCircle size={18} /> : <CloudCheck size={18} />}{billing.error || billing.message}</div>}
+
+      <section className="pricing-section" aria-labelledby="available-plans-title">
+        <div className="pricing-heading"><div><span className="section-kicker">AVAILABLE PLANS</span><h2 id="available-plans-title">Choose the capacity that fits</h2><p>Every plan covers one Shopify store and keeps live publishing unavailable.</p></div><span className="trial-badge">7-day free trial</span></div>
+        <div className="pricing-grid">
+          {(data.subscriptionPlans ?? []).map((option) => {
+            const current = plan.planKey === option.planKey || plan.pendingPlanKey === option.planKey;
+            const popular = option.planKey === "growth";
+            return (
+              <article className={`pricing-card ${popular ? "popular" : ""}`} key={option.planKey}>
+                {popular && <span className="popular-label">MOST POPULAR</span>}
+                <h3>{option.planName}</h3><p>{option.description}</p>
+                <div className="plan-price"><strong>{formatPlanPrice(option)}</strong><span>/ 30 days</span></div>
+                <div className="plan-capacity"><Article size={18} weight="duotone" /><strong>{option.monthlyArticleLimit} articles</strong><span>per billing period</span></div>
+                <ul>{option.features.map((feature) => <li key={feature}><Check size={15} weight="bold" />{feature}</li>)}</ul>
+                <button className={popular ? "primary-button" : "secondary-button"} type="button" onClick={() => choosePlan(option)} disabled={current || Boolean(billing.busy) || dataSource !== "supabase"}>
+                  {current ? "Current selection" : billing.busy === option.planKey ? "Opening Shopify…" : `Choose ${option.planName}`}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="cancellation-policy">
+        <div><ShieldCheck size={24} weight="duotone" /><span><span className="section-kicker">CANCELLATION POLICY</span><h2>Cancel anytime, without surprises</h2></span></div>
+        <p>Your plan remains active until the end of the current 30-day billing period and you will not be charged again. Payments are not prorated or refunded for unused time except for duplicate charges, billing errors, or where required by law.</p>
+        <p>After access ends, new planning and automation stop while your history remains read-only for 30 days. Uninstalling ORIN immediately disconnects Shopify and closes every Shopify write gate. Live publishing is never included.</p>
       </section>
     </div>
   );
@@ -918,7 +1004,7 @@ export function App() {
       <AppShell route={route} navigate={navigate} dataSource={state.source} operations={state.data.operations} queueCount={state.data.counts.review} onSignOut={signOutDashboard} operatorAccess={operatorAccess} client={state.data.client} workspaces={state.workspaces ?? []} onWorkspaceChange={switchWorkspace}>
         {route === "overview" && <Overview data={state.data} navigate={navigate} onPlan={openPlanner} />}
         {route === "queue" && <Queue data={state.data} navigate={navigate} onPlan={openPlanner} />}
-        {route === "plan" && <PlanAndUsage data={state.data} onPlan={openPlanner} />}
+        {route === "plan" && <PlanAndUsage data={state.data} onPlan={openPlanner} onReload={reload} dataSource={state.source} />}
         {route === "review" && <Review data={state.data} jobId={reviewJobIdFromPath(path)} navigate={navigate} dataSource={state.source} />}
         {route === "onboarding" && (operatorAccess
           ? <Onboarding requestedClientId={state.data.client.id} onSelectWorkspace={switchWorkspace} onOpenWorkspace={openWorkspace} />

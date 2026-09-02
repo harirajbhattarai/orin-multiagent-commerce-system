@@ -3,7 +3,7 @@ import { dashboardData, dashboardPreviewForClient, previewWorkspaces } from "../
 import { functionInvokeError } from "../functionErrors.js";
 import { deriveOperationalState } from "../operationalState.js";
 import { authoritativeClientIdentity } from "../clientPresentation.js";
-import { normalizeSubscription } from "../subscription.js";
+import { normalizePlan, normalizeSubscription } from "../subscription.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -35,7 +35,7 @@ function formatMoment(value, options) {
   return new Intl.DateTimeFormat("en-GB", options).format(date);
 }
 
-function normalizeSnapshot(snapshot, { client, runtime, health, subscription, reviewItems = [] }) {
+function normalizeSnapshot(snapshot, { client, runtime, health, subscription, subscriptionPlans = [], reviewItems = [] }) {
   const operations = deriveOperationalState({
     client,
     runtime,
@@ -52,6 +52,7 @@ function normalizeSnapshot(snapshot, { client, runtime, health, subscription, re
       plan: subscription?.plan_name ?? snapshot.client?.plan ?? "Client workspace",
     },
     subscription: normalizeSubscription(subscription),
+    subscriptionPlans: subscriptionPlans.map(normalizePlan),
     nextArticle: snapshot.nextArticle?.id ? snapshot.nextArticle : null,
     article: snapshot.article?.id ? snapshot.article : null,
     operations: {
@@ -180,7 +181,7 @@ export async function loadDashboardData(requestedClientId = null) {
       ? dashboardData.client.id
       : workspaces[0].id;
 
-  const [snapshotResult, runtimeResult, clientResult, healthResult, subscriptionResult, reviewItemsResult] = await Promise.all([
+  const [snapshotResult, runtimeResult, clientResult, healthResult, subscriptionResult, subscriptionPlansResult, reviewItemsResult] = await Promise.all([
     supabase
       .from("client_dashboard_snapshot")
       .select("snapshot")
@@ -203,9 +204,14 @@ export async function loadDashboardData(requestedClientId = null) {
       .maybeSingle(),
     supabase
       .from("client_subscription_summary")
-      .select("client_id,plan_key,plan_name,description,status,billing_provider,trial_ends_at,current_period_ends_at,cancel_at_period_end,monthly_article_limit,team_member_limit,can_create_unpublished_drafts,can_publish_live,features,articles_used_this_month")
+      .select("client_id,plan_key,pending_plan_key,plan_name,pending_plan_name,description,status,billing_provider,trial_ends_at,current_period_started_at,current_period_ends_at,usage_period_started_at,usage_period_ends_at,cancel_at_period_end,cancelled_at,monthly_article_limit,team_member_limit,can_create_unpublished_drafts,can_publish_live,features,monthly_price_cents,currency_code,articles_used_this_period")
       .eq("client_id", selectedClientId)
       .maybeSingle(),
+    supabase
+      .from("subscription_plans")
+      .select("plan_key,display_name,description,monthly_price_cents,currency_code,monthly_article_limit,team_member_limit,trial_days,features,sort_order")
+      .eq("publicly_selectable", true)
+      .order("sort_order", { ascending: true }),
     supabase
       .from("client_content_review_items")
       .select("item_number,latest_decision,latest_decision_status")
@@ -224,6 +230,7 @@ export async function loadDashboardData(requestedClientId = null) {
     || clientResult.error
     || healthResult.error
     || subscriptionResult.error
+    || subscriptionPlansResult.error
     || reviewItemsResult.error
     || !data?.snapshot
     || !runtime
@@ -239,6 +246,7 @@ export async function loadDashboardData(requestedClientId = null) {
         ?? clientResult.error?.message
         ?? healthResult.error?.message
         ?? subscriptionResult.error?.message
+        ?? subscriptionPlansResult.error?.message
         ?? reviewItemsResult.error?.message
         ?? "Your account is not connected to a client workspace yet.",
       requiresAuth: false,
@@ -251,6 +259,7 @@ export async function loadDashboardData(requestedClientId = null) {
       runtime,
       health,
       subscription,
+      subscriptionPlans: subscriptionPlansResult.data ?? [],
       reviewItems: reviewItemsResult.data ?? [],
     }),
     workspaces,
@@ -608,6 +617,46 @@ export async function createOnboardingRequest(payload) {
     },
   });
   return { data: data?.request ?? null, error: await functionInvokeError(error, data) };
+}
+
+function billingRequestStorageKey(clientId, planKey) {
+  return `orin-billing:${clientId}:${planKey}`;
+}
+
+export async function startSubscriptionCheckout(clientId, planKey) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const storageKey = billingRequestStorageKey(clientId, planKey);
+  const requestId = window.sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
+  window.sessionStorage.setItem(storageKey, requestId);
+  const returnUrl = new URL("/plan", window.location.origin).toString();
+  const { data, error } = await supabase.functions.invoke("orin-shopify-billing", {
+    body: {
+      action: "start_checkout",
+      client_id: clientId,
+      plan_key: planKey,
+      request_id: requestId,
+      return_url: returnUrl,
+    },
+  });
+  const resolvedError = await functionInvokeError(error, data);
+  if (resolvedError) window.sessionStorage.removeItem(storageKey);
+  return { data, error: resolvedError };
+}
+
+export async function confirmSubscriptionCheckout(clientId, attemptId) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const { data, error } = await supabase.functions.invoke("orin-shopify-billing", {
+    body: { action: "confirm_checkout", client_id: clientId, attempt_id: attemptId },
+  });
+  return { data: data?.subscription ?? null, error: await functionInvokeError(error, data) };
+}
+
+export async function cancelSubscription(clientId) {
+  if (!supabase) return { data: null, error: new Error("Live Supabase access is required.") };
+  const { data, error } = await supabase.functions.invoke("orin-shopify-billing", {
+    body: { action: "cancel_subscription", client_id: clientId },
+  });
+  return { data, error: await functionInvokeError(error, data) };
 }
 
 export async function verifyOnboardingShopify(payload) {

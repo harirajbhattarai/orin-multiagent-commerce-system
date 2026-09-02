@@ -487,6 +487,36 @@ h2 { letter-spacing: -.025em; }
 .plan-safety-row strong { color: #34444f; font-size: 11px; }
 .plan-next-note { display: flex; align-items: flex-start; gap: 8px; margin: 13px 0 0; padding: 13px; color: #5f6e77; border-radius: 9px; background: #eef2f4; font-size: 9px; line-height: 1.55; }
 .plan-next-note svg { flex: 0 0 auto; }
+.plan-pending-note { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; color: #2d66a9; font-size: 10px; font-weight: 700; }
+.plan-cancel-button { margin-top: 14px; color: #7c4c3c; }
+.billing-message { display: flex; align-items: center; gap: 9px; margin: 20px 0 0; padding: 14px 16px; border: 1px solid; border-radius: 10px; font-size: 10px; font-weight: 700; }
+.billing-message.success { color: #176f52; border-color: #bfe5d4; background: #edf9f3; }
+.billing-message.error { color: #963c25; border-color: #f0c2b5; background: #fff2ed; }
+.pricing-section, .cancellation-policy { margin-top: 22px; padding: 27px; border: 1px solid var(--line); border-radius: 13px; background: white; box-shadow: var(--shadow); }
+.pricing-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+.pricing-heading h2, .cancellation-policy h2 { margin: 5px 0 5px; color: var(--ink); font-size: 24px; }
+.pricing-heading p { margin: 0; color: var(--muted); font-size: 11px; }
+.trial-badge { flex: 0 0 auto; padding: 8px 11px; color: #177253; border: 1px solid #bee6d4; border-radius: 999px; background: var(--green-soft); font-size: 9px; font-weight: 850; }
+.pricing-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.pricing-card { position: relative; display: flex; min-width: 0; flex-direction: column; padding: 21px; border: 1px solid #dfe5e8; border-radius: 12px; background: #fbfcfc; }
+.pricing-card.popular { border: 2px solid var(--orange); background: #fffaf8; box-shadow: 0 14px 36px rgba(255,83,32,.10); }
+.popular-label { position: absolute; top: -11px; right: 15px; padding: 5px 8px; color: white; border-radius: 999px; background: var(--orange); font-size: 7px; font-weight: 900; letter-spacing: .08em; }
+.pricing-card h3 { margin: 0; color: var(--ink); font-size: 19px; }
+.pricing-card > p { min-height: 47px; margin: 7px 0 17px; color: var(--muted); font-size: 9px; line-height: 1.55; }
+.plan-price { display: flex; align-items: baseline; gap: 5px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
+.plan-price strong { color: var(--ink); font-size: 30px; letter-spacing: -.04em; }
+.plan-price span { color: #849098; font-size: 9px; }
+.plan-capacity { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 2px 8px; padding: 16px 0 9px; color: var(--orange); }
+.plan-capacity strong { color: #3f505a; font-size: 11px; }
+.plan-capacity span { grid-column: 2; color: #8a959c; font-size: 8px; }
+.pricing-card ul { display: grid; flex: 1; gap: 9px; margin: 8px 0 21px; padding: 0; list-style: none; }
+.pricing-card li { display: flex; align-items: flex-start; gap: 7px; color: #53636d; font-size: 9px; line-height: 1.4; }
+.pricing-card li svg { flex: 0 0 auto; color: var(--green); }
+.pricing-card > button { width: 100%; }
+.cancellation-policy { box-shadow: none; }
+.cancellation-policy > div { display: flex; align-items: flex-start; gap: 12px; }
+.cancellation-policy > div > svg { flex: 0 0 auto; color: var(--green); }
+.cancellation-policy p { max-width: 1000px; margin: 10px 0 0 36px; color: #65737c; font-size: 10px; line-height: 1.65; }
 .onboarding-history { position: sticky; top: 92px; padding: 21px; }
 .history-list { display: grid; margin-top: 13px; border-top: 1px solid var(--line); }
 .history-list button { width: 100%; display: grid; grid-template-columns: 32px minmax(0,1fr) 16px; align-items: center; gap: 10px; padding: 12px 4px; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; cursor: pointer; }
@@ -643,6 +673,8 @@ h2 { letter-spacing: -.025em; }
   .client-facts { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .client-facts > div:nth-child(2) { border-right: 0; }
   .client-facts > div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .pricing-card > p { min-height: 0; }
 }
 
 @media (max-width: 840px) {
@@ -735,6 +767,9 @@ h2 { letter-spacing: -.025em; }
   .plan-facts div { border-right: 0; border-bottom: 1px solid var(--line); }
   .plan-facts div:last-child { border-bottom: 0; }
   .plan-primary-action { align-items: stretch; flex-direction: column; }
+  .pricing-section, .cancellation-policy { padding: 21px 18px; }
+  .pricing-heading { flex-direction: column; }
+  .cancellation-policy p { margin-left: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
