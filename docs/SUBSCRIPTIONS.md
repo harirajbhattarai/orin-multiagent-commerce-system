@@ -16,7 +16,7 @@ ORIN Commerce now has a tenant-scoped subscription contract for no-code content 
 - `client_subscription_summary` is a security-invoker, read-only customer projection with current-month usage.
 - Existing commissioned clients receive managed `pilot` access during migration.
 - New clients receive a 14-day `trial` subscription when their tenant record is created.
-- A transaction-scoped advisory lock and `content_plan_items` trigger enforce the monthly manual-planning allowance without changing worker, scheduler, or Shopify state.
+- A transaction-scoped advisory lock and `content_plan_items` trigger enforce the monthly tenant content allowance when a customer plans manually, without changing worker, scheduler, or Shopify state.
 
 Authenticated customers can read only subscriptions for client workspaces where they are members. Browser roles cannot insert, update, or delete plans or subscriptions.
 

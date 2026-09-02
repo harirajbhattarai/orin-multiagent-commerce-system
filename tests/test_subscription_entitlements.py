@@ -28,3 +28,14 @@ def test_subscription_entitlement_fails_closed_without_touching_shopify_gates():
     assert "update public.scheduler_health" not in sql
     assert "can_publish_live boolean not null default false" in sql
     assert "check (not can_publish_live)" in sql
+
+
+def test_follow_up_usage_view_preserves_the_redacted_content_plan_grant():
+    sql = (
+        ROOT
+        / "supabase/migrations/20260902145402_fix_subscription_usage_view.sql"
+    ).read_text()
+
+    assert "item.source_document" not in sql
+    assert "grant select" not in sql
+    assert "create or replace view public.client_subscription_summary" in sql
