@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(14);
 
 select has_table('public', 'subscription_plans', 'subscription plan catalogue exists');
 select has_table('public', 'client_subscriptions', 'client subscriptions exist');
@@ -36,6 +36,16 @@ select ok(
   'subscription summary is authenticated-only'
 );
 
+select ok(
+  not has_column_privilege(
+    'authenticated',
+    'public.content_plan_items',
+    'source_document',
+    'SELECT'
+  ),
+  'subscription usage does not broaden content-plan source access'
+);
+
 select is(
   (select count(*) from public.clients client
    where not exists (
@@ -48,6 +58,9 @@ select is(
 
 insert into auth.users (id)
 values ('12121212-1212-4212-8212-121212121212');
+
+insert into public.clients (client_id, display_name, status)
+values ('subscription_test_client', 'Subscription Test Client', 'maintenance');
 
 insert into public.client_onboarding_requests (
   request_id,
@@ -65,8 +78,8 @@ insert into public.client_onboarding_requests (
 ) values (
   '13131313-1313-4313-8313-131313131313',
   '12121212-1212-4212-8212-121212121212',
-  'hoverboard_store',
-  'Hoverboard Store',
+  'subscription_test_client',
+  'Subscription Test Client',
   'owner@example.com',
   'hoverboard-store.myshopify.com',
   array['Product education'],
@@ -91,7 +104,7 @@ insert into public.client_profiles (
   product_scope,
   shopify_credential_secret_id
 ) values (
-  'hoverboard_store',
+  'subscription_test_client',
   '13131313-1313-4313-8313-131313131313',
   'owner@example.com',
   'hoverboard-store.myshopify.com',
@@ -106,7 +119,7 @@ insert into public.client_profiles (
 );
 
 insert into public.client_members (client_id, user_id, role)
-values ('hoverboard_store', '12121212-1212-4212-8212-121212121212', 'owner');
+values ('subscription_test_client', '12121212-1212-4212-8212-121212121212', 'owner');
 
 select set_config('request.jwt.claim.sub', '12121212-1212-4212-8212-121212121212', true);
 set local role authenticated;
@@ -126,7 +139,7 @@ select is(
 select lives_ok(
   $$
     select * from public.plan_next_content_article(
-      'hoverboard_store',
+      'subscription_test_client',
       'Subscription entitlement contract test',
       'subscription entitlement contract test keyword',
       'Product education',
@@ -137,16 +150,21 @@ select lives_ok(
   'an active entitled owner can plan content'
 );
 
+select lives_ok(
+  $$select articles_used_this_month from public.client_subscription_summary$$,
+  'subscription usage remains readable after content is planned'
+);
+
 reset role;
 update public.client_subscriptions
 set status = 'suspended'
-where client_id = 'hoverboard_store';
+where client_id = 'subscription_test_client';
 set local role authenticated;
 
 select throws_ok(
   $$
     select * from public.plan_next_content_article(
-      'hoverboard_store',
+      'subscription_test_client',
       'Suspended subscription contract test',
       'suspended subscription contract test keyword',
       'Product education',
