@@ -388,6 +388,11 @@ deno_version = 2
 [functions.orin-client-onboarding]
 verify_jwt = false
 
+# Billing performs explicit JWT and tenant-owner verification. Shopify never
+# receives Supabase credentials and the function defaults to test charges.
+[functions.orin-shopify-billing]
+verify_jwt = false
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

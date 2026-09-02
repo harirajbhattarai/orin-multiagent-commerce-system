@@ -39,3 +39,32 @@ def test_follow_up_usage_view_preserves_the_redacted_content_plan_grant():
     assert "item.source_document" not in sql
     assert "grant select" not in sql
     assert "create or replace view public.client_subscription_summary" in sql
+
+
+def test_commercial_catalogue_and_billing_boundary_are_fail_closed():
+    migration = (
+        ROOT
+        / "supabase/migrations/20260902180916_commercial_subscription_plans.sql"
+    ).read_text()
+    billing = (
+        ROOT
+        / "supabase/functions/orin-shopify-billing/index.ts"
+    ).read_text()
+
+    assert "'starter', 'Starter'" in migration
+    assert "'growth', 'Growth'" in migration
+    assert "'scale', 'Scale'" in migration
+    assert "statement_timestamp() + interval '7 days'" in migration
+    assert "monthly_price_cents" in migration
+    assert "articles_used_this_period" in migration
+    assert "membership.role = 'owner'" in migration
+    assert "false as can_publish_live" in migration
+    assert "update public.client_runtime_settings" not in migration
+    assert "update public.scheduler_health" not in migration
+    assert "appSubscriptionCreate" in billing
+    assert 'interval: "EVERY_30_DAYS"' in billing
+    assert "appSubscriptionCancel(id: $id, prorate: false)" in billing
+    assert 'Deno.env.get("SHOPIFY_BILLING_TEST") ?? "true"' in billing
+    assert "shopifyArticleCreate" not in billing
+    assert "set plan_key = v_attempt.requested_plan_key" in migration
+    assert "status = 'active'" in migration

@@ -151,7 +151,7 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$select articles_used_this_month from public.client_subscription_summary$$,
+  $$select articles_used_this_period from public.client_subscription_summary$$,
   'subscription usage remains readable after content is planned'
 );
 

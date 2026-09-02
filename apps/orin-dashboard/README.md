@@ -61,7 +61,7 @@ https://<project-ref>.supabase.co/functions/v1/orin-client-onboarding
 
 The **Plan & usage** page reads a tenant-isolated subscription summary from Supabase. Subscription status and monthly article allowance are enforced in the database when a customer uses **Plan next article**; hiding or disabling a browser button is never the security boundary.
 
-This foundation does not create Shopify charges. Existing commissioned clients retain managed pilot access, while newly created clients receive a 14-day trial. Prices and self-serve Shopify checkout remain intentionally unavailable until the commercial catalogue is approved and the billing lifecycle is implemented.
+The commercial catalogue offers a 7-day trial followed by Starter ($29), Growth ($79), or Scale ($149) every 30 days. Existing commissioned clients retain grandfathered pilot access until they deliberately choose a paid plan. Self-serve checkout is handled server-side through Shopify; the dashboard never receives card details or Shopify credentials. Billing defaults to Shopify test charges until commercial activation is explicitly approved.
 
 See [`docs/SUBSCRIPTIONS.md`](../../docs/SUBSCRIPTIONS.md) for the data contract, failure behaviour, and next billing milestone.
 

@@ -28,6 +28,23 @@ export const dashboardData = {
       "Read-only watchdog",
     ],
   },
+  subscriptionPlans: [
+    {
+      planKey: "starter", planName: "Starter", description: "A simple monthly content workflow for a single-store owner.",
+      monthlyPriceCents: 2900, currencyCode: "USD", monthlyArticleLimit: 4, teamMemberLimit: 1, trialDays: 7,
+      features: ["Four articles every 30 days", "No-code planning and drafting", "Approval-only unpublished drafts"], sortOrder: 20,
+    },
+    {
+      planKey: "growth", planName: "Growth", description: "Consistent automatic content operations for a growing Shopify store.",
+      monthlyPriceCents: 7900, currencyCode: "USD", monthlyArticleLimit: 12, teamMemberLimit: 3, trialDays: 7,
+      features: ["Twelve articles every 30 days", "Automatic content scheduling", "Watchdog monitoring"], sortOrder: 30,
+    },
+    {
+      planKey: "scale", planName: "Scale", description: "Higher-volume content operations with advanced controls and support.",
+      monthlyPriceCents: 14900, currencyCode: "USD", monthlyArticleLimit: 30, teamMemberLimit: 5, trialDays: 7,
+      features: ["Thirty articles every 30 days", "Advanced scheduling", "Priority support"], sortOrder: 40,
+    },
+  ],
   nextArticle: {
     id: 33,
     contentItemId: "33333333-3333-4333-8333-333333333333",
