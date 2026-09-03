@@ -127,7 +127,8 @@ async function billingConnection(service: any, userId: string, clientId: string)
   }
 
   const shopifyClientId = Deno.env.get("SHOPIFY_CLIENT_ID") ?? "";
-  if (!shopifyClientId || !connection.refresh_token) {
+  const shopifyClientSecret = Deno.env.get("SHOPIFY_CLIENT_SECRET") ?? "";
+  if (!shopifyClientId || !shopifyClientSecret || !connection.refresh_token) {
     throw new Error("The Shopify connection needs to be refreshed. Reconnect Shopify.");
   }
   const response = await fetch(`https://${connection.store_domain}/admin/oauth/access_token`, {
@@ -139,6 +140,7 @@ async function billingConnection(service: any, userId: string, clientId: string)
     body: new URLSearchParams({
       grant_type: "refresh_token",
       client_id: shopifyClientId,
+      client_secret: shopifyClientSecret,
       refresh_token: connection.refresh_token,
     }),
   });
