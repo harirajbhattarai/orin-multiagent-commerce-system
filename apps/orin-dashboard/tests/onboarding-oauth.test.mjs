@@ -59,6 +59,16 @@ test("expired Shopify OAuth access tokens refresh and rotate only through servic
   assert.doesNotMatch(await readFile(new URL("apps/orin-dashboard/src/Onboarding.jsx", repositoryRoot), "utf8"), /refresh_token/);
 });
 
+test("Shopify billing refresh authenticates with both app credentials", async () => {
+  const source = await readFile(new URL("supabase/functions/orin-shopify-billing/index.ts", repositoryRoot), "utf8");
+  assert.match(source, /Deno\.env\.get\("SHOPIFY_CLIENT_ID"\)/);
+  assert.match(source, /Deno\.env\.get\("SHOPIFY_CLIENT_SECRET"\)/);
+  assert.match(source, /grant_type: "refresh_token"/);
+  assert.match(source, /client_id: shopifyClientId/);
+  assert.match(source, /client_secret: shopifyClientSecret/);
+  assert.match(source, /service_rotate_client_shopify_billing_tokens/);
+});
+
 test("draft approval uses one server-mediated scheduler handoff", async () => {
   const app = await readFile(new URL("apps/orin-dashboard/src/App.jsx", repositoryRoot), "utf8");
   const client = await readFile(new URL("apps/orin-dashboard/src/lib/dashboardClient.js", repositoryRoot), "utf8");
