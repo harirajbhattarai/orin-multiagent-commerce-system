@@ -9,6 +9,9 @@ MIGRATION = Path(
     "supabase/migrations/20260825094846_generic_oauth_approved_draft_worker.sql"
 ).read_text(encoding="utf-8")
 COMPOSE = Path("deploy/vps/compose.yml").read_text(encoding="utf-8")
+IDLE_POLL_FIX = Path(
+    "supabase/migrations/20260904154325_defer_oauth_boundary_until_work_exists.sql"
+).read_text(encoding="utf-8")
 
 
 def test_oauth_approval_role_is_function_only_and_live_publish_blind():
@@ -38,6 +41,26 @@ def test_oauth_approval_claim_requires_exact_human_approved_frozen_draft():
     assert "decision.decision = 'approve_hidden_draft'" in claim
     assert "decision.processing_status = 'consumed'" in claim
     assert "candidate.source_job_key = 'decision:' || decision.decision_id::text" in claim
+
+
+def test_idle_oauth_poll_checks_for_work_before_asserting_fresh_credentials():
+    materialize = IDLE_POLL_FIX.split(
+        "create or replace function orin_private.materialize_next_oauth_approved_draft_decision",
+        1,
+    )[1].split(
+        "create or replace function orin_private.claim_next_oauth_approved_draft_job", 1
+    )[0]
+    claim = IDLE_POLL_FIX.split(
+        "create or replace function orin_private.claim_next_oauth_approved_draft_job", 1
+    )[1]
+
+    materialize_no_work = "if not found then return; end if;"
+    claim_no_work = "if v_job_id is null then return; end if;"
+    boundary = "perform orin_private.assert_oauth_approved_draft_boundary(p_client_id);"
+
+    assert materialize.index(materialize_no_work) < materialize.index(boundary)
+    assert claim.index(claim_no_work) < claim.index(boundary)
+    assert claim.index(boundary) < claim.index("set status = 'leased'")
 
 
 def test_oauth_worker_never_receives_refresh_material_or_an_app_secret():
