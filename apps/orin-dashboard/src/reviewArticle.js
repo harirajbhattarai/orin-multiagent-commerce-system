@@ -1,4 +1,11 @@
 const REVIEWABLE_STAGES = new Set(["Planned", "Review"]);
+const DEDICATED_APPROVAL_CLIENTS = new Set(["hoverboard_store", "hcs_gadgets"]);
+
+export function approvalTransportForClient(clientId) {
+  return DEDICATED_APPROVAL_CLIENTS.has(clientId)
+    ? "direct-decision"
+    : "oauth-handoff";
+}
 
 export function isReviewableQueueItem(item) {
   return Boolean(

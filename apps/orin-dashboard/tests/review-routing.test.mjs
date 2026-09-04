@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  approvalTransportForClient,
   isReviewableQueueItem,
   nextPlannedJobId,
   reviewJobIdFromPath,
@@ -56,6 +57,13 @@ const data = {
     evidence: ["Rich evidence"],
   },
 };
+
+test("routes dedicated clients to their tenant-bound approval workers", () => {
+  assert.equal(approvalTransportForClient("hcs_gadgets"), "direct-decision");
+  assert.equal(approvalTransportForClient("hoverboard_store"), "direct-decision");
+  assert.equal(approvalTransportForClient("orin_oauth_test"), "oauth-handoff");
+  assert.equal(approvalTransportForClient("future_oauth_client"), "oauth-handoff");
+});
 
 test("parses only exact positive-integer review routes", () => {
   assert.equal(reviewJobIdFromPath("/review/3"), 3);

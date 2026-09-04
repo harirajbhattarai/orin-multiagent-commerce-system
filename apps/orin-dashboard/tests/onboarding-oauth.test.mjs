@@ -88,6 +88,7 @@ test("draft approval uses one server-mediated scheduler handoff", async () => {
   const migration = await readFile(new URL("supabase/migrations/20260829091501_oauth_approval_handoff.sql", repositoryRoot), "utf8");
   assert.match(app, /kind === "approve_hidden_draft"[\s\S]+approveUnpublishedDraft/);
   assert.match(client, /action: "approve_unpublished_draft"/);
+  assert.match(client, /approvalTransportForClient\(clientId\) === "direct-decision"[\s\S]+decision: "approve_hidden_draft"/);
   assert.match(source, /body\.action === "approve_unpublished_draft"/);
   assert.match(source, /service_begin_oauth_approval_handoff/);
   assert.match(source, /ensureFreshShopifyConnection\([\s\S]*service,[\s\S]*operatorId,[\s\S]*clientId,[\s\S]*true,[\s\S]*\)/);

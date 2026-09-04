@@ -3,6 +3,7 @@ import { dashboardData, dashboardPreviewForClient, previewWorkspaces } from "../
 import { functionInvokeError } from "../functionErrors.js";
 import { deriveOperationalState } from "../operationalState.js";
 import { authoritativeClientIdentity } from "../clientPresentation.js";
+import { approvalTransportForClient } from "../reviewArticle.js";
 import { normalizePlan, normalizeSubscription } from "../subscription.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -781,6 +782,15 @@ export async function approveUnpublishedDraft({
   }
   if (!contentItemId || !Number.isInteger(contentItemVersion)) {
     return { data: null, error: new Error("Refresh the article before recording approval.") };
+  }
+  if (approvalTransportForClient(clientId) === "direct-decision") {
+    return recordContentDecision({
+      clientId,
+      contentItemId,
+      contentItemVersion,
+      decision: "approve_hidden_draft",
+      note,
+    });
   }
   const storageKey = decisionRequestStorageKey({
     clientId,
