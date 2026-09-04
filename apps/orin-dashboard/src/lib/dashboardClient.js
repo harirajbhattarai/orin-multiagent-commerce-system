@@ -5,6 +5,7 @@ import { deriveOperationalState } from "../operationalState.js";
 import { authoritativeClientIdentity } from "../clientPresentation.js";
 import { approvalTransportForClient } from "../reviewArticle.js";
 import { normalizePlan, normalizeSubscription } from "../subscription.js";
+import { approvalProgressForQueueItem } from "../queueProgress.js";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -76,15 +77,11 @@ function normalizeSnapshot(snapshot, { client, runtime, health, subscription, su
     })),
     queue: (snapshot.queue ?? []).map((item) => {
       const review = reviewByItemNumber.get(Number(item.id));
-      const approvalRecorded = item.stage === "Planned"
-        && review?.latest_decision === "approve_concept"
-        && ["recorded", "consumed"].includes(review?.latest_decision_status);
+      const approvalProgress = approvalProgressForQueueItem(item, review);
       return {
         ...item,
-        approvalRecorded,
-        progressLabel: approvalRecorded
-          ? "Concept approved — waiting for scheduled drafting"
-          : item.status,
+        approvalRecorded: Boolean(approvalProgress),
+        progressLabel: approvalProgress ?? item.status,
       };
     }),
     activity: (snapshot.activity ?? []).map((item) => ({
