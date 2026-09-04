@@ -20,6 +20,16 @@ test("OAuth callback is HMAC checked and state is stored only as a digest", asyn
   assert.match(source, /service_store_onboarding_shopify_oauth_connection/);
 });
 
+test("official Commerce origin is accepted by onboarding and billing", async () => {
+  const onboarding = await readFile(new URL("supabase/functions/orin-client-onboarding/index.ts", repositoryRoot), "utf8");
+  const billing = await readFile(new URL("supabase/functions/orin-shopify-billing/index.ts", repositoryRoot), "utf8");
+  for (const source of [onboarding, billing]) {
+    assert.match(source, /"https:\/\/commerce\.navarna\.ai"/);
+    assert.match(source, /"https:\/\/orin-hbstore-dashboard\.tooxic-ai\.chatgpt\.site"/);
+  }
+  assert.match(onboarding, /\?\? "https:\/\/commerce\.navarna\.ai\/onboarding"/);
+});
+
 test("OAuth service functions are not executable by browser roles", async () => {
   const migration = await readFile(new URL("supabase/migrations/20260823114031_shopify_oauth_onboarding.sql", repositoryRoot), "utf8");
   assert.match(migration, /revoke all on table public\.shopify_oauth_states from public, anon, authenticated/i);

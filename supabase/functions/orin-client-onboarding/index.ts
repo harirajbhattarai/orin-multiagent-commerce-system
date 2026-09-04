@@ -5,6 +5,7 @@ const SHOPIFY_API_VERSION = "2026-07";
 const DEFAULT_SHOPIFY_SCOPES = "read_products,write_content";
 const SHOPIFY_REFRESH_WINDOW_MS = 5 * 60 * 1000;
 const DEFAULT_ALLOWED_ORIGINS = new Set([
+  "https://commerce.navarna.ai",
   "https://orin-hbstore-dashboard.tooxic-ai.chatgpt.site",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
@@ -349,7 +350,7 @@ Deno.serve(async (request: Request) => {
   const publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const appUrl = Deno.env.get("ONBOARDING_APP_URL")
-    ?? "https://orin-hbstore-dashboard.tooxic-ai.chatgpt.site/onboarding";
+    ?? "https://commerce.navarna.ai/onboarding";
   if (!supabaseUrl || !publishableKey || !serviceRoleKey) {
     return request.method === "GET"
       ? redirectResult(appUrl, "error")

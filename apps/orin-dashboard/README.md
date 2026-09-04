@@ -48,6 +48,10 @@ https://<project-ref>.supabase.co/functions/v1/orin-client-onboarding
 
 `ONBOARDING_APP_URL` is the deployed dashboard `/onboarding` URL. Add local origins only for development; Shopify's registered callback itself must remain HTTPS.
 
+The production dashboard origin is `https://commerce.navarna.ai`. Keep the
+legacy `chatgpt.site` origin allowed during the domain transition so existing
+sessions and saved links continue to fail safely instead of breaking mid-flow.
+
 ## Safety boundary
 
 - The browser never receives or reads a Shopify Admin API token.

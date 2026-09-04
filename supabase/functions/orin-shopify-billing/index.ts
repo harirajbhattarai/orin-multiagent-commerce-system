@@ -5,6 +5,7 @@ const SHOPIFY_API_VERSION = "2026-07";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REFRESH_WINDOW_MS = 5 * 60 * 1000;
 const DEFAULT_ALLOWED_ORIGINS = new Set([
+  "https://commerce.navarna.ai",
   "https://orin-hbstore-dashboard.tooxic-ai.chatgpt.site",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
