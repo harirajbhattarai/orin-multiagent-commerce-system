@@ -57,6 +57,7 @@ import {
   validateArticleHtmlForClient,
 } from "./clientPresentation.js";
 import hcsArticleCss from "../../../clients/hcs_gadgets/shopify_theme/hcs-article.css?inline";
+import { hostedRouteHref, readRouteLocation } from "./routeLocation.js";
 
 const BASE_DRAFT_PREVIEW_CSS = `
   html { background: #f4f6f7; }
@@ -68,18 +69,10 @@ const BASE_DRAFT_PREVIEW_CSS = `
   @media (max-width: 720px) { body { padding: 12px; } }
 `;
 
-function readPath(path = window.location.pathname) {
-  if (path.startsWith("/onboarding")) return "onboarding";
-  if (path.startsWith("/plan")) return "plan";
-  if (path.startsWith("/review/")) return "review";
-  if (path.startsWith("/queue")) return "queue";
-  return "overview";
-}
-
 function useRoute() {
   const [location, setLocation] = useState(() => `${window.location.pathname}${window.location.search}`);
-  const path = location.split("?")[0];
-  const route = readPath(path);
+  const parsed = new URL(location, window.location.origin);
+  const { route, path } = readRouteLocation(parsed.pathname, parsed.search);
 
   useEffect(() => {
     const onPopState = () => setLocation(`${window.location.pathname}${window.location.search}`);
@@ -88,10 +81,7 @@ function useRoute() {
   }, []);
 
   const navigate = (path) => {
-    const currentClient = new URLSearchParams(window.location.search).get("client");
-    const destination = currentClient && !path.includes("?")
-      ? `${path}?client=${encodeURIComponent(currentClient)}`
-      : path;
+    const destination = hostedRouteHref(path, window.location.search);
     window.history.pushState({}, "", destination);
     setLocation(`${window.location.pathname}${window.location.search}`);
     window.scrollTo({ top: 0, behavior: "smooth" });

@@ -78,7 +78,9 @@ function validReturnUrl(value: unknown, origin: string | null) {
   if (typeof value !== "string" || !origin || !allowedOrigins().has(origin)) return null;
   try {
     const parsed = new URL(value);
-    return parsed.origin === origin && parsed.pathname === "/plan" ? parsed : null;
+    const planRoute = parsed.pathname === "/plan"
+      || (parsed.pathname === "/" && parsed.searchParams.get("view") === "plan");
+    return parsed.origin === origin && planRoute ? parsed : null;
   } catch {
     return null;
   }

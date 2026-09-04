@@ -94,7 +94,9 @@ function validReturnUrl(value: unknown, origin: string | null) {
   if (typeof value !== "string" || !origin || !allowedOrigins().has(origin)) return null;
   try {
     const parsed = new URL(value);
-    return parsed.origin === origin && parsed.pathname === "/onboarding" ? parsed : null;
+    const onboardingRoute = parsed.pathname === "/onboarding"
+      || (parsed.pathname === "/" && parsed.searchParams.get("view") === "onboarding");
+    return parsed.origin === origin && onboardingRoute ? parsed : null;
   } catch {
     return null;
   }
@@ -350,7 +352,7 @@ Deno.serve(async (request: Request) => {
   const publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const appUrl = Deno.env.get("ONBOARDING_APP_URL")
-    ?? "https://commerce.navarna.ai/onboarding";
+    ?? "https://commerce.navarna.ai/?view=onboarding";
   if (!supabaseUrl || !publishableKey || !serviceRoleKey) {
     return request.method === "GET"
       ? redirectResult(appUrl, "error")

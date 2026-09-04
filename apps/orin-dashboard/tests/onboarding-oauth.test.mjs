@@ -27,7 +27,9 @@ test("official Commerce origin is accepted by onboarding and billing", async () 
     assert.match(source, /"https:\/\/commerce\.navarna\.ai"/);
     assert.match(source, /"https:\/\/orin-hbstore-dashboard\.tooxic-ai\.chatgpt\.site"/);
   }
-  assert.match(onboarding, /\?\? "https:\/\/commerce\.navarna\.ai\/onboarding"/);
+  assert.match(onboarding, /\?\? "https:\/\/commerce\.navarna\.ai\/\?view=onboarding"/);
+  assert.match(onboarding, /searchParams\.get\("view"\) === "onboarding"/);
+  assert.match(billing, /searchParams\.get\("view"\) === "plan"/);
 });
 
 test("OAuth service functions are not executable by browser roles", async () => {

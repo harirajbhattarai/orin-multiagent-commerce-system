@@ -496,7 +496,8 @@ export function Onboarding({ requestedClientId, onSelectWorkspace, onOpenWorkspa
   const connectShopify = async () => {
     setBusy("shopify-oauth");
     setMessage({ tone: "", text: "" });
-    const returnUrl = new URL("/onboarding", window.location.origin);
+    const returnUrl = new URL("/", window.location.origin);
+    returnUrl.searchParams.set("view", "onboarding");
     returnUrl.searchParams.set("client", activeRequest.client_id);
     const result = await beginOnboardingShopifyOAuth(
       activeRequest.request_id,

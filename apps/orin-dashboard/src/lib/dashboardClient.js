@@ -628,14 +628,15 @@ export async function startSubscriptionCheckout(clientId, planKey) {
   const storageKey = billingRequestStorageKey(clientId, planKey);
   const requestId = window.sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
   window.sessionStorage.setItem(storageKey, requestId);
-  const returnUrl = new URL("/plan", window.location.origin).toString();
+  const returnUrl = new URL("/", window.location.origin);
+  returnUrl.searchParams.set("view", "plan");
   const { data, error } = await supabase.functions.invoke("orin-shopify-billing", {
     body: {
       action: "start_checkout",
       client_id: clientId,
       plan_key: planKey,
       request_id: requestId,
-      return_url: returnUrl,
+      return_url: returnUrl.toString(),
     },
   });
   const resolvedError = await functionInvokeError(error, data);
