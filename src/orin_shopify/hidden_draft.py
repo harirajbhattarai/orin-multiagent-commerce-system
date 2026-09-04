@@ -16,7 +16,7 @@ MARKER_NAMESPACE = "orin_control"
 MARKER_KEY = "idempotency_key"
 MARKER_TYPE = "single_line_text_field"
 MARKER_PREFIX = "orin-v1:"
-BODY_CANONICALIZATION = "shopify-safe-html-serialization/v3"
+BODY_CANONICALIZATION = "shopify-safe-html-serialization/v4"
 _GRAPHQL_ID = re.compile(r"^gid://shopify/Article/([0-9]+)$")
 _SHOPIFY_LIST_LEADING_INLINE_WHITESPACE = re.compile(
     r"(<li>)[\t\r\n ]+(<(?:a|strong)(?:\s|>))"
@@ -25,6 +25,7 @@ _SHOPIFY_DIV_BOUNDARY_WHITESPACE = re.compile(
     r"(</?div(?:\s[^>]*)?>)[\t\r\n ]+(?=</?div(?:\s[^>]*)?>)"
 )
 _SHOPIFY_APOSTROPHE_ENTITY = re.compile(r"&#39;")
+_SHOPIFY_AMPERSAND_ENTITY = re.compile(r"&amp;")
 
 
 FIND_MARKED_DRAFTS = """
@@ -136,12 +137,14 @@ def canonicalize_shopify_body(body_html: str) -> str:
     Shopify inserts newlines between adjacent or nested ``div`` blocks and
     between a list item's opening ``li`` tag and a leading ``a`` or ``strong``
     inline tag. It also decodes the numeric apostrophe entity ``&#39;`` to the
-    literal apostrophe. These changes do not alter rendered text. No other
-    entity, whitespace, element, attribute, or text difference is ignored.
+    literal apostrophe. Shopify also escapes a literal text ampersand as
+    ``&amp;``. These changes do not alter rendered text. No other entity,
+    whitespace, element, attribute, or text difference is ignored.
     """
     canonical = _SHOPIFY_LIST_LEADING_INLINE_WHITESPACE.sub(r"\1\2", body_html)
     canonical = _SHOPIFY_DIV_BOUNDARY_WHITESPACE.sub(r"\1", canonical)
-    return _SHOPIFY_APOSTROPHE_ENTITY.sub("'", canonical)
+    canonical = _SHOPIFY_APOSTROPHE_ENTITY.sub("'", canonical)
+    return _SHOPIFY_AMPERSAND_ENTITY.sub("&", canonical)
 
 
 def canonical_shopify_body_sha256(body_html: str) -> str:

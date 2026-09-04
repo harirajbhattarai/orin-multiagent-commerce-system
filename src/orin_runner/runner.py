@@ -177,14 +177,10 @@ def _read_existing_result(
     result = json.loads(result_path.read_text(encoding="utf-8"))
     attempt = int(result.get("attempt", pointer.get("attempt", 1)))
     if claim_attempt is not None and attempt != claim_attempt:
-        if requested_mode != "dry-run":
-            raise IdempotencyConflictError(
-                "a database claim attempt cannot replace cached Shopify-write evidence"
-            )
-        # A dry-run can be executed again safely when database finalization did
-        # not consume the prior local result. Bind the replacement evidence to
-        # the exact durable lease attempt so completion cannot persist a stale
-        # runner-local attempt number.
+        # Database finalization is bound to the exact durable claim attempt.
+        # Re-execute stale local evidence for that attempt. Hidden-draft runs
+        # are safe here because their first action is a marker lookup: an
+        # existing Shopify article is reconciled and is never created twice.
         return None, claim_attempt
     disposition = result.get("replay_disposition")
     if result.get("schema") != SCHEMA_VERSION:

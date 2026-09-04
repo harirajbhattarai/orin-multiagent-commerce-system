@@ -643,7 +643,7 @@ def test_database_hidden_draft_uses_exact_reviewed_html_without_pipeline(
     assert evidence["fetched_body_sha256"] == body_sha256
     assert evidence["approved_canonical_body_sha256"] == body_sha256
     assert evidence["fetched_canonical_body_sha256"] == body_sha256
-    assert evidence["body_canonicalization"] == "shopify-safe-html-serialization/v3"
+    assert evidence["body_canonicalization"] == "shopify-safe-html-serialization/v4"
 
 
 def test_hcs_database_hidden_draft_uses_only_the_durable_approved_path(
@@ -903,6 +903,74 @@ def test_database_claim_attempt_reexecutes_stale_cached_dry_run(tmp_path):
     assert replacement["run_id"] != first["run_id"]
     assert replay == replacement
     assert counter_path.read_text() == "2"
+
+
+def test_database_claim_attempt_reconciles_stale_cached_hidden_draft(tmp_path, monkeypatch):
+    body = "<article><h1>Approved article</h1><p>Exact reviewed body.</p></article>"
+    body_sha256 = hashlib.sha256(body.encode()).hexdigest()
+    content_plan = {
+        "schema": "orin.content-plan-snapshot/v1",
+        "client_id": "hoverboard_store",
+        "selected_item_id": "dededede-dede-4ede-8ede-dededededede",
+        "selected_item_number": 33,
+        "items": [
+            {
+                "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+                "item_number": 33,
+                "status": "local_draft_created",
+                "topic": "Approved article",
+            }
+        ],
+        "approved_draft": {
+            "draft_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "content_item_id": "dededede-dede-4ede-8ede-dededededede",
+            "content_item_version": 5,
+            "source_run_id": "hb_20260804T123458Z_729bc75f",
+            "title": "Approved article",
+            "body_html": body,
+            "body_sha256": body_sha256,
+            "handle": "approved-article",
+        },
+    }
+    request_id = str(uuid.uuid4())
+    calls = 0
+
+    def reconcile(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return DraftResult(
+            article_id="gid://shopify/Article/9001",
+            numeric_article_id=9001,
+            handle="approved-article",
+            create_count=1,
+            reconciliation_status="reconciled",
+            shopify_write_state="article_observed",
+            idempotency_marker=f"orin-v1:hoverboard_store:{request_id}",
+            body_sha256=body_sha256,
+            canonical_body_sha256=body_sha256,
+        )
+
+    monkeypatch.setattr("orin_runner.runner.ensure_approved_review_draft", reconcile)
+    arguments = dict(
+        client_id="hoverboard_store",
+        request_id=request_id,
+        mode="hidden-draft",
+        workspace_root=tmp_path / "workspace",
+        artifact_root=tmp_path / "artifacts",
+        repo_root=Path.cwd(),
+        durable_db_mode=True,
+        content_plan_snapshot=content_plan,
+    )
+
+    first = run_client(**arguments, claim_attempt=1)
+    replacement = run_client(**arguments, claim_attempt=2)
+    replay = run_client(**arguments, claim_attempt=2)
+
+    assert first["attempt"] == 1
+    assert replacement["attempt"] == 2
+    assert replacement["run_id"] != first["run_id"]
+    assert replay == replacement
+    assert calls == 2
 
 
 def test_dry_run_removes_shopify_credentials_from_child(tmp_path, monkeypatch):

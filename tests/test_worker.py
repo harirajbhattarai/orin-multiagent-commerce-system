@@ -388,6 +388,24 @@ def test_needs_review_is_durably_deferred_instead_of_completed():
     assert repository.deferrals[0]["final_result"] == result
 
 
+def test_executor_exception_is_durably_deferred_and_releases_the_lease():
+    repository = FakeRepository(claimed_job(requested_mode="hidden-draft"))
+
+    def fail(_: ClaimedJob) -> dict[str, Any]:
+        raise RuntimeError("sensitive remote failure")
+
+    outcome = work_once(repository, worker_id="worker:test:1", execute=fail)
+
+    assert outcome.status == "queued"
+    assert repository.completions == []
+    deferred = repository.deferrals[0]["final_result"]
+    assert deferred["error_code"] == "ORIN_WORKER_EXECUTION_EXCEPTION"
+    assert deferred["worker_error_type"] == "RuntimeError"
+    assert "sensitive remote failure" not in str(deferred)
+    assert deferred["replay_disposition"] == "reconcile"
+    assert deferred["shopify_write_state"] == "unknown"
+
+
 def test_current_run_draft_capture_is_version_bound_and_private(tmp_path):
     run_dir = tmp_path / "run"
     run_dir.mkdir()

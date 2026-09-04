@@ -5,8 +5,9 @@ from __future__ import annotations
 import re
 import threading
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from orin_worker.models import ClaimedJob, CompletionRecord
 
@@ -95,6 +96,49 @@ class _LeaseHeartbeat:
     @property
     def lost(self) -> bool:
         return self._lost.is_set()
+
+
+def _unexpected_execution_result(job: ClaimedJob, error: Exception) -> dict[str, Any]:
+    """Return a lease-finalizable result without exposing exception details.
+
+    A hidden-draft exception can happen after Shopify accepted a write, so it
+    must always enter marker-first reconciliation. Persisting this result also
+    releases the lease instead of leaving the job stuck until expiry.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    hidden_draft = job.requested_mode == "hidden-draft"
+    prefix = "hcs" if job.client_id == "hcs_gadgets" else "worker"
+    return {
+        "schema": "orin.final-result/v2",
+        "run_id": f"{prefix}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}_{uuid4().hex[:8]}",
+        "request_id": str(job.request_id),
+        "client_id": job.client_id,
+        "job_id": None,
+        "attempt": job.attempt_count,
+        "requested_mode": job.requested_mode,
+        "effective_mode": "none",
+        "status": "failed",
+        "decision": "worker_execution_exception",
+        "code_version": "worker-service",
+        "config_version": None,
+        "idempotency_key": f"{job.client_id}:{job.request_id}",
+        "replay_disposition": "reconcile" if hidden_draft else "retry",
+        "shopify_write_state": "unknown" if hidden_draft else "not_attempted",
+        "shopify_idempotency_marker": (
+            f"orin-v1:{job.client_id}:{job.request_id}" if hidden_draft else None
+        ),
+        "shopify_article_id": None,
+        "shopify_create_count": 0,
+        "shopify_published": False,
+        "queue_changed": False,
+        "reconciliation_status": "needs_review" if hidden_draft else "not_required",
+        "started_at": now,
+        "finished_at": now,
+        "artifact_uri": "worker-service://execution-exception",
+        "error_code": "ORIN_WORKER_EXECUTION_EXCEPTION",
+        "pipeline_exit_code": None,
+        "worker_error_type": type(error).__name__,
+    }
 
 
 def _validate_result(job: ClaimedJob, result: dict[str, Any]) -> None:
@@ -214,6 +258,8 @@ def work_once(
     heartbeat.start()
     try:
         result = execute(job)
+    except Exception as error:
+        result = _unexpected_execution_result(job, error)
     finally:
         heartbeat.stop()
 
