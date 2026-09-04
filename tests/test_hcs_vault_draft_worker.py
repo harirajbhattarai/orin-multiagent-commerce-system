@@ -7,6 +7,7 @@ MIGRATION = Path(
     "supabase/migrations/20260904131500_hcs_vault_approved_draft_worker.sql"
 ).read_text(encoding="utf-8")
 COMPOSE = Path("deploy/vps/compose.yml").read_text(encoding="utf-8")
+PYPROJECT = Path("pyproject.toml").read_text(encoding="utf-8")
 
 
 def test_hcs_vault_worker_is_exact_client_and_unpublished_draft_only():
@@ -48,6 +49,11 @@ def test_hcs_vault_worker_cli_has_no_client_override():
     args = build_parser().parse_args(["once"])
     assert args.command == "once"
     assert not hasattr(args, "client_id")
+
+
+def test_hcs_vault_worker_is_packaged_in_the_production_wheel():
+    assert 'orin-hcs-vault-draft-worker = "orin_hcs_vault_draft_worker.cli:main"' in PYPROJECT
+    assert '"src/orin_hcs_vault_draft_worker"' in PYPROJECT
 
 
 def test_hcs_vault_runtime_config_is_server_context_only():
