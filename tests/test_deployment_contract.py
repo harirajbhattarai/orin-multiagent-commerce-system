@@ -14,6 +14,7 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert 'profiles: ["generic-pilot-worker"]' in COMPOSE
     assert 'profiles: ["tenant-content-worker"]' in COMPOSE
     assert 'profiles: ["oauth-draft-worker"]' in COMPOSE
+    assert 'profiles: ["hcs-vault-approval-worker"]' in COMPOSE
     assert 'profiles: ["scheduler-trigger"]' in COMPOSE
     assert 'profiles: ["watchdog"]' in COMPOSE
     assert 'profiles: ["hcs-watchdog"]' in COMPOSE
@@ -22,7 +23,7 @@ def test_deployment_is_manual_and_not_publicly_routed():
     assert "traefik." not in COMPOSE.lower()
     assert "50083" not in COMPOSE
     assert "network_mode: host" not in COMPOSE
-    assert COMPOSE.count("pull_policy: never") == 13
+    assert COMPOSE.count("pull_policy: never") == 14
     assert ":latest" not in COMPOSE
 
 
@@ -31,10 +32,10 @@ def test_deployment_does_not_share_privileged_runtime_surfaces():
     assert "/data/.openclaw" not in COMPOSE
     assert "privileged:" not in COMPOSE
     assert COMPOSE.count("read_only: true") >= 6
-    assert COMPOSE.count('cap_drop: ["ALL"]') == 13
-    assert COMPOSE.count("no-new-privileges:true") == 13
+    assert COMPOSE.count('cap_drop: ["ALL"]') == 14
+    assert COMPOSE.count("no-new-privileges:true") == 14
     assert COMPOSE.count('restart: "no"') == 6
-    assert COMPOSE.count("restart: unless-stopped") == 7
+    assert COMPOSE.count("restart: unless-stopped") == 8
 
 
 def test_database_credentials_are_file_backed_and_role_separated():
