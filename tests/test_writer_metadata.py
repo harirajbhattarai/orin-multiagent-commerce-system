@@ -9,7 +9,7 @@ WRITER_DIR = Path(__file__).parents[1] / "tools" / "shopify_publisher" / "orin"
 sys.path.insert(0, str(WRITER_DIR))
 
 from content_quality_gate import DEFAULT_CONTRACT  # noqa: E402
-from writer_agent import WriterAgent  # noqa: E402
+from writer_agent import WriterAgent, _model_validation_receipts  # noqa: E402
 
 
 def build_meta_description(keyword: str) -> str:
@@ -76,3 +76,91 @@ def test_footpad_faq_and_compliance_plan_are_topic_specific():
     assert "do not advise lifting, removing, cutting" in compliance
     assert "Require suitable closed footwear" in compliance
     assert "qualified service provider" in compliance
+
+
+def test_motor_power_revision_is_bound_to_topic_specific_plan():
+    revision = (
+        "Correct the voltage/current explanation: at the same wattage, higher "
+        "voltage means lower current (P = V x I), not higher current. Rewrite "
+        "the FAQ so every question directly addresses motor wattage, rated vs "
+        "peak power, and single vs dual motor claims."
+    )
+    with tempfile.TemporaryDirectory() as directory:
+        agent = WriterAgent(directory, "2026-09-05")
+        plan = agent._build_dynamic_writer_plan(
+            {
+                "job_number": 42,
+                "topic": "Hoverboard Motor Power Claims: How Buyers Should Read Product Specs",
+                "target_keyword": "hoverboard motor power explained",
+                "queue_status": "planned",
+                "notes": f"- Human revision request (must be applied): {revision}",
+            }
+        )
+
+    assert plan["cluster"] == "Buyer Guide"
+    assert plan["revision_requirements"] == revision
+    assert plan["revision_contract"]["required_phrase_groups"] == [
+        ["higher voltage"],
+        ["lower current"],
+        ["P = V × I", "P = V x I", "power is voltage multiplied by current"],
+    ]
+    assert [item["question"] for item in plan["faq_plan"]] == [
+        "What does a hoverboard's rated motor wattage tell me?",
+        "How is peak motor power different from rated power?",
+        "How should I compare single-motor and dual-motor claims?",
+        "Does higher voltage mean higher current at the same wattage?",
+    ]
+    assert "Rated Power Versus Peak Power" in [
+        section["h2"] for section in plan["h2_outline"]
+    ]
+
+
+def test_revision_contract_blocks_draft_that_omits_the_correction():
+    receipt, _ = _model_validation_receipts(
+        "<div><h1>Hoverboard Motor Power Claims</h1><p>Generic copy.</p></div>",
+        job_number="42",
+        title="Hoverboard Motor Power Claims",
+        target_keyword="hoverboard motor power explained",
+        cluster="Buyer Guide",
+        h2_outline=[],
+        site_url="https://hoverboardstore.co.uk",
+        revision_contract={
+            "required_phrase_groups": [
+                ["higher voltage"],
+                ["lower current"],
+                ["P = V x I", "power is voltage multiplied by current"],
+            ]
+        },
+    )
+
+    assert "CQ_REVISION_REQUIREMENTS_MISSING" in {
+        blocker["code"] for blocker in receipt["blockers"]
+    }
+    assert receipt["passed"] is False
+
+
+def test_revision_contract_accepts_the_required_correction_phrases():
+    receipt, _ = _model_validation_receipts(
+        (
+            "<div><h1>Hoverboard Motor Power Claims</h1><p>At the same wattage, "
+            "higher voltage means lower current because power is voltage "
+            "multiplied by current.</p></div>"
+        ),
+        job_number="42",
+        title="Hoverboard Motor Power Claims",
+        target_keyword="hoverboard motor power explained",
+        cluster="Buyer Guide",
+        h2_outline=[],
+        site_url="https://hoverboardstore.co.uk",
+        revision_contract={
+            "required_phrase_groups": [
+                ["higher voltage"],
+                ["lower current"],
+                ["P = V x I", "power is voltage multiplied by current"],
+            ]
+        },
+    )
+
+    assert "CQ_REVISION_REQUIREMENTS_MISSING" not in {
+        blocker["code"] for blocker in receipt["blockers"]
+    }

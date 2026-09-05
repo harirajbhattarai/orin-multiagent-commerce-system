@@ -93,6 +93,7 @@ def build_job_context(
                           or job_data.get("shopify_handle"),
         "published_at": job_data.get("published_at"),
         "file_path": job_data.get("queue_file_path"),
+        "notes": job_data.get("notes", ""),
         "planner_decision": planner_decision,
         "planner_reason": planner_reason,
         "ALREADY_CREATED_classification": None,

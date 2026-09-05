@@ -146,6 +146,30 @@ class ModelWriterTests(unittest.TestCase):
         )
         self.assertEqual(MINIMAX_ENDPOINT, "https://api.minimax.io/v1/chat/completions")
 
+    def test_revision_requirements_are_explicitly_bound_in_prompt(self):
+        plan = {
+            **WRITER_PLAN,
+            "revision_requirements": "State that higher voltage means lower current.",
+            "revision_contract": {
+                "required_phrase_groups": [["higher voltage"], ["lower current"]]
+            },
+        }
+
+        payload = build_request_payload(JOB_CONTEXT, plan)
+        system_prompt = payload["messages"][0]["content"]
+        user_prompt = payload["messages"][1]["content"]
+
+        self.assertIn(
+            "revision_requirements and revision_contract fields are the",
+            system_prompt,
+        )
+        self.assertIn(
+            '"revision_requirements": "State that higher voltage means lower current."',
+            user_prompt,
+        )
+        self.assertIn('"required_phrase_groups"', user_prompt)
+        self.assertIn("implement every requirement", user_prompt)
+
     def test_hcs_request_uses_tenant_specific_contract(self):
         job_context = {
             "client_id": "hcs_gadgets",

@@ -45,6 +45,27 @@ def test_snapshot_renders_canonical_read_only_projection():
     assert "- Keep this safe." in rendered
 
 
+def test_snapshot_renders_revision_request_as_one_canonical_note():
+    value = snapshot()
+    value["revision_request"] = (
+        "Correct the current explanation and use the formula P = V x I."
+    )
+    value["items"][0]["notes"] = (  # type: ignore[index]
+        "- Keep this safe.\n\n"
+        "Human revision request (must be applied): stale compatibility copy"
+    )
+
+    rendered = render_content_plan_markdown(value, client_id="hoverboard_store")
+
+    assert "- Keep this safe." in rendered
+    assert "stale compatibility copy" not in rendered
+    assert rendered.count("Human revision request (must be applied):") == 1
+    assert (
+        "- Human revision request (must be applied): Correct the current "
+        "explanation and use the formula P = V x I."
+    ) in rendered
+
+
 def test_selected_in_progress_item_is_planned_only_in_compatibility_projection():
     value = snapshot()
     value["items"][0]["status"] = "in_progress"  # type: ignore[index]

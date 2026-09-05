@@ -90,7 +90,24 @@ def render_content_plan_markdown(snapshot: dict[str, Any], *, client_id: str) ->
         )
         notes = item.get("notes")
         if isinstance(notes, str) and notes.strip():
+            # Newer database snapshots expose the revision request separately.
+            # Strip the compatibility copy emitted by the first revision
+            # migration so the legacy queue parser receives one canonical
+            # bullet below instead of losing everything after a non-bullet
+            # marker line.
+            notes = notes.split("\n\nHuman revision request (must be applied):", 1)[0]
             lines.extend(notes.strip().splitlines())
+        revision_request = snapshot.get("revision_request")
+        if (
+            item["item_number"] == selected_number
+            and isinstance(revision_request, str)
+            and revision_request.strip()
+        ):
+            normalized_revision = " ".join(revision_request.split())
+            lines.append(
+                "- Human revision request (must be applied): "
+                + normalized_revision
+            )
         if item.get("shopify_article_id"):
             lines.append(f"- Shopify Article ID: {item['shopify_article_id']}")
         if item.get("shopify_handle"):

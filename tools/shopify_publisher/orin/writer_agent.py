@@ -145,6 +145,7 @@ def _model_validation_receipts(
     cluster,
     h2_outline,
     site_url,
+    revision_contract=None,
 ):
     """Evaluate both fail-closed writer contracts for one model response."""
     quality_receipt = evaluate_article_quality(
@@ -161,6 +162,29 @@ def _model_validation_receipts(
         approved_h2_plan=h2_outline,
         output_html=body_html,
     )
+    if revision_contract:
+        visible = re.sub(
+            r"\s+",
+            " ",
+            unescape(re.sub(r"<[^>]+>", " ", body_html)),
+        ).casefold()
+        phrase_groups = revision_contract.get("required_phrase_groups", [])
+        missing_groups = [
+            group
+            for group in phrase_groups
+            if not any(str(phrase).casefold() in visible for phrase in group)
+        ]
+        quality_receipt["metrics"]["revision_phrase_groups_missing"] = missing_groups
+        if missing_groups:
+            quality_receipt["blockers"].append(
+                {
+                    "code": "CQ_REVISION_REQUIREMENTS_MISSING",
+                    "message": "The regenerated article omitted a required correction.",
+                    "actual": missing_groups,
+                    "expected": "include at least one phrase from every required group",
+                }
+            )
+            quality_receipt["passed"] = False
     return quality_receipt, topic_receipt
 
 
@@ -808,6 +832,11 @@ class WriterAgent:
         """Return whether the approved subject is specifically about scooters."""
         return "scooter" in f"{topic} {target_keyword}".lower()
 
+    @staticmethod
+    def _is_hoverboard_motor_power_topic(topic, target_keyword):
+        text = f"{topic} {target_keyword}".lower()
+        return "hoverboard" in text and "motor" in text and "power" in text
+
     def _generate_h2_outline(self, topic, target_keyword, cluster):
         """
         Generate H2 outline from topic and cluster.
@@ -817,6 +846,45 @@ class WriterAgent:
         base_outline = [
             {"id": "introduction", "h2": "Introduction", "label": "Introduction"},
         ]
+
+        if self._is_hoverboard_motor_power_topic(topic, target_keyword):
+            return base_outline + [
+                {
+                    "id": "what-motor-wattage-tells-you",
+                    "h2": "What Motor Wattage Does and Does Not Tell You",
+                    "label": "What motor wattage means",
+                },
+                {
+                    "id": "rated-versus-peak-power",
+                    "h2": "Rated Power Versus Peak Power",
+                    "label": "Rated versus peak power",
+                },
+                {
+                    "id": "voltage-current-and-power",
+                    "h2": "Voltage, Current and Power: Reading the Numbers Together",
+                    "label": "Voltage, current and power",
+                },
+                {
+                    "id": "single-versus-dual-motor",
+                    "h2": "Single-Motor Versus Dual-Motor Claims",
+                    "label": "Single versus dual motor",
+                },
+                {
+                    "id": "buyer-checklist",
+                    "h2": "Motor Specification Buyer Checklist",
+                    "label": "Buyer checklist",
+                },
+                {
+                    "id": "faq",
+                    "h2": "Frequently Asked Questions",
+                    "label": "FAQs",
+                },
+                {
+                    "id": "cta",
+                    "h2": "Find the Right Hoverboard Setup at Hoverboard Store",
+                    "label": "Shop now",
+                },
+            ]
 
         cluster_outlines = {
             "Hoverkart": [
@@ -1087,6 +1155,42 @@ class WriterAgent:
         Generate FAQ plan from topic and cluster.
         Returns list of {question, answer_template} dicts.
         """
+        if self._is_hoverboard_motor_power_topic(topic, target_keyword):
+            return [
+                {
+                    "question": "What does a hoverboard's rated motor wattage tell me?",
+                    "answer_template": (
+                        "Rated wattage describes the continuous power figure stated for the "
+                        "exact model under the manufacturer's conditions. It does not by itself "
+                        "prove speed, range, hill ability, rider suitability, or build quality."
+                    ),
+                },
+                {
+                    "question": "How is peak motor power different from rated power?",
+                    "answer_template": (
+                        "Peak power is a short-duration claim and cannot be compared directly "
+                        "with a continuous rated figure unless both brands define their test "
+                        "method. Check the exact listing, manual, and manufacturer data."
+                    ),
+                },
+                {
+                    "question": "How should I compare single-motor and dual-motor claims?",
+                    "answer_template": (
+                        "Confirm whether a quoted figure is per motor or the combined total, and "
+                        "whether it is rated or peak power. Do not assume that doubling a headline "
+                        "number guarantees a particular real-world result."
+                    ),
+                },
+                {
+                    "question": "Does higher voltage mean higher current at the same wattage?",
+                    "answer_template": (
+                        "No. Power is voltage multiplied by current (P = V × I), so at the same "
+                        "wattage a higher voltage means lower current. Compare figures only when "
+                        "the listing defines them on the same basis."
+                    ),
+                },
+            ]
+
         if self._is_electric_scooter_topic(topic, target_keyword):
             topic_text = f"{topic} {target_keyword}".lower()
             if "range" in topic_text:
@@ -1333,6 +1437,7 @@ class WriterAgent:
         expected_draft_date = job_ctx.get("expected_draft_date", "")
         queue_status = job_ctx.get("queue_status", "planned")
         file_path = job_ctx.get("file_path", "")
+        queue_notes = str(job_ctx.get("notes") or "").strip()
         shopify_handle = job_ctx.get("shopify_handle")
 
         # ── Cluster from queue notes or topic keywords ──────────────────────
@@ -1352,6 +1457,8 @@ class WriterAgent:
             cluster = "Maintenance"
         elif any(k in topic_lower for k in ["gift", "christmas", "birthday"]):
             cluster = "Seasonal"
+        if self._is_hoverboard_motor_power_topic(topic, target_keyword):
+            cluster = "Buyer Guide"
 
         # ── Approved handle (canonical) ─────────────────────────────────────
         # Precedence: A. existing shopify_handle if present, B. derive from topic
@@ -1427,6 +1534,22 @@ class WriterAgent:
                 "manual, and contact the manufacturer, seller, or a qualified service provider "
                 "for replacement, fitment, or sensor work."
             )
+        revision_requirements = ""
+        revision_marker = "Human revision request (must be applied):"
+        if revision_marker in queue_notes:
+            revision_requirements = queue_notes.split(revision_marker, 1)[1].strip()
+        if queue_notes:
+            compliance_notes += " Queue requirements: " + queue_notes
+
+        revision_contract = None
+        if self._is_hoverboard_motor_power_topic(topic, target_keyword):
+            revision_contract = {
+                "required_phrase_groups": [
+                    ["higher voltage"],
+                    ["lower current"],
+                    ["P = V × I", "P = V x I", "power is voltage multiplied by current"],
+                ]
+            }
 
         # ── Claims to avoid ──────────────────────────────────────────────
         claims_to_avoid = [
@@ -1564,6 +1687,8 @@ class WriterAgent:
             "reader_persona": reader_persona,
             # Compliance
             "compliance_notes": compliance_notes,
+            "revision_requirements": revision_requirements,
+            "revision_contract": revision_contract,
             "claims_to_avoid": claims_to_avoid,
             # Content plan
             "recommended_word_count": word_count,
@@ -1949,6 +2074,7 @@ Job: {job_number}
                     cluster=cluster,
                     h2_outline=h2_outline,
                     site_url=writer_plan.get("site_url", self.site_url),
+                    revision_contract=writer_plan.get("revision_contract"),
                 )
             model_attempts.append(
                 _model_attempt_receipt(
@@ -1965,6 +2091,10 @@ Job: {job_number}
             if self.is_hcs and validation_failed and retry_budget_used:
                 raise ModelWriterError(
                     "HCS model article failed final contract validation"
+                )
+            if writer_plan.get("revision_contract") and validation_failed and retry_budget_used:
+                raise ModelWriterError(
+                    "model article failed the mandatory revision contract"
                 )
             if validation_failed and not retry_budget_used:
                 retry_result = generate_article(
@@ -2023,6 +2153,7 @@ Job: {job_number}
                         cluster=cluster,
                         h2_outline=h2_outline,
                         site_url=writer_plan.get("site_url", self.site_url),
+                        revision_contract=writer_plan.get("revision_contract"),
                     )
                 model_attempts.append(
                     _model_attempt_receipt(
@@ -2038,6 +2169,13 @@ Job: {job_number}
                 ):
                     raise ModelWriterError(
                         "HCS model article failed final contract validation"
+                    )
+                if writer_plan.get("revision_contract") and (
+                    not retry_quality["passed"]
+                    or retry_topic["decision"] == TOPIC_IDENTITY_BLOCK
+                ):
+                    raise ModelWriterError(
+                        "model article failed the mandatory revision contract"
                     )
 
         # ── Write to output path ──────────────────────────────────────────
